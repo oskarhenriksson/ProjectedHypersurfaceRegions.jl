@@ -27,12 +27,10 @@ PWS = PseudoWitnessSet(F, create_line(u, v, 3))
 
 ###### ODE Solver
 f(x, param, t) = real(∇log_r(c, e, x, PWS))
-u0 = [-15, 10]
+u0 = [-2, 10]
 tspan = (0.0, 1e5)
 prob = ODEProblem(f, u0, tspan)
 sol = DE.solve(prob, reltol = 1e-6, abstol = 1e-6)
-
-
 
 ##### Plotting 
 M = 20
@@ -60,6 +58,10 @@ plot!(
 
 scatter!(Tuple.(pts), markercolor = :green, markersize = 8, label = "critical points")
 
-scatter!(Tuple.(sol.u), markercolor = :steelblue, markersize = 3, label = "gradient flow")
+plot!(Tuple.(sol.u), linecolor = :steelblue, linewidth = 4, label = "gradient flow")
 
-scatter!([Tuple(u0)], markercolor = :blue, markersize = 5, label = "gradient flow start")
+scatter!([Tuple(u0)], markercolor = :blue, markersize = 8, label = "gradient flow start")
+
+plot!(; legend = false)
+
+#savefig("presentation.png")
