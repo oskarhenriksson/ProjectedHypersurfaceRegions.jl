@@ -34,8 +34,6 @@ tspan = (0.0, 1e2)
 prob = ODEProblem(f, u0, tspan)
 sol = DE.solve(prob, reltol = 1e-6, abstol = 1e-6)
 
-
-
 ##### Plotting 
 M = 20
 R(x, y) = log(abs((x^2 - 4*y)/evaluate(q, p => [x; y])))
@@ -62,6 +60,10 @@ plot!(
 
 scatter!(Tuple.(pts), markercolor = :green, markersize = 8, label = "critical points")
 
-scatter!(Tuple.(sol.u), markercolor = :steelblue, markersize = 3, label = "gradient flow")
+plot!(Tuple.(sol.u), linecolor = :steelblue, linewidth = 4, label = "gradient flow")
 
-scatter!([Tuple(u0)], markercolor = :blue, markersize = 5, label = "gradient flow start")
+scatter!([Tuple(u0)], markercolor = :blue, markersize = 8, label = "gradient flow start")
+
+plot!(; legend = false)
+
+#savefig("presentation.png")
