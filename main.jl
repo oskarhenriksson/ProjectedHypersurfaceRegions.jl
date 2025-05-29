@@ -1,4 +1,3 @@
-
 using Pkg
 Pkg.activate(".")
 using HomotopyContinuation, LinearAlgebra, Plots, DifferentialEquations
@@ -26,9 +25,12 @@ v = rand(ComplexF64, 2)
 PWS = PseudoWitnessSet(F, create_line(u, v, 3))
 
 ###### ODE Solver
-f(x, param, t) = real(∇log_r(c, e, x, PWS))
+g = ∇log_r(e, 2, PWS; B = B, c = c)
+
+f(x, param, t) = -g(x)
+
 u0 = [-15, 10]
-tspan = (0.0, 1e5)
+tspan = (0.0, 1e2)
 prob = ODEProblem(f, u0, tspan)
 sol = DE.solve(prob, reltol = 1e-6, abstol = 1e-6)
 

@@ -1,4 +1,4 @@
-mutable struct PseudoWitnessSet
+struct PseudoWitnessSet
     F::System
     L::LinearSubspace
     W::Result
@@ -12,7 +12,7 @@ function PseudoWitnessSet(F::System, L::LinearSubspace)
     PseudoWitnessSet(F, L, W)
 end
 
-"""Returns a LinearSubspace u + tv in a subspace of R^n"""
+"""Returns a LinearSubspace of the form u + tv in R^n"""
 function create_line(u::AbstractVector{<:Number}, v::AbstractVector{<:Number}, n::Int64)
     k = length(u)
     πA = u' - (dot(u, v)/dot(v, v)) * v'
@@ -41,11 +41,6 @@ function track_pws_to_lines(
 end
 
 
-function Q(p::AbstractVector{<:Real}, c::AbstractVector{<:Real})
-    y = p - c
-
-    (sum(y .^ 2) + 1, 2 .* y)
-end
 
 ### Computing Derivatives ###
 function ∂log_h(
@@ -67,40 +62,45 @@ end
 
 function ∂log_r(
     intersection_points::AbstractVector{<:AbstractVector{<:Number}},
-    qp::Real,
-    ∇qp::AbstractVector{<:Real},
+    Qp::Tuple,
     e::Real,
     p::AbstractVector{<:Real},
     bj::AbstractVector{<:Real},
 )
+    qp, ∇qp = Qp
     ∂log_h(intersection_points, p, bj) + ∂log_qe(qp, ∇qp, e, bj)
 end
 
 function ∇log_r(
-    c::AbstractVector{<:Real},
     e::Real,
-    p::AbstractVector{<:Real},
-    B::Matrix{<:Real},
-    PWS::PseudoWitnessSet,
+    k::Int,
+    PWS::PseudoWitnessSet;
+    c::Union{AbstractVector{<:Real}, Nothing} = nothing,
+    B::Union{Matrix{<:Real}, Nothing} = nothing
 )
-    qp, ∇qp = Q(p, c)
-    line_hypersurface_intersections = track_pws_to_lines(p, B, PWS)
-
-    map(zip(line_hypersurface_intersections, eachcol(B))) do (intersection_points, bj)
-        ∂log_r(intersection_points, qp, ∇qp, e, p, bj)
+    if isnothing(c)
+        c = randn(k)
     end
+    if isnothing(B)
+        B = Matrix(qr(randn(k,k)).Q)
+    end
+
+    
+    function f(p)
+        Qp = (sum((p - c) .^ 2) + 1, 2 .* (p - c))
+
+        line_hypersurface_intersections = track_pws_to_lines(p, B, PWS)
+
+        out = map(zip(line_hypersurface_intersections, eachcol(B))) do (intersection_points, bj)
+            ∂log_r(intersection_points, Qp, e, p, bj)
+        end
+
+        real(B* out)
+    end
+
+    return f
 end
 
-function ∇log_r(
-    c::AbstractVector{<:Real},
-    e::Real,
-    p::AbstractVector{<:Real},
-    PWS::PseudoWitnessSet,
-)
-    k = length(c)
-    B = qr(rand(k, k)).Q |> Matrix
-    B * ∇log_r(c, e, p, B, PWS)
-end
 
 # using HomotopyContinuation, LinearAlgebra
 
