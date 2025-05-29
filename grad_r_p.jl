@@ -25,7 +25,7 @@ end
 
 function track_pws_to_lines(
     p::AbstractVector{<:Real},
-    B::Matrix{Float64},
+    B::AbstractArray{Float64},
     PWS::PseudoWitnessSet,
 )
     L = PWS.L
@@ -102,83 +102,72 @@ function ∇log_r(
 end
 
 
-# using HomotopyContinuation, LinearAlgebra
+### Computing Second Derivatives ###
+
+function ∂2log_h(
+    intersection_points::AbstractVector{<:AbstractVector{<:Number}},
+    p::AbstractVector{<:Real},
+    bj::AbstractVector{<:Real},
+    )
+    k = length(bj)
+    i = findfirst(x->abs(x) > 1e-5, bj)
+    projection_points = map(s -> s[1:k], intersection_points)
+    s = map(y -> (y[i] - p[i])/bj[i], projection_points)
+
+    -sum(1/si^2 for si in s)
+end
+
+function ∂2log_qe(Qp::Tuple, e::Real, bj::AbstractVector{<:Real})
+    (qp, ∇qp) = Qp
+    -e * (transpose(bj)*2*bj*qp-(transpose(∇qp)*bj)^2)/qp^2
+end
+
+function ∂2log_r(
+    intersection_points::AbstractVector{<:AbstractVector{<:Number}},
+    Qp::Tuple,
+    e::Real,
+    p::AbstractVector{<:Real},
+    bj::AbstractVector{<:Real},
+)
+    ∂2log_h(intersection_points, p, bj) + ∂2log_qe(Qp, e, bj)
+end
+
+function compute_off_diag(intermediate, bi_val, bj_val)
+    (intermediate - bi_val - bj_val)/2
+end
+
+function hess_log_r(
+    e::Real,
+    k::Int,
+    PWS::PseudoWitnessSet;
+    c::Union{AbstractVector{<:Real}, Nothing} = nothing,
+    B::Union{Matrix{<:Real}, Nothing} = nothing
+)
+    if isnothing(c)
+        c = randn(k)
+    end
+    if isnothing(B)
+        B = Matrix(qr(randn(k,k)).Q)
+    end
+    function f(p)
+        Qp = (sum((p - c) .^ 2) + 1, 2 .* (p - c))
+
+        line_hypersurface_intersections = track_pws_to_lines(p, B, PWS)
+        diagonals = map(zip(line_hypersurface_intersections, eachcol(B))) do (intersection_points, bj)
+                ∂2log_r(intersection_points, Qp, e, p, bj)
+        end
+        H = diagm(diagonals)
+        for i in 1:n
+            for j in i+1:n
+                intersection_points = track_pws_to_lines(p, B[:,i] - B[:,j], PWS)
+                intermediate = ∂2log_r(intersection_points[1], Qp, e, p, B[:,i] - B[:,j])
+                H[i,j] = compute_off_diag(intermediate, diagonals[i], diagonals[j])
+                H[j,i] = compute_off_diag(intermediate, diagonals[i], diagonals[j])
+            end
+        end
+        H
+    end
+    f
+end
 
 
-
-
-# mutable struct PseudoWitnessSet
-#     F::System
-#     L::LinearSubspace
-#     PWS::Result
-# end
-
-# function PseudoWitnessSet(F::System, L::LinearSubspace)
-#     n = ambient_dim(L)
-#     startL = rand_subspace(n; codim = 1)
-#     W = witness_set(F, startL)
-#     S = solutions(W)
-#     PWS = HC.solve(F, S, start_subspace = startL,
-#                      target_subspace = L, intrinsic=true)
-#     PseudoWitnessSet(F, L, PWS)                 
-# end
-
-# """Returns a LinearSubspace u + tv in a subspace of R^n"""
-# function create_line(u, v, n)
-#     k = length(u)
-#     πA = u' - (dot(u,v)/dot(v,v)) * v'
-#     A = [πA zeros(n-k)]
-#     B = [πA * u]
-
-#     LinearSubspace(A, B)
-# end
-
-
-
-# function track_pws_to_lines(p, B, PWS)
-#     L = PWS.L
-#     n = ambient_dim(L)
-#     Ks = map(eachcol(B)) do bj
-#         create_line(p, bj, n)
-#     end
-#     HC.solve(PWS.F, PWS.PWS, start_subspace = L,
-#                         target_subspaces = Ks, intrinsic = true, 
-#                         transform_result = (r,p) -> solutions(r))
-# end
-
-
-# function Q(p, c)
-#     y = p - c
-
-#     (sum(y.^2) + 1, 2 .* y)
-# end
-
-# ### Computing Derivatives ###
-# function directional_derivative_h(pws, p, bj)
-#     k = length(bj)
-#     i = findfirst(x->abs(x) > 1e-5, bj)
-#     Y = map(s -> s[1:k], pws)
-#     s = map(Y) do y
-#         (y[i] - p[i])/bj[i]
-#     end
-
-#     -sum(1/si for si in s)
-# end
-# function directional_derivative_qe(qp, ∇qp, e, bj)
-#     -e * (transpose(∇qp) * bj) / qp
-# end
-# function directional_derivative_r(pws, qp, ∇qp, e, p, bj)
-#     directional_derivative_h(pws, p, bj) + directional_derivative_qe(qp, ∇qp, e, bj)
-# end
-
-# # directional_derivative_r(pws_sets[1], [1/3, 1/5, 1/7],2, p, B[:,1])
-
-
-# function directional_grad_r(c, e, p, B, PWS)
-#     qp, ∇qp = Q(p, c)
-#     pws_for_lines = track_pws_to_lines(p, B, PWS)
-
-#     map(zip(pws_for_lines, eachcol(B))) do (pws, bj)
-#         directional_derivative_r(pws, qp, ∇qp, e, p, bj)
-#     end
-# end
