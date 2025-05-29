@@ -10,6 +10,9 @@ include("grad_r_p.jl")
 
 @var a b x
 F = System([x^2 + a*x + b; 2x + a], variables = [a, b, x])
+
+
+
 # System for the incidence variety of the discriminant
 
 B = qr(rand(2, 2)).Q |> Matrix
@@ -27,10 +30,11 @@ PWS = PseudoWitnessSet(F, create_line(u, v, 3))
 ###### ODE Solver
 g = ∇log_r(e, 2, PWS; B = B, c = c)
 
-f(x, param, t) = -g(x)
+f(x, param, t) = g(x)
+
 
 u0 = [-15, 10]
-tspan = (0.0, 1e2)
+tspan = (0.0, 1e4)
 prob = ODEProblem(f, u0, tspan)
 sol = DE.solve(prob, reltol = 1e-6, abstol = 1e-6)
 
