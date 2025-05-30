@@ -24,7 +24,8 @@ pts = include("discr_pw.jl")
 
 
 ###### ODE Solver
-g = ∇log_r(F, [a; b]; c = c, B = B)
+g = ∇log_r(F, [a; b]; c = c, B = B) # 0.041457 seconds (14.08 k allocations: 2.945 MiB)
+@time g(randn(2))
 f(x, param, t) = g(x)
 
 

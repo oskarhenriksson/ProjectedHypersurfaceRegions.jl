@@ -6,6 +6,7 @@ struct PseudoWitnessSet
     W::Result
 end
 degree(PWS::PseudoWitnessSet) = length(PWS.W)
+ambient_dim(PWS::PseudoWitnessSet) = ambient_dim(PWS.L)
 
 function PseudoWitnessSet(F::System, L::LinearSubspace) 
     n = ambient_dim(L)
@@ -15,6 +16,38 @@ function PseudoWitnessSet(F::System, L::LinearSubspace)
     PseudoWitnessSet(F, L, W)
 end
 
+
+struct GradientCache
+    A::Matrix
+    πA::Matrix
+    b::Vector
+    Id::Diagonal
+    v_perp::Vector
+    Ks::Vector{LinearSubspace}
+    s::Vector
+    line_hypersurface_intersections::Vector
+    intersection_points::Vector
+    projection_points::Vector
+
+end
+function GradientCache(k, n, d)
+    A = zeros(ComplexF64, k - 1, n)
+    πA = zeros(ComplexF64, k - 1, k)
+    b = zeros(ComplexF64, n)
+    Id = I(k)
+    v_perp = zeros(ComplexF64, k)
+    Ks = Vector{LinearSubspace}(undef, k)
+    s = Vector{Vector{ComplexF64}}(undef, d)
+    line_hypersurface_intersections = Vector{Result}(undef, d)
+    intersection_points = Vector{Vector{ComplexF64}}(undef, d)
+    projection_points = Vector{Vector{ComplexF64}}(undef, d)
+    
+
+    GradientCache(A, πA, b, Id, v_perp, Ks, s,
+                    line_hypersurface_intersections, 
+                    intersection_points,
+                    projection_points)
+end
 
 ∇log_r(F::Vector{Expression}, k::Int; kwargs...) = ∇log_r(System(F), variables(F)[1:k]; kwargs ...)
 ∇log_r(F::Vector{Expression}, projection_vars::Vector{Variable}; kwargs...) = ∇log_r(System(F), projection_vars; kwargs ...)
@@ -54,6 +87,10 @@ function ∇log_r(
         B = Matrix(qr(randn(k,k)).Q)
     end
     
+    n = ambient_dim(PWS)
+    d = degree(PWS)
+    GC = GradientCache(k, n, d)
+
     Q(p) = (sum((p - c) .^ 2) + 1, 2 .* (p - c))
 
     function f(p)
@@ -65,7 +102,7 @@ function ∇log_r(
             ∂log_r(intersection_points, Qp, e, p, bj)
         end
 
-        real(B* out)
+        real(B * out)
     end
 
     return f
@@ -75,12 +112,12 @@ end
 
 
 
-"""Returns a LinearSubspace of the form u + tv in R^n"""
+"""Returns a LinearSubspace of the form {u + tv} x R^{n-k} in R^n"""
 function create_line(u::AbstractVector{<:Number}, v::AbstractVector{<:Number}, n::Int64)
     k = length(u)
-    πA = u' - (dot(u, v)/dot(v, v)) * v'
-    A = [πA zeros(n-k)]
-    b = [πA * u]
+    πA = randn(k-1, k) * (I(k) - (v * v')/dot(v, v))
+    A = [πA zeros(k-1, n-k)]
+    b = πA * u
 
     LinearSubspace(A, b)
 end
