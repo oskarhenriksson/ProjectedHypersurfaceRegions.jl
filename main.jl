@@ -22,14 +22,9 @@ e = 2
 ###### Critical points 
 pts = include("discr_pw.jl")
 
-###### PWS
-u = rand(ComplexF64, 2)
-v = rand(ComplexF64, 2)
-PWS = PseudoWitnessSet(F, create_line(u, v, 3))
 
 ###### ODE Solver
-g = ∇log_r(e, 2, PWS; B = B, c = c)
-
+g = ∇log_r(F, [a; b]; c = c, B = B)
 f(x, param, t) = g(x)
 
 

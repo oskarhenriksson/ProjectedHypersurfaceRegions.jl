@@ -17,7 +17,7 @@ d = 2 # degree
 @var p[1:n] s[1:n, 1:d] u[1:n, 1:d]
 
 # Parameters
-@var b[1:n, 1:n]
+@var Bv[1:n, 1:n]
 #c = [1/3; 1/5; 1/7]
 #c = 5 .* randn(n)
 
@@ -26,13 +26,12 @@ d = 2 # degree
 # Denominator
 q = 1 + sum((p-c) .* (p-c))
 ∇q = differentiate(q, p)
-e = 2
 
 # Intersection points should be on the discriminant   
 evaluated_F = []
 for i = 1:n
     for j = 1:d
-        append!(evaluated_F, F([p + s[i, j] .* b[:, i]; u[i, j]]))
+        append!(evaluated_F, F([p + s[i, j] .* Bv[:, i]; u[i, j]]))
     end
 end
 
@@ -77,7 +76,7 @@ end
 
 #Gradient equations
 gradient_equations = map(1:n) do i
-    sum(1/(-s[i, j]) for j = 1:d) - e*transpose(∇q)*b[:, i]/q
+    sum(1/(-s[i, j]) for j = 1:d) - e*transpose(∇q)*Bv[:, i]/q
 end
 
 @var V[1:length(evaluated_F)], W[1:length(gradient_equations)]
@@ -86,7 +85,7 @@ vw0 = zeros(length(V) + length(W))
 S = System(
     vcat(evaluated_F - V, gradient_equations - W),
     variables = vcat(s[:], u[:], p),
-    parameters = vcat(b[:], V[:], W[:]),
+    parameters = vcat(Bv[:], V[:], W[:]),
 )
 
 result = monodromy_solve(S)
