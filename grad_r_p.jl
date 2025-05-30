@@ -206,3 +206,16 @@ function hess_log_r(
 end
 
 
+# This function takes in a system F and the dimension k that we are projecting onto (π: \mathbb{C}^n \to \mathbb{C}^k), and returns the jacobian of F(p+s*b; u) with respect to p and the jacobian of F(p+s*b; u) with respect to s and u.
+function get_linear_system(
+    F::System,
+    k::Int)
+    @var u, s, p[1:k], b[1:k]
+    Fp = System(F([p+s*b; u]), 
+    variables = vcat(p[:]),
+    parameters = vcat(b[:],s,u))
+    Fsu = System(F([p+s*b; u]), 
+    variables = vcat(s,u),
+    parameters = vcat(p[:],b[:]))
+    return (jacobian(Fsu), -jacobian(Fp), [u, s, p[1:k], b[1:k]])
+end
