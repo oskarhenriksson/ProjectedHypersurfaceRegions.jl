@@ -171,10 +171,40 @@ function compute_off_diag(intermediate, bi_val, bj_val)
     (intermediate - bi_val - bj_val)/2
 end
 
+# The following allows you to be lazy and not input a System.
+hess_log_r(F::Vector{Expression}, e::Real, k::Int; kwargs...) = hess_log_r(System(F), e, k; kwargs...)
+hess_log_r(F::System, e::Real, k::Int; kwargs...) = hess_log_r(F, e, variables(F)[1:k]; kwargs...)
+# The following function will determine the method of computing the hessian you want and send it off.
 function hess_log_r(
+    F::System,
     e::Real,
-    k::Int,
-    PWS::PseudoWitnessSet;
+    projection_vars::Vector{Variable};
+    method::Symbol = :off_diag,
+    c::Union{AbstractVector{<:Real}, Nothing} = nothing,
+    B::Union{Matrix{<:Real}, Nothing} = nothing
+)
+    all_vars = variables(F)
+    x_vars = setdiff(all_vars, projection_vars)
+    F0 = System(F.expressions, variables = [projection_vars; x_vars])
+    k = length(projection_vars)
+    u = rand(ComplexF64, k)
+    v = rand(ComplexF64, k)
+    PWS = PseudoWitnessSet(F0, create_line(u, v, size(F0, 2)))
+
+    if method == :off_diag
+        hess = hess_log_r(PWS, e, k; c, B)
+    elseif method == :many_slices
+        hess = _many_slices(F, PWS, e, projection_vars; c, B)
+    elseif method == :single_slice
+        hess = _single_slice(F, PWS, e, projection_vars; c, B)
+    end
+    hess
+end
+#If you only have a pseudowitness set, then only one method remains.
+function hess_log_r(
+    PWS::PseudoWitnessSet,
+    e::Real,
+    k::Int;
     c::Union{AbstractVector{<:Real}, Nothing} = nothing,
     B::Union{Matrix{<:Real}, Nothing} = nothing
 )
@@ -205,8 +235,32 @@ function hess_log_r(
     f
 end
 
+function _many_slices(
+    F::System,
+    PWS::PseudoWitnessSet,
+    e::Real,
+    projection_vars::Vector{Variable};
+    c::Union{AbstractVector{<:Real}, Nothing} = nothing,
+    B::Union{Matrix{<:Real}, Nothing} = nothing
+)
+# TODO: I am implementing this right now, will update soon.
+end
+
+function _single_slice(
+    F::System,
+    PWD::PseudoWitnessSet,
+    e::Real,
+    projection_vars::Vector{Variable};
+    c::Union{AbstractVector{<:Real}, Nothing} = nothing,
+    B::Union{Matrix{<:Real}, Nothing} = nothing
+)
+# TODO: This needs to be implemented! For now, redirect to the off_diag method.
+hess_log_r(PWS, e, k; c, B)
+end
+
 
 # This function takes in a system F and the dimension k that we are projecting onto (π: \mathbb{C}^n \to \mathbb{C}^k), and returns the jacobian of F(p+s*b; u) with respect to p and the jacobian of F(p+s*b; u) with respect to s and u.
+# Returns: Jacobian of F with respect to s,u, -(Jacobian) with respect to the p's, and the variables involved. 
 function get_linear_system(
     F::System,
     k::Int)
