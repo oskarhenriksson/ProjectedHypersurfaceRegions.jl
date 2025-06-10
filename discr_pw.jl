@@ -1,4 +1,7 @@
+using DifferentialEquations
 
+const HC = HomotopyContinuation
+const DE = DifferentialEquations
 
 is_real_vector = z -> all(abs.(imag.(z)) .< 1e-14)
 
