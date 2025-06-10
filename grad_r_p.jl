@@ -248,7 +248,7 @@ end
 
 function _single_slice(
     F::System,
-    PWD::PseudoWitnessSet,
+    PWS::PseudoWitnessSet,
     e::Real,
     projection_vars::Vector{Variable};
     c::Union{AbstractVector{<:Real}, Nothing} = nothing,
