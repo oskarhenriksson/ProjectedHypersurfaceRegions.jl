@@ -1,4 +1,5 @@
-  
+const HC = HomotopyContinuation
+const DE = DifferentialEquations
 
 struct PseudoWitnessSet
     F::System
@@ -214,6 +215,7 @@ function hess_log_r(
     c::Union{AbstractVector{<:Real}, Nothing} = nothing,
     B::Union{Matrix{<:Real}, Nothing} = nothing
 )
+
     if isnothing(c)
         c = randn(k)
     end
@@ -228,8 +230,8 @@ function hess_log_r(
                 ∂2log_r(intersection_points, Qp, e, p, bj)
         end
         H = diagm(diagonals)
-        for i in 1:n
-            for j in i+1:n
+        for i in 1:k
+            for j in i+1:k
                 intersection_points = track_pws_to_lines(p, B[:,i] - B[:,j], PWS)
                 intermediate = ∂2log_r(intersection_points[1], Qp, e, p, B[:,i] - B[:,j])
                 H[i,j] = -compute_off_diag(intermediate, diagonals[i], diagonals[j])
@@ -279,7 +281,7 @@ function _many_slices(
                 ∇pS[:,i] = sols[1,:] # If this is not ∇p s then the hessian will not be correct, and this is probably why
             end 
             # Now, we compute the sum H(log(h(p))) * b = ∑_j^d 1/s_j^{-2} (∇p s_j)
-            Hlogh = sum(S.^(-2).*eachcol(∇pS))
+            Hlogh = ∇pS*(S.^(-2))
             # Want to add something like this from Hannah's computation and be done: ∂2log_qe(Qp, e, B[:,bCol])+0im
             # however, this is just a number (as she was using this to compute a single entry of the hessian)
             # naively, I write this:

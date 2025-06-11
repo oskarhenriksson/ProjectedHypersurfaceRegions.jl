@@ -1,6 +1,6 @@
 using Pkg
 Pkg.activate(".")
-using HomotopyContinuation, LinearAlgebra
+using HomotopyContinuation, LinearAlgebra, DifferentialEquations
 
 include("grad_r_p.jl")
 
@@ -23,18 +23,14 @@ hess_many_slices = hess_log_r(F, e, k; method = :many_slices, c, B)
 # You can also call hess_log_r(F, e, k; method = :off_diag, c, B)
 # c and B are optional -- otherwise, they are taken randomly.
 
-# here are our two methods
-p = rand(2)
-hess_off_diag(p)
-hess_many_slices(p)
-
 # if you just pass in the discriminant, we can compute the Hessian directly. 
 # (So this is definitely correct)
 disc = a^2 - 4*b
 actual_hess = hess_log_r(disc, e; c)
-actual_hess(p)
 
 # the hessians above are computed in the B-basis
-B*actual_hess(p)*B^(-1) 
+p = rand(2)
+B^(-1)*actual_hess(p)*B 
 hess_off_diag(p)
+hess_many_slices(p)
 # This is very close to 
