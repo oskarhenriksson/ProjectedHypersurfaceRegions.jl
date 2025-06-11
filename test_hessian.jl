@@ -1,9 +1,6 @@
 using Pkg
 Pkg.activate(".")
-using HomotopyContinuation, LinearAlgebra, Plots, DifferentialEquations
-
-const HC = HomotopyContinuation
-const DE = DifferentialEquations
+using HomotopyContinuation, LinearAlgebra
 
 include("grad_r_p.jl")
 
@@ -15,19 +12,29 @@ F = System([x^2 + a*x + b; 2x + a], variables = [a, b, x])
 B = qr(rand(2, 2)).Q |> Matrix
 c = 10 .* randn(2)
 e = 2
+k = 2
 
 ###### Critical points 
-pts = include("discr_pw.jl")
+#pts = include("discr_pw.jl")
 
-###### PWS
-u = rand(ComplexF64, 2)
-v = rand(ComplexF64, 2)
-PWS = PseudoWitnessSet(F, create_line(u, v, 3))
+hess_off_diag = hess_log_r(F, e, k; method = :off_diag, c, B)
+hess_many_slices = hess_log_r(F, e, k; method = :many_slices, c, B)
 
+# You can also call hess_log_r(F, e, k; method = :off_diag, c, B)
+# c and B are optional -- otherwise, they are taken randomly.
+
+# here are our two methods
 p = rand(2)
+hess_off_diag(p)
+hess_many_slices(p)
 
+# if you just pass in the discriminant, we can compute the Hessian directly. 
+# (So this is definitely correct)
+disc = a^2 - 4*b
+actual_hess = hess_log_r(disc, e; c)
+actual_hess(p)
 
-
-hess = hess_log_r(2, 2, PWS)
-
-hess(rand(2))
+# the hessians above are computed in the B-basis
+B*actual_hess(p)*B^(-1) 
+hess_off_diag(p)
+# This is very close to 

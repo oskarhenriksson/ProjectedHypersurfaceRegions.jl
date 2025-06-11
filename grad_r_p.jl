@@ -149,7 +149,7 @@ function ∂2log_h(
     projection_points = map(s -> s[1:k], intersection_points)
     s = map(y -> (y[i] - p[i])/bj[i], projection_points)
 
-    -sum(1/si^2 for si in s)
+    -sum(1/si^2 for si in s) #FIXME: I think that we are missing ∇p(s) here, and it hasn't been calculated anywhere.
 end
 
 function ∂2log_qe(Qp::Tuple, e::Real, bj::AbstractVector{<:Real})
@@ -183,10 +183,16 @@ function hess_log_r(
     c::Union{AbstractVector{<:Real}, Nothing} = nothing,
     B::Union{Matrix{<:Real}, Nothing} = nothing
 )
+    k = length(projection_vars)
+    if isnothing(c)
+        c = randn(k)
+    end
+    if isnothing(B)
+        B = Matrix(qr(randn(k,k)).Q)
+    end
     all_vars = variables(F)
     x_vars = setdiff(all_vars, projection_vars)
     F0 = System(F.expressions, variables = [projection_vars; x_vars])
-    k = length(projection_vars)
     u = rand(ComplexF64, k)
     v = rand(ComplexF64, k)
     PWS = PseudoWitnessSet(F0, create_line(u, v, size(F0, 2)))
@@ -226,8 +232,8 @@ function hess_log_r(
             for j in i+1:n
                 intersection_points = track_pws_to_lines(p, B[:,i] - B[:,j], PWS)
                 intermediate = ∂2log_r(intersection_points[1], Qp, e, p, B[:,i] - B[:,j])
-                H[i,j] = compute_off_diag(intermediate, diagonals[i], diagonals[j])
-                H[j,i] = compute_off_diag(intermediate, diagonals[i], diagonals[j])
+                H[i,j] = -compute_off_diag(intermediate, diagonals[i], diagonals[j])
+                H[j,i] = -compute_off_diag(intermediate, diagonals[i], diagonals[j])
             end
         end
         H
@@ -240,10 +246,53 @@ function _many_slices(
     PWS::PseudoWitnessSet,
     e::Real,
     projection_vars::Vector{Variable};
-    c::Union{AbstractVector{<:Real}, Nothing} = nothing,
-    B::Union{Matrix{<:Real}, Nothing} = nothing
-)
-# TODO: I am implementing this right now, will update soon.
+    c::AbstractVector{<:Real},
+    B::Matrix{<:Real}
+)   
+    n = length(variables(F))
+    k = length(projection_vars)
+    @var u[1:n-k], t, p[1:k], b[1:k]
+    JsuF = differentiate(F([p+t*b; u]), vcat(t,u[:]))
+    JpF = differentiate(F([p+t*b; u]), p)
+    d = degree(PWS)
+
+    function f(P)
+        (qp, ∇qp, ∇2qp) = (sum((P - c) .^ 2) + 1, 2 .* (P - c), [2.0,2.0])
+        line_hypersurface_intersections = track_pws_to_lines(P, B, PWS) # 
+        H = zeros(ComplexF64,k,k)
+        for bcol in 1:k
+            S = zeros(ComplexF64,d)
+            ∇pS = zeros(ComplexF64,k, d)
+            for i in 1:d 
+                upoint = line_hypersurface_intersections[bcol][i] # world coordinates of the intersection point prior to projection
+                S[i] = (upoint[1]-P[1])/ B[1,bcol] # The value of t that corresponds to the intersection point
+                subs_dict = Dict(
+                    [p[j] => P[j] for j in eachindex(p)]...,
+                    [b[j] => B[j, bcol] for j in eachindex(b)]...,
+                    t => S[i],
+                    [u[j] => upoint[k+j] for j in eachindex(u)]...
+                )
+                JsuF_eval = evaluate(JsuF, subs_dict)
+                Jtu_eval = evaluate(JpF, subs_dict)
+
+                sols = JsuF_eval \ (-Jtu_eval) # This is a matrix [∇p s; Jp u]
+                ∇pS[:,i] = sols[1,:] # If this is not ∇p s then the hessian will not be correct, and this is probably why
+            end 
+            # Now, we compute the sum H(log(h(p))) * b = ∑_j^d 1/s_j^{-2} (∇p s_j)
+            Hlogh = sum(S.^(-2).*eachcol(∇pS))
+            # Want to add something like this from Hannah's computation and be done: ∂2log_qe(Qp, e, B[:,bCol])+0im
+            # however, this is just a number (as she was using this to compute a single entry of the hessian)
+            # naively, I write this:
+            Hlogqe = -e*(qp*∇2qp - ∇qp.^2)/qp^2 
+            # This does not depend on bCol, so it is probably not correct.
+            H[:, bcol] = Hlogh + Hlogqe
+        end
+        H
+    end
+    f
+# TODO: I am overcomputing here since the Hessian is symmetric. Also, to get each ∇s_p I think I'm solving a larger system than needed. Perhaps there is a way to only compute the diagonal and off-diagonal terms.
+# TODO: Jon mentioned reparametrizing our line from p + t b to tp - b so that our sum goes from -∑1/s_i to (do i add a negative here?)∑s_i.
+#That is, I replace l = p + tb ---> t^{-1} l = t p + b
 end
 
 function _single_slice(
@@ -258,18 +307,18 @@ function _single_slice(
 hess_log_r(PWS, e, k; c, B)
 end
 
-
-# This function takes in a system F and the dimension k that we are projecting onto (π: \mathbb{C}^n \to \mathbb{C}^k), and returns the jacobian of F(p+s*b; u) with respect to p and the jacobian of F(p+s*b; u) with respect to s and u.
-# Returns: Jacobian of F with respect to s,u, -(Jacobian) with respect to the p's, and the variables involved. 
-function get_linear_system(
-    F::System,
-    k::Int)
-    @var u, s, p[1:k], b[1:k]
-    Fp = System(F([p+s*b; u]), 
-    variables = vcat(p[:]),
-    parameters = vcat(b[:],s,u))
-    Fsu = System(F([p+s*b; u]), 
-    variables = vcat(s,u),
-    parameters = vcat(p[:],b[:]))
-    return (jacobian(Fsu), -jacobian(Fp), [u, s, p[1:k], b[1:k]])
+# If you happen to know the discriminant directly (and are not taking a projection), then this function can be used. 
+# This is useful for testing our other hessian methods.
+function hess_log_r(disc::Expression, e::Real; c::Union{AbstractVector{<:Real}, Nothing} = nothing)
+    #TODO: Implement the Hessian of the log of the discriminant.
+    if isnothing(c)
+        c = randn(length(variables(disc)))
+    end
+    p = variables(disc)
+    e = 2
+    q = 1 + sum((p-c) .* (p-c))
+    r = log(disc/q^e)
+    H = differentiate(differentiate(r,p),p)
+    hess(P) = evaluate(H, p => P)
+    hess
 end
