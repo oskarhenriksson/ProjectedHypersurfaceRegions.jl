@@ -309,14 +309,13 @@ end
 
 # If you happen to know the discriminant directly (and are not taking a projection), then this function can be used. 
 # This is useful for testing our other hessian methods.
-function hess_log_r(disc::Expression, e::Real; c::Union{AbstractVector{<:Real}, Nothing} = nothing)
-    #TODO: Implement the Hessian of the log of the discriminant.
+function hess_log_r_given_h(h::Expression, e::Real; c::Union{AbstractVector{<:Real}, Nothing} = nothing)
     if isnothing(c)
-        c = randn(length(variables(disc)))
+        c = randn(length(variables(h)))
     end
-    p = variables(disc)
+    p = variables(h)
     q = 1 + sum((p-c) .* (p-c))
-    r = log(disc/q^e)
+    r = log(h/q^e)
     H = differentiate(differentiate(r,p),p)
     hess(P) = evaluate(H, p => P)
     hess

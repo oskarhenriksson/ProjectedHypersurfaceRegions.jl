@@ -26,7 +26,7 @@ hess_many_slices = hess_log_r(F, e, k; method = :many_slices, c, B)
 # if you just pass in the discriminant, we can compute the Hessian directly. 
 # (So this is definitely correct)
 disc = a^2 - 4*b
-actual_hess = hess_log_r(disc, e; c)
+actual_hess = hess_log_r_given_h(disc, e; c)
 
 
 p = rand(2)
@@ -54,13 +54,13 @@ hess_off_diag = hess_log_r(F, e, k; method = :off_diag, c, B)
 hess_many_slices = hess_log_r(F, e, k; method = :many_slices, c, B)
 
 disc = α^2*β^2 - 4*β^3 - 4*α^3*γ - 27*γ^2 + 18*α*β*γ
-actual_hess = hess_log_r(disc, e; c)
+actual_hess = hess_log_r_given_h(disc, e; c)
 
 # These are all the same!
 p = rand(3)
 hess_off_diag(p)
 hess_many_slices(p)
-@time actual_hess(p)
+actual_hess(p)
 
 # Time analysis
 @time for _=1:1000 p = rand(3); hess_off_diag(p) end
