@@ -3,7 +3,7 @@
 struct PseudoWitnessSet
     F::System
     L::LinearSubspace
-    W::Result
+    W::Vector
 end
 degree(PWS::PseudoWitnessSet) = length(PWS.W)
 ambient_dim(PWS::PseudoWitnessSet) = HC.ambient_dim(PWS.L)
@@ -13,7 +13,7 @@ function PseudoWitnessSet(F::System, L::LinearSubspace)
     startL = rand_subspace(n; codim = 1)
     S = solutions(witness_set(F, startL))
     W = HC.solve(F, S, start_subspace = startL, target_subspace = L, intrinsic = true)
-    PseudoWitnessSet(F, L, W)
+    PseudoWitnessSet(F, L, solutions(W))
 end
 
 
@@ -28,9 +28,13 @@ mutable struct GradientCache
     line_hypersurface_intersections::Vector
     intersection_points::Vector
     projection_points::Vector
+    tracker::EndgameTracker
 
 end
-function GradientCache(k, n, d)
+function GradientCache(k, PWS)
+    n = ambient_dim(PWS)
+    d = degree(PWS)
+
     A = zeros(ComplexF64, k - 1, n)
     πA = zeros(ComplexF64, k - 1, k)
     b = zeros(ComplexF64, n)
@@ -38,15 +42,19 @@ function GradientCache(k, n, d)
     v_perp = zeros(ComplexF64, k)
     Ks = Vector{LinearSubspace}(undef, k)
     s = Vector{Vector{ComplexF64}}(undef, d)
-    line_hypersurface_intersections = Vector{Result}(undef, d)
+    line_hypersurface_intersections = [[zeros(ComplexF64, n) for _ in 1:d] for _ in 1:k]
     intersection_points = Vector{Vector{ComplexF64}}(undef, d)
     projection_points = Vector{Vector{ComplexF64}}(undef, d)
     
+    Hom = linear_subspace_homotopy(F, PWS.L, PWS.L; intrinsic = true)
+    tracker = EndgameTracker(Hom)
+
 
     GradientCache(A, πA, b, Id, v_perp, Ks, s,
                     line_hypersurface_intersections, 
                     intersection_points,
-                    projection_points)
+                    projection_points,
+                    tracker)
 end
 
 ∇log_r(F::Vector{Expression}, k::Int; kwargs...) = ∇log_r(System(F), variables(F)[1:k]; kwargs ...)
@@ -87,9 +95,7 @@ function ∇log_r(
         B = Matrix(qr(randn(k,k)).Q)
     end
     
-    n = ambient_dim(PWS)
-    d = degree(PWS)
-    GC = GradientCache(k, n, d)
+    GC = GradientCache(k, PWS)
 
     Q(p) = (sum((p - c) .^ 2) + 1, 2 .* (p - c))
 
@@ -129,20 +135,28 @@ function track_pws_to_lines!(
     B::AbstractArray{Float64},
     PWS::PseudoWitnessSet,
 )
-    L = PWS.L
     n = ambient_dim(PWS)
     for (j,bj) in enumerate(eachcol(B))
         GC.Ks[j] = create_line(p, bj, n)
     end
 
-    GC.line_hypersurface_intersections = HC.solve(
-        PWS.F,
-        PWS.W,
-        start_subspace = L,
-        target_subspaces = GC.Ks,
-        intrinsic = true,
-        transform_result = (r, p) -> solutions(r),
-    )
+
+    for (j, K) in enumerate(GC.Ks)
+        target_parameters!(GC.tracker, K)
+        for (l, w) in enumerate(PWS.W)
+            track!(GC.tracker, w, 1)
+            GC.line_hypersurface_intersections[j][l] .= solution(GC.tracker)
+        end
+    end
+
+    # GC.line_hypersurface_intersections = HC.solve(
+    #     PWS.F,
+    #     PWS.W,
+    #     start_subspace = L,
+    #     target_subspaces = GC.Ks,
+    #     intrinsic = true,
+    #     transform_result = (r, p) -> solutions(r),
+    # )
 end
 
 
