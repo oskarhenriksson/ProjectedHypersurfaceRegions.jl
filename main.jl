@@ -8,19 +8,17 @@ const DE = DifferentialEquations
 include("grad_r_p.jl")
 
 
+# System for the incidence variety of the discriminant
 @var a b x
 F = System([x^2 + a*x + b; 2x + a], variables = [a, b, x])
 
-
-
-# System for the incidence variety of the discriminant
-
+# Choice of parameters
 B = qr(rand(2, 2)).Q |> Matrix
 c = 10 .* randn(2)
 e = 2
 
 ###### Critical points 
-pts = include("discr_pw.jl")
+pts = include("discr_pw.jl") |> unique_points
 
 
 ###### ODE Solver
@@ -28,13 +26,13 @@ g = ∇log_r(F, [a; b]; c = c, B = B)
 f(x, param, t) = g(x)
 
 
-u0 = [-15, 10]
+u0 = pts[rand(1:length(pts))]
 tspan = (0.0, 1e4)
 prob = ODEProblem(f, u0, tspan)
 sol = DE.solve(prob, reltol = 1e-6, abstol = 1e-6)
 
 ##### Plotting 
-M = 20
+M = maximum(abs, vcat(pts...))
 R(x, y) = log(abs((x^2 - 4*y)/evaluate(q, p => [x; y])))
 contour(
     (-M):0.1:M,
