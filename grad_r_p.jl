@@ -186,7 +186,7 @@ function hess_log_r(
 )
     k = length(projection_vars)
     if isnothing(c)
-        c = randn(k)
+        c = randn(k) # Is there any use in having a random c? probably not.
     end
     if isnothing(B)
         B = Matrix(qr(randn(k,k)).Q)
@@ -238,7 +238,7 @@ function hess_log_r(
                 H[j,i] = -compute_off_diag(intermediate, diagonals[i], diagonals[j])
             end
         end
-        H
+        real(B*H*B^(-1)) #Return the hessian in the standard basis.
     end
     f
 end
