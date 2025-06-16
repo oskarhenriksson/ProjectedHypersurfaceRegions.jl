@@ -264,9 +264,10 @@ function _many_slices(
         line_hypersurface_intersections = track_pws_to_lines(P, B, PWS) # Our u's 
         H = zeros(ComplexF64,k,k)
         for bcol in 1:k
-            S = zeros(ComplexF64,d)
-            ∇pS = zeros(ComplexF64,k, d)
-            for i in 1:d
+            num_intersections = length(line_hypersurface_intersections[bcol])
+            S = zeros(ComplexF64,num_intersections)
+            ∇pS = zeros(ComplexF64,k, num_intersections)
+            for i in 1:num_intersections
                 upoint = line_hypersurface_intersections[bcol][i] # world coordinates of the intersection point prior to projection
                 j = argmax(abs.(B[:,bcol]))
                 S[i] = (upoint[j]-P[j])/ B[j,bcol] # The value of t that corresponds to the intersection point
