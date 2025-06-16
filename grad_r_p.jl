@@ -10,7 +10,7 @@ degree(PWS::PseudoWitnessSet) = length(PWS.W)
 
 function PseudoWitnessSet(F::System, L::LinearSubspace) 
     n = ambient_dim(L)
-    startL = rand_subspace(n; codim = 1)
+    startL = rand_subspace(n; codim = codim(L))
     S = solutions(witness_set(F, startL))
     W = HC.solve(F, S, start_subspace = startL, target_subspace = L, intrinsic = true)
     PseudoWitnessSet(F, L, W)
@@ -74,18 +74,16 @@ end
 
 
 
-
-
 """Returns a LinearSubspace of the form u + tv in R^n"""
 function create_line(u::AbstractVector{<:Number}, v::AbstractVector{<:Number}, n::Int64)
     k = length(u)
-    πA = u' - (dot(u, v)/dot(v, v)) * v'
-    A = [πA zeros(n-k)]
-    b = [πA * u]
+    #πA = u' - (dot(u, v)/dot(v, v)) * v'
+    πA = nullspace(v')'
+    A = hcat(πA,zeros(k-1,n-k))
+    b = πA * u
 
     LinearSubspace(A, b)
 end
-
 
 function track_pws_to_lines(
     p::AbstractVector{<:Real},
