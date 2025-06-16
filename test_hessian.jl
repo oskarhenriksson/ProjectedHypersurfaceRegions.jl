@@ -28,9 +28,40 @@ hess_many_slices = hess_log_r(F, e, k; method = :many_slices, c, B)
 disc = a^2 - 4*b
 actual_hess = hess_log_r(disc, e; c)
 
-# the hessians above are computed in the B-basis
+
 p = rand(2)
-B^(-1)*actual_hess(p)*B 
+actual_hess(p)
 hess_off_diag(p)
 hess_many_slices(p)
-# This is very close to 
+
+@time for _=1:1000 p = rand(2); hess_off_diag(p) end
+
+@time for _=1:1000 p = rand(2); hess_many_slices(p) end
+
+## A 3-dimension discriminant example
+
+@var α β γ x
+F = System([x^3 + α*x^2 + β*x + γ; 3*x^2 + 2*α*x + β], variables = [α, β, γ, x])
+# System for the incidence variety of the discriminant
+
+B = qr(rand(3, 3)).Q |> Matrix
+c = 10 .* randn(3)
+e = 4
+k = 3
+
+
+hess_off_diag = hess_log_r(F, e, k; method = :off_diag, c, B)
+hess_many_slices = hess_log_r(F, e, k; method = :many_slices, c, B)
+
+disc = α^2*β^2 - 4*β^3 - 4*α^3*γ - 27*γ^2 + 18*α*β*γ
+actual_hess = hess_log_r(disc, e; c)
+
+# These are all the same!
+p = rand(3)
+hess_off_diag(p)
+hess_many_slices(p)
+@time actual_hess(p)
+
+# Time analysis
+@time for _=1:1000 p = rand(3); hess_off_diag(p) end
+@time for _=1:1000 p = rand(3); hess_many_slices(p) end
