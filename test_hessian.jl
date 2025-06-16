@@ -65,3 +65,34 @@ actual_hess(p)
 # Time analysis
 @time for _=1:1000 p = rand(3); hess_off_diag(p) end
 @time for _=1:1000 p = rand(3); hess_many_slices(p) end
+
+
+# Here is a general example for the discriminant of a polynomial of degree 'degf' in 'x'.
+degf = 6
+@var a[0:degf] x 
+f = sum([a[i+1]*x^i for i in 0:degf])
+df = differentiate(f, x)
+F = System([f; df], variables = [a; x])
+
+
+k = degf+1
+B = qr(rand(k, k)).Q |> Matrix
+c = 10 .* randn(k)
+e = 4
+
+hess_off_diag = hess_log_r(F, e, k; method = :off_diag, c, B)
+hess_many_slices = hess_log_r(F, e, k; method = :many_slices, c, B)
+
+P = rand(k)
+hess_off_diag(P)
+hess_many_slices(P)
+
+# This may slow down a lot for deg f big -- starts to take forever at degf = 20. Not sure of a faster way.
+m = 2degf-1
+f_rows = [vcat(zeros(i), a, zeros(m-degf-i-1)) for i in 0:m-degf-1]
+da = [i*a[i+1] for i in 0:degf][2:end]
+df_rows = [vcat(zeros(i), da, zeros(m-degf-i)) for i in 0:m-degf]
+sylvester = stack(vcat(f_rows,df_rows))
+discf = det(sylvester)/a[degf+1]
+actual_hess = hess_log_r_given_h(discf, e; c)
+actual_hess(P)
