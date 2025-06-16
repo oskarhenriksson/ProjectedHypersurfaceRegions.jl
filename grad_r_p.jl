@@ -256,18 +256,20 @@ function _many_slices(
     @var u[1:n-k], t, p[1:k], b[1:k]
     JsuF = differentiate(F([p+t*b; u]), vcat(t,u[:]))
     JpF = differentiate(F([p+t*b; u]), p)
-    d = degree(PWS)
-
+    q = 1 + sum((p-c) .* (p-c))
+    Hlogqe(pt) = evaluate(differentiate(differentiate(log(q^e),p),p), p => pt) # Can expand to make faster?
+    
+    d = degree(PWS) # Could figure out a suitable e from d. Specifically, e >= d/2?
     function f(P)
-        (qp, ∇qp, ∇2qp) = (sum((P - c) .^ 2) + 1, 2 .* (P - c), [2.0,2.0])
-        line_hypersurface_intersections = track_pws_to_lines(P, B, PWS) # 
+        line_hypersurface_intersections = track_pws_to_lines(P, B, PWS) # Our u's 
         H = zeros(ComplexF64,k,k)
         for bcol in 1:k
             S = zeros(ComplexF64,d)
             ∇pS = zeros(ComplexF64,k, d)
-            for i in 1:d 
+            for i in 1:d
                 upoint = line_hypersurface_intersections[bcol][i] # world coordinates of the intersection point prior to projection
-                S[i] = (upoint[1]-P[1])/ B[1,bcol] # The value of t that corresponds to the intersection point
+                j = argmax(abs.(B[:,bcol]))
+                S[i] = (upoint[j]-P[j])/ B[j,bcol] # The value of t that corresponds to the intersection point
                 subs_dict = Dict(
                     [p[j] => P[j] for j in eachindex(p)]...,
                     [b[j] => B[j, bcol] for j in eachindex(b)]...,
@@ -275,21 +277,17 @@ function _many_slices(
                     [u[j] => upoint[k+j] for j in eachindex(u)]...
                 )
                 JsuF_eval = evaluate(JsuF, subs_dict)
-                Jtu_eval = evaluate(JpF, subs_dict)
+                JpF_eval = evaluate(JpF, subs_dict)
 
-                sols = JsuF_eval \ (-Jtu_eval) # This is a matrix [∇p s; Jp u]
-                ∇pS[:,i] = sols[1,:] # If this is not ∇p s then the hessian will not be correct, and this is probably why
+                sols = JsuF_eval \ (-JpF_eval) # This is a matrix [∇p s; Jp u]
+                ∇pS[:,i] = sols[1,:] 
             end 
             # Now, we compute the sum H(log(h(p))) * b = ∑_j^d 1/s_j^{-2} (∇p s_j)
             Hlogh = ∇pS*(S.^(-2))
-            # Want to add something like this from Hannah's computation and be done: ∂2log_qe(Qp, e, B[:,bCol])+0im
-            # however, this is just a number (as she was using this to compute a single entry of the hessian)
-            # naively, I write this:
-            Hlogqe = -e*(qp*∇2qp - ∇qp.^2)/qp^2 
-            # This does not depend on bCol, so it is probably not correct.
-            H[:, bcol] = Hlogh + Hlogqe
+
+            H[:, bcol] = Hlogh - Hlogqe(P)*B[:,bcol]
         end
-        H
+        real(H*B^(-1)) # How to not to inverse?
     end
     f
 # TODO: I am overcomputing here since the Hessian is symmetric. Also, to get each ∇s_p I think I'm solving a larger system than needed. Perhaps there is a way to only compute the upper triangular part?
@@ -317,7 +315,6 @@ function hess_log_r(disc::Expression, e::Real; c::Union{AbstractVector{<:Real}, 
         c = randn(length(variables(disc)))
     end
     p = variables(disc)
-    e = 2
     q = 1 + sum((p-c) .* (p-c))
     r = log(disc/q^e)
     H = differentiate(differentiate(r,p),p)
