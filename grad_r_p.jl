@@ -150,7 +150,7 @@ function ∂2log_h(
     projection_points = map(s -> s[1:k], intersection_points)
     s = map(y -> (y[i] - p[i])/bj[i], projection_points)
 
-    -sum(1/si^2 for si in s) #FIXME: I think that we are missing ∇p(s) here, and it hasn't been calculated anywhere.
+    -sum(1/si^2 for si in s) 
 end
 
 function ∂2log_qe(Qp::Tuple, e::Real, bj::AbstractVector{<:Real})
@@ -292,7 +292,7 @@ function _many_slices(
         H
     end
     f
-# TODO: I am overcomputing here since the Hessian is symmetric. Also, to get each ∇s_p I think I'm solving a larger system than needed. Perhaps there is a way to only compute the diagonal and off-diagonal terms.
+# TODO: I am overcomputing here since the Hessian is symmetric. Also, to get each ∇s_p I think I'm solving a larger system than needed. Perhaps there is a way to only compute the upper triangular part?
 # TODO: Jon mentioned reparametrizing our line from p + t b to tp - b so that our sum goes from -∑1/s_i to (do i add a negative here?)∑s_i.
 #That is, I replace l = p + tb ---> t^{-1} l = t p + b
 end
