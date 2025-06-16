@@ -6,10 +6,10 @@ struct PseudoWitnessSet
     W::Result
 end
 degree(PWS::PseudoWitnessSet) = length(PWS.W)
-ambient_dim(PWS::PseudoWitnessSet) = ambient_dim(PWS.L)
+ambient_dim(PWS::PseudoWitnessSet) = HC.ambient_dim(PWS.L)
 
 function PseudoWitnessSet(F::System, L::LinearSubspace) 
-    n = ambient_dim(L)
+    n = HC.ambient_dim(L)
     startL = rand_subspace(n; codim = 1)
     S = solutions(witness_set(F, startL))
     W = HC.solve(F, S, start_subspace = startL, target_subspace = L, intrinsic = true)
@@ -17,7 +17,7 @@ function PseudoWitnessSet(F::System, L::LinearSubspace)
 end
 
 
-struct GradientCache
+mutable struct GradientCache
     A::Matrix
     πA::Matrix
     b::Vector
@@ -96,9 +96,9 @@ function ∇log_r(
     function f(p)
         Qp = Q(p)
 
-        line_hypersurface_intersections = track_pws_to_lines(p, B, PWS)
+        track_pws_to_lines!(GC, p, B, PWS)
 
-        out = map(zip(line_hypersurface_intersections, eachcol(B))) do (intersection_points, bj)
+        out = map(zip(GC.line_hypersurface_intersections, eachcol(B))) do (intersection_points, bj)
             ∂log_r(intersection_points, Qp, e, p, bj)
         end
 
@@ -123,18 +123,23 @@ function create_line(u::AbstractVector{<:Number}, v::AbstractVector{<:Number}, n
 end
 
 
-function track_pws_to_lines(
+function track_pws_to_lines!(
+    GC::GradientCache,
     p::AbstractVector{<:Real},
     B::AbstractArray{Float64},
     PWS::PseudoWitnessSet,
 )
     L = PWS.L
-    Ks = map(bj -> create_line(p, bj, ambient_dim(L)), eachcol(B))
-    HC.solve(
+    n = ambient_dim(PWS)
+    for (j,bj) in enumerate(eachcol(B))
+        GC.Ks[j] = create_line(p, bj, n)
+    end
+
+    GC.line_hypersurface_intersections = HC.solve(
         PWS.F,
         PWS.W,
         start_subspace = L,
-        target_subspaces = Ks,
+        target_subspaces = GC.Ks,
         intrinsic = true,
         transform_result = (r, p) -> solutions(r),
     )
