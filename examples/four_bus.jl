@@ -4,7 +4,7 @@ using Pkg
 Pkg.activate(".")
 using HomotopyContinuation, LinearAlgebra, DifferentialEquations
 
-include("../functions.jl")
+include("../src/functions.jl");
 
 # In this lossless four bus system with zero power injections, we have 6 parameters (6 bij where i\neq j) and 6 variables (Vd[1:3], Vq[1:3])
 @var b[1:4,1:4] Vd[1:4] Vq[1:4]

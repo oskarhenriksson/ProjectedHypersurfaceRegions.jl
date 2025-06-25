@@ -3,7 +3,7 @@ Pkg.activate(".")
 
 using Plots, DifferentialEquations
 
-include("functions.jl")
+include("src/functions.jl");
 
 
 # System for the incidence variety of the discriminant
@@ -18,7 +18,7 @@ e = 2
 ###### Critical points 
 pts = routing_points(F, [a; b]; c=c, B=B, e=e)
 
-# old_pts = include("discr_pw.jl")|> unique_points
+# old_pts = include("old/discr_pw.jl")|> unique_points
 # map(norm, sort(pts)-sort(old_pts))
 
 

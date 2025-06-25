@@ -5,7 +5,7 @@ using Pkg
 Pkg.activate(".")
 using HomotopyContinuation, LinearAlgebra, DifferentialEquations
 
-include("../functions.jl")
+include("../src/functions.jl");
 
 
 @var k[1:31] x[1:19] c[1:5]

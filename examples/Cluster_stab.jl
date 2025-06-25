@@ -2,7 +2,7 @@ using Pkg
 Pkg.activate(".")
 using HomotopyContinuation, LinearAlgebra, DifferentialEquations
 
-include("../functions.jl")
+include("../src/functions.jl");
 
 @var k[1:6] xy xz cy cz
 # k chemical reaction rate coefficients

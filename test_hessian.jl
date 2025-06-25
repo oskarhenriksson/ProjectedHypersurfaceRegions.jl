@@ -2,7 +2,7 @@ using Pkg
 Pkg.activate(".")
 using HomotopyContinuation, LinearAlgebra, DifferentialEquations
 
-include("grad_r_p.jl")
+include("src/functions.jl");
 
 
 @var a b x
