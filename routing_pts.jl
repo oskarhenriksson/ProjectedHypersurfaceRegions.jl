@@ -14,9 +14,7 @@ function routing_points(
     B::Union{Matrix{Float64},Nothing}=nothing,
     e::Union{Real,Nothing}=nothing)
 
-
     k = length(projection_variables)
-
 
     if isnothing(c)
         c = 10 .* randn(k)
@@ -26,22 +24,28 @@ function routing_points(
         B = qr(rand(k, k)).Q |> Matrix
     end
 
-
-    #Getting PWS and degree(PWS)
+    # Fix the ordering of the variables of the system
     all_vars = variables(F)
     x_vars = setdiff(all_vars, projection_variables)
     F_ordered = System(F.expressions, variables=[projection_variables; x_vars])
+
+    # Generate a pseudo witness set
     u = rand(ComplexF64, k)
     v = rand(ComplexF64, k)
     PWS = PseudoWitnessSet(F_ordered, create_line(u, v, nvariables(F_ordered)))
     d = degree(PWS)
 
+    # Compute the minimal exponent for the denominator
+    minimal_e = floor(d / 2) + 1
     if isnothing(e)
-        e = floor(d / 2) + 1
+        e = minimal_e
+    else
+        if e < minimal_e
+            throw(ArgumentError("The given exponent e of the denominator is too low. It must be at least $minimal_e, but got $e."))
+        end
     end
 
-
-    #Setting up variables
+    # Setting up variables
     m = length(x_vars)
     @var p[1:k] s[1:k, 1:d] u[1:k, 1:d, 1:m]
 
@@ -53,7 +57,7 @@ function routing_points(
     ∇q = differentiate(q, p)
 
     # Intersection points should be on the hypersurface   
-    evaluated_F = []
+    evaluated_F = Expression[]
     for i = 1:k
         for j = 1:d
             append!(evaluated_F, F_ordered([p + s[i, j] .* Bv[:, i]; u[i, j, :]]))
@@ -65,42 +69,41 @@ function routing_points(
         sum(1 / (-s[i, j]) for j = 1:d) - e * transpose(∇q) * Bv[:, i] / q
     end
 
-    #parameters for monodromy solve
+    # Additional parameters for monodromy solve (to make the incidence variety irreducible)
     @var V[1:length(evaluated_F)], W[1:length(gradient_equations)]
     vw0 = zeros(length(V) + length(W))
 
-    #System for monodromy solve
+    # System for monodromy solve
     S = System(
         vcat(evaluated_F - V, gradient_equations - W),
         variables=vcat(s[:], u[:], p),
         parameters=vcat(Bv[:], V[:], W[:]),
     )
 
-
-    #Defining the symmetric group S_d
+    # Defining the symmetric group S_d
     G = SymmetricGroup(d)
 
-    #Labeling of the points, s, intersecting the hypersurface and
-    #the solutions, u, of the upstairs system is arbitrary in the d component.
+    # Labeling of the points, s, intersecting the hypersurface and
+    # the solutions, u, of the upstairs system is arbitrary in the d component.
     function relabeling(v::Vector{ComplexF64}, i::Int)
 
         s_part = reshape(v[1:k*d], k, d)
         u_part = reshape(v[k*d+1:k*d+k*d*m], k, d, m)
+        p_part = v[k*d+k*d*m+1:k*d+k*d*m+k]
 
-        return map(G) do p
+        return map(G) do σ
             s_part_permuted = copy(s_part)
             u_part_permuted = copy(u_part)
-            s_part_permuted[i, :] = s_part[i, p]
-            u_part_permuted[i, :, :] = u_part[i, p, :]
-            vcat(s_part_permuted[:], u_part_permuted[:], p)
+            s_part_permuted[i, :] = s_part[i, σ]
+            u_part_permuted[i, :, :] = u_part[i, σ, :]
+            vcat(s_part_permuted[:], u_part_permuted[:], p_part)
         end
 
     end
 
-
     result = monodromy_solve(S, group_actions=[v -> relabeling(v, i) for i in 1:k])
 
-    # Specialize to our target parameters 
+    # Specialize to our target values of B, and set the additional parameters V and W to zero
     solns = HC.solve(
         S,
         solutions(result),
@@ -113,5 +116,3 @@ function routing_points(
 
     return unique_points(real_p_values)
 end
-
-
