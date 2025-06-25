@@ -1,9 +1,7 @@
 using Pkg
 Pkg.activate(".")
-using HomotopyContinuation, LinearAlgebra, Plots, DifferentialEquations
 
-const HC = HomotopyContinuation
-const DE = DifferentialEquations
+using Plots, DifferentialEquations
 
 include("functions.jl")
 
@@ -18,8 +16,10 @@ c = 10 .* randn(2)
 e = 2
 
 ###### Critical points 
-old_pts = include("discr_pw.jl")|> unique_points
 pts = routing_points(F, [a; b]; c=c, B=B, e=e)
+
+# old_pts = include("discr_pw.jl")|> unique_points
+# map(norm, sort(pts)-sort(old_pts))
 
 
 ###### ODE Solver
@@ -32,11 +32,12 @@ tspan = (0.0, 1e4)
 prob = ODEProblem(f, u0, tspan)
 sol = DE.solve(prob, reltol=1e-6, abstol=1e-6)
 
+
+
 ##### Plotting 
 M = maximum(abs, vcat(pts...))
 M_x = maximum(p->abs(p[1]), pts)
 M_y = maximum(p->abs(p[2]), pts)
-
 
 R(x, y) = log(abs((x^2 - 4 * y) / evaluate(q, p => [x; y])))
 contour(
@@ -61,11 +62,21 @@ plot!(
 )
 
 scatter!(Tuple.(pts), markercolor=:green, markersize=8, label="critical points")
-
-plot!(Tuple.(sol.u), linecolor=:steelblue, linewidth=4, label="gradient flow")
-
+#plot!(Tuple.(sol.u), linecolor=:steelblue, linewidth=4, label="gradient flow")
 scatter!([Tuple(u0)], markercolor=:blue, markersize=8, label="gradient flow start")
 
-plot!(; legend=true)
+plot!(; legend=false)
+
+
+#### Do gradient flow at all critical points
+for (i,u0) in enumerate(pts)
+    println(i)
+    tspan = (0.0, 1e4)
+    prob = ODEProblem(f, u0, tspan)
+    sol = DE.solve(prob, reltol=1e-6, abstol=1e-6)
+    plot!(Tuple.(sol.u), linecolor=:steelblue, linewidth=4, label="gradient flow")
+end
+
+plot!(; legend=false)
 
 #savefig("presentation.png")
