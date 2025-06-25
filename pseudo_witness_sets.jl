@@ -15,17 +15,17 @@ degree(PWS::PseudoWitnessSet) = length(PWS.W)
 Generates a pseudo witness set for the system `F` under the assumption that the first `k` variables are the downstairs variables.
 
 """
-function PseudoWitnessSet(F::System, k::Int, codim; L::Union{LinearSubspace, Nothing} = nothing) 
+function PseudoWitnessSet(F::System, k::Int, codimension; L::Union{LinearSubspace, Nothing} = nothing) 
     n = nvariables(F)
     if isnothing(L)
-        A = hcat(rand(codim, k), zeros(codim, n-k))
-        b = rand(codim)
+        A = hcat(rand(codimension, k), zeros(codimension, n-k))
+        b = rand(codimension)
         L = LinearSubspace(A, b)
     else
-        @assert codim(L) == codim "The codimension of the given linear subspace L must match the codimension of the pseudo witness set."
+        @assert codim(L) == codimension "The codimension of the given linear subspace L must match the codimension of the pseudo witness set."
         @assert ambient_dim(L) == n "The ambient dimension of the linear subspace L must match the number of variables in the system F."
     end
-    startL = rand_subspace(n; codim = codim(L))
+    startL = rand_subspace(n; codim = codimension)
     S = solutions(witness_set(F, startL))
     W = HC.solve(F, S, start_subspace = startL, target_subspace = L, intrinsic = true)
     PseudoWitnessSet(F, k, L, W)
