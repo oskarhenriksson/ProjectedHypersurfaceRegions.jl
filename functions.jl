@@ -1,4 +1,4 @@
-using HomotopyContinuation, LinearAlgebra, Plots, DifferentialEquations
+using HomotopyContinuation, LinearAlgebra
 
 const HC = HomotopyContinuation
 const DE = DifferentialEquations

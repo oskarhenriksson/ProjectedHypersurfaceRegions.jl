@@ -1,10 +1,6 @@
-using Pkg
-Pkg.activate(".")
 using HomotopyContinuation, LinearAlgebra
 
 const HC = HomotopyContinuation
-
-include("grad_r_p.jl")
 
 
 function routing_points(
