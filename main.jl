@@ -5,10 +5,7 @@ using HomotopyContinuation, LinearAlgebra, Plots, DifferentialEquations
 const HC = HomotopyContinuation
 const DE = DifferentialEquations
 
-include("pseudo_witness_sets.jl")
-include("grad_r_p.jl")
-
-include("routing_pts.jl")
+include("functions.jl")
 
 
 # System for the incidence variety of the discriminant
@@ -21,7 +18,7 @@ c = 10 .* randn(2)
 e = 2
 
 ###### Critical points 
-#old_pts = include("discr_pw.jl")|> unique_points
+old_pts = include("discr_pw.jl")|> unique_points
 pts = routing_points(F, [a; b]; c=c, B=B, e=e)
 
 
@@ -37,10 +34,14 @@ sol = DE.solve(prob, reltol=1e-6, abstol=1e-6)
 
 ##### Plotting 
 M = maximum(abs, vcat(pts...))
+M_x = maximum(p->abs(p[1]), pts)
+M_y = maximum(p->abs(p[2]), pts)
+
+
 R(x, y) = log(abs((x^2 - 4 * y) / evaluate(q, p => [x; y])))
 contour(
-    (-M):0.1:M,
-    (-M):0.1:M,
+   (-M_x):0.1:M_x,
+   (-M_y):0.1:M_y,
     R,
     levels=50,
     color=:plasma,
@@ -49,11 +50,11 @@ contour(
     lw=1,
     fill=true,
 )
-A = [[b; b^2 / 4] for b = (-M):M]
+A = [[b; b^2 / 4] for b = (-M_x):M_x]
 plot!(
     Tuple.(A),
-    xlims=(-M, M),
-    ylims=(-M, M),
+    xlims=(-M_x, M_x),
+    ylims=(-M_y, M_y),
     linecolor=:black,
     linewidth=8,
     label="discriminant",
@@ -65,6 +66,6 @@ plot!(Tuple.(sol.u), linecolor=:steelblue, linewidth=4, label="gradient flow")
 
 scatter!([Tuple(u0)], markercolor=:blue, markersize=8, label="gradient flow start")
 
-plot!(; legend=false)
+plot!(; legend=true)
 
 #savefig("presentation.png")
