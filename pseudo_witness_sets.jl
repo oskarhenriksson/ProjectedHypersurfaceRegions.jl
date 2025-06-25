@@ -1,41 +1,62 @@
 struct PseudoWitnessSet
     F::System
+    k::Int
     L::LinearSubspace
     W::Result
 end
 degree(PWS::PseudoWitnessSet) = length(PWS.W)
 
-function PseudoWitnessSet(F::System, L::LinearSubspace) 
-    n = ambient_dim(L)
+
+
+"""
+    PseudoWitnessSet(F::System, k::Int; L::Union{LinearSubspace, Nothing} = nothing)
+
+Generates a pseudo witness set for the system `F` under the assumption that the first `k` variables are the downstairs variables.
+
+"""
+function PseudoWitnessSet(F::System, k::Int, codim; L::Union{LinearSubspace, Nothing} = nothing) 
+    n = nvariables(F)
+    if isnothing(L)
+        A = hcat(rand(codim, k), zeros(codim, n-k))
+        b = rand(codim)
+        L = LinearSubspace(A, b)
+    else
+        @assert codim(L) == codim "The codimension of the given linear subspace L must match the codimension of the pseudo witness set."
+        @assert ambient_dim(L) == n "The ambient dimension of the linear subspace L must match the number of variables in the system F."
+    end
     startL = rand_subspace(n; codim = codim(L))
     S = solutions(witness_set(F, startL))
     W = HC.solve(F, S, start_subspace = startL, target_subspace = L, intrinsic = true)
-    PseudoWitnessSet(F, L, W)
+    PseudoWitnessSet(F, k, L, W)
 end
 
 
-function create_line(u::AbstractVector{<:Number}, v::AbstractVector{<:Number}, n::Int64)
-    k = length(u)
-    #πA = u' - (dot(u, v)/dot(v, v)) * v'
-    πA = nullspace(v')'
-    A = hcat(πA,zeros(k-1,n-k))
-    b = πA * u
+"""
+    lifted_line(point::AbstractVector{<:Number}, direction::AbstractVector{<:Number}, n::Int64)
 
+Lifts the line point+t*direction in R^k to a LinearSubspace in R^k × R^(n-k)
+"""
+function lifted_line(point::AbstractVector{<:Number}, direction::AbstractVector{<:Number}, n::Int64)
+    k = length(point)
+    πA = nullspace(direction')'
+    A = hcat(πA,zeros(k-1,n-k))
+    b = πA * point
     LinearSubspace(A, b)
 end
 
+
 function track_pws_to_lines(
-    p::AbstractVector{<:Real},
-    B::AbstractArray{Float64},
+    point::AbstractVector{<:Real},
+    directions::AbstractArray{Float64},
     PWS::PseudoWitnessSet,
 )
     L = PWS.L
-    Ks = map(bj -> create_line(p, bj, ambient_dim(L)), eachcol(B))
+    new_directions = map(bj -> lifted_line(point, bj, ambient_dim(L)), eachcol(directions))
     HC.solve(
         PWS.F,
         PWS.W,
         start_subspace = L,
-        target_subspaces = Ks,
+        target_subspaces = new_directions,
         intrinsic = true,
         transform_result = (r, p) -> solutions(r),
     )

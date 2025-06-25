@@ -17,9 +17,7 @@ function ∇log_r(
     x_vars = setdiff(all_vars, projection_vars)
     F_ordered = System(F.expressions, variables = [projection_vars; x_vars])
     k = length(projection_vars)
-    u = rand(ComplexF64, k)
-    v = rand(ComplexF64, k)
-    PWS = PseudoWitnessSet(F_ordered, create_line(u, v, size(F_ordered, 2)))
+    PWS = PseudoWitnessSet(F_ordered, k, k-1)
 
     ∇log_r(PWS, k; kwargs...)
 end
@@ -152,9 +150,7 @@ function hess_log_r(
     all_vars = variables(F)
     x_vars = setdiff(all_vars, projection_vars)
     F_ordered = System(F.expressions, variables = [projection_vars; x_vars])
-    u = rand(ComplexF64, k)
-    v = rand(ComplexF64, k)
-    PWS = PseudoWitnessSet(F_ordered, create_line(u, v, size(F_ordered, 2)))  
+    PWS = PseudoWitnessSet(F_ordered, k, k-1)  
 
     if method == :off_diag
         hess = hess_log_r(PWS, e, k; c, B)
