@@ -5,6 +5,7 @@ using HomotopyContinuation, LinearAlgebra, Plots, DifferentialEquations
 const HC = HomotopyContinuation
 const DE = DifferentialEquations
 
+include("pseudo_witness_sets.jl")
 include("grad_r_p.jl")
 
 include("routing_pts.jl")
@@ -20,9 +21,8 @@ c = 10 .* randn(2)
 e = 2
 
 ###### Critical points 
-#pts = include("discr_pw.jl")|> unique_points
-
-pts = routing_points(F, [a; b]; c=c, B=B,e)
+#old_pts = include("discr_pw.jl")|> unique_points
+pts = routing_points(F, [a; b]; c=c, B=B, e=e)
 
 
 ###### ODE Solver

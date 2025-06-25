@@ -1,3 +1,5 @@
+using HomotopyContinuation, LinearAlgebra
+
 struct PseudoWitnessSet
     F::System
     k::Int
@@ -5,7 +7,6 @@ struct PseudoWitnessSet
     W::Result
 end
 degree(PWS::PseudoWitnessSet) = length(PWS.W)
-
 
 
 """
