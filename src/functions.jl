@@ -1,4 +1,4 @@
-using HomotopyContinuation, LinearAlgebra
+using HomotopyContinuation, LinearAlgebra, DifferentialEquations
 
 const HC = HomotopyContinuation
 const DE = DifferentialEquations
