@@ -9,38 +9,51 @@ end
 degree(PWS::PseudoWitnessSet) = length(PWS.W)
 
 
-"""
-    PseudoWitnessSet(F::System, k::Int; L::Union{LinearSubspace, Nothing} = nothing)
+@doc raw"""
+    PseudoWitnessSet(F::System, k::Int; linear_subspace_codim::Int, L::LinearSubspace)
 
-Generates a pseudo witness set for the system `F` under the assumption that the first `k` variables are the downstairs variables.
+Generates a pseudo witness set for the image of the variety $V(F)\subseteq\mathbb{C}^n$
+for a system $F\in\mathbb{C}[x_1,\ldots,x_n]^r$ under the projection $\pi\colon\mathbb{C}^k\times\mathbb{C}^{n-k}\to\mathbb{C}^k$.
+     
+
+Optional inputs:
+
+- `linear_subspace_codim`: The codimension of the linear space used for the witness set. Defaults to `n - length(F)`.
+- `L`: The linear space used for the witness set. Should be the preimage under $\pi$ of a linear subspace in $\mathbb{C}^k$
 
 """
-function PseudoWitnessSet(F::System, k::Int, codimension; L::Union{LinearSubspace, Nothing} = nothing) 
+function PseudoWitnessSet(F::System, k::Int;
+    linear_subspace_codim::Union{Int,Nothing} = nothing,
+    L::Union{LinearSubspace,Nothing} = nothing
+)
     n = nvariables(F)
+    if isnothing(linear_subspace_codim)
+        linear_subspace_codim = n - length(F)
+    end
     if isnothing(L)
-        A = hcat(rand(ComplexF64, codimension, k), zeros(codimension, n-k))
-        b = rand(ComplexF64, codimension)
+        A = hcat(rand(ComplexF64, linear_subspace_codim, k), zeros(linear_subspace_codim, n - k))
+        b = rand(ComplexF64, linear_subspace_codim)
         L = LinearSubspace(A, b)
     else
-        @assert codim(L) == codimension "The codimension of the given linear subspace L must match the codimension of the pseudo witness set."
+        @assert codim(L) == linear_subspace_codim "The codimension of the given linear subspace L must match linear_subspace_codim."
         @assert ambient_dim(L) == n "The ambient dimension of the linear subspace L must match the number of variables in the system F."
     end
-    startL = rand_subspace(n; codim = codimension)
+    startL = rand_subspace(n; codim=linear_subspace_codim)
     S = solutions(witness_set(F, startL))
-    W = HC.solve(F, S, start_subspace = startL, target_subspace = L, intrinsic = true)
+    W = HC.solve(F, S, start_subspace=startL, target_subspace=L, intrinsic=true)
     PseudoWitnessSet(F, k, L, W)
 end
 
 
-"""
+@doc raw"""
     lifted_line(point::AbstractVector{<:Number}, direction::AbstractVector{<:Number}, n::Int64)
 
-Lifts the line point+t*direction in R^k to a LinearSubspace in R^k × R^(n-k)
+Lifts the line `point+t*direction` in $\mathbb{C}^k$ to a LinearSubspace in $\mathbb{C}^k\timess \mathbb{C}^{n-k}$.
 """
 function lifted_line(point::AbstractVector{<:Number}, direction::AbstractVector{<:Number}, n::Int64)
     k = length(point)
     πA = nullspace(direction')'
-    A = hcat(πA,zeros(k-1,n-k))
+    A = hcat(πA, zeros(k - 1, n - k))
     b = πA * point
     LinearSubspace(A, b)
 end
@@ -56,9 +69,9 @@ function track_pws_to_lines(
     HC.solve(
         PWS.F,
         PWS.W,
-        start_subspace = L,
-        target_subspaces = new_lines,
-        intrinsic = true,
-        transform_result = (r, p) -> solutions(r),
+        start_subspace=L,
+        target_subspaces=new_lines,
+        intrinsic=true,
+        transform_result=(r, p) -> solutions(r),
     )
 end

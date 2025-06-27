@@ -52,7 +52,7 @@ all_vars = variables(F)
 projection_vars = [k;c]
 x_vars = setdiff(all_vars, projection_vars)
 F_ordered = System(F.expressions, variables = [projection_vars; x_vars])
-PWS = PseudoWitnessSet(F_ordered, myk, myk-1) # issue! Our linear space intersects at something larger than points.
+PWS = PseudoWitnessSet(F_ordered, myk; linear_space_codim = myk-1) # issue! Our linear space intersects at something larger than points.
 
 # u + tv this in R^(36). Lift it to R^(55). So codimension of (u+tv) was 35, and the pullback to R^(55) still has codimension 35. So it has dimension 20.
 L = create_line(u, v, size(F_ordered, 2))

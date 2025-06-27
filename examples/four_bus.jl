@@ -26,7 +26,7 @@ x_vars = [Vd[2:4]; Vq[2:4]]
 projection_vars = setdiff(all_vars, x_vars)
 F_ordered = System(F.expressions, variables = [projection_vars; x_vars])
 k = length(projection_vars)
-PWS = PseudoWitnessSet(F_ordered, k, k-1)
+PWS = PseudoWitnessSet(F_ordered, k; linear_space_codim = k-1)
 
 d = degree(PWS)
 e = 266 # e should be even and at least  floor(degree(PWS)/2) + 1, in this case its 526

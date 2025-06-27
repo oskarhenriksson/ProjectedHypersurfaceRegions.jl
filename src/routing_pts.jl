@@ -26,7 +26,7 @@ function routing_points(
     F_ordered = System(F.expressions, variables=[projection_variables; x_vars])
 
     # Generate a pseudo witness set
-    PWS = PseudoWitnessSet(F_ordered, k, k-1)
+    PWS = PseudoWitnessSet(F_ordered, k; linear_subspace_codim = k-1)
     d = degree(PWS)
 
     # Compute the minimal exponent for the denominator

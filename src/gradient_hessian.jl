@@ -11,7 +11,7 @@ function ∇log_r(
     x_vars = setdiff(all_vars, projection_vars)
     F_ordered = System(F.expressions, variables = [projection_vars; x_vars])
     k = length(projection_vars)
-    PWS = PseudoWitnessSet(F_ordered, k, k-1)
+    PWS = PseudoWitnessSet(F_ordered, k, linear_subspace_codim = k-1)
 
     ∇log_r(PWS, k; kwargs...)
 end
@@ -144,7 +144,7 @@ function hess_log_r(
     all_vars = variables(F)
     x_vars = setdiff(all_vars, projection_vars)
     F_ordered = System(F.expressions, variables = [projection_vars; x_vars])
-    PWS = PseudoWitnessSet(F_ordered, k, k-1)  
+    PWS = PseudoWitnessSet(F_ordered, k; linear_subspace_codim = k-1)  
 
     if method == :off_diag
         hess = hess_log_r(PWS, e, k; c, B)
