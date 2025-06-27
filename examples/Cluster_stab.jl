@@ -18,12 +18,12 @@ dJ = det(Jac)
 F = System([Clus_Eq; dJ], variables = [κ; T; x])
 projection_vars = [κ; T]  # These are the variables we are projecting to.
 
-
-
 k = 8
 B = qr(rand(k, k)).Q |> Matrix
 c = 10 .* randn(k)
-e = 6 # e should be even and larger than floor(degree(PWS)/2) + 1. 
+
+PWS = PseudoWitnessSet(F, k; linear_subspace_codim = k-1)
+e = Int(floor(degree(PWS)/2)) + 1
 
 F_ordered = System(F.expressions, variables = [projection_vars; x])
 
