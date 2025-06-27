@@ -15,8 +15,13 @@ B = qr(rand(2, 2)).Q |> Matrix
 c = 10 .* randn(2)
 e = 2
 
+# Denominator
+@var p[1:2]
+q = 1 + sum((p-c) .* (p-c))
+
+
 ###### Critical points 
-pts = routing_points(F, [a; b]; c=c, B=B, e=e)
+pts = routing_points(F, [a; b]; c=c, e=e)
 
 # old_pts = include("old/discr_pw.jl")|> unique_points
 # map(norm, sort(pts)-sort(old_pts))
@@ -62,8 +67,8 @@ plot!(
 )
 
 scatter!(Tuple.(pts), markercolor=:green, markersize=8, label="critical points")
-#plot!(Tuple.(sol.u), linecolor=:steelblue, linewidth=4, label="gradient flow")
-scatter!([Tuple(u0)], markercolor=:blue, markersize=8, label="gradient flow start")
+plot!(Tuple.(sol.u), linecolor=:steelblue, linewidth=4, label="gradient flow")
+#scatter!([Tuple(u0)], markercolor=:blue, markersize=8, label="gradient flow start")
 
 plot!(; legend=false)
 
