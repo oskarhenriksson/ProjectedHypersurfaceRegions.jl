@@ -35,7 +35,6 @@ function PseudoWitnessSet(F::System, k::Int;
         b = rand(ComplexF64, linear_subspace_codim)
         L = LinearSubspace(A, b)
     else
-        @assert codim(L) == linear_subspace_codim "The codimension of the given linear subspace L must match linear_subspace_codim."
         @assert ambient_dim(L) == n "The ambient dimension of the linear subspace L must match the number of variables in the system F."
     end
     startL = rand_subspace(n; codim=linear_subspace_codim)
