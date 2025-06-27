@@ -191,6 +191,10 @@ function hess_log_r(
     f
 end
 
+
+#Jon mentioned reparametrizing our line from p + t b to tp - b so that our sum goes from -∑1/s_i to (do i add a negative here?)∑s_i.
+#That is, I replace l = p + tb ---> t^{-1} l = t^{-1} p + b  ---> l' = t*p+b. This is now
+#implemented and seems to perform more accurately than the original parametrization.
 function _many_slices(
     F::System,
     PWS::PseudoWitnessSet,
@@ -202,7 +206,7 @@ function _many_slices(
     n = length(variables(F))
     k = length(projection_vars)
     @var u[1:n-k], t, p[1:k], b[1:k]
-    JsuF = differentiate(F([p+t*b; u]), vcat(t,u[:]))
+    JsuF = differentiate(F([p+(1/t)*b; u]), vcat(t,u[:]))
     JpF = differentiate(F([p+t*b; u]), p)
     q = 1 + sum((p-c) .* (p-c))
     Hlogqe(pt) = evaluate(differentiate(differentiate(log(q^e),p),p), p => pt) # Can expand to make faster?
@@ -218,7 +222,7 @@ function _many_slices(
             for i in 1:num_intersections
                 upoint = line_hypersurface_intersections[bcol][i] # world coordinates of the intersection point prior to projection
                 j = argmax(abs.(B[:,bcol]))
-                S[i] = (upoint[j]-P[j])/ B[j,bcol] # The value of t that corresponds to the intersection point
+                S[i] = B[j,bcol]/(upoint[j]-P[j]) # The value of t that corresponds to the intersection point 
                 subs_dict = Dict(
                     [p[j] => P[j] for j in eachindex(p)]...,
                     [b[j] => B[j, bcol] for j in eachindex(b)]...,
@@ -232,7 +236,13 @@ function _many_slices(
                 ∇pS[:,i] = sols[1,:] 
             end 
             # Now, we compute the sum H(log(h(p))) * b = ∑_j^d 1/s_j^{-2} (∇p s_j)
-            Hlogh = ∇pS*(S.^(-2))
+            # h|L(t) = k(t-s_1)(t-s_2)
+            # ∇h/h*b = -1/s_1 - 1/s_2
+            # but, our S[1] = 1/s_1 
+            # = -S[1] - S[2]
+            # So if you take the derivative of this
+            # = -∇S[1] - ∇S[2]
+            Hlogh = -1*sum(eachcol(∇pS))
 
             H[:, bcol] = Hlogh - Hlogqe(P)*B[:,bcol]
         end
@@ -240,8 +250,7 @@ function _many_slices(
     end
     f
 # TODO: I am overcomputing here since the Hessian is symmetric. Also, to get each ∇s_p I think I'm solving a larger system than needed. Perhaps there is a way to only compute the upper triangular part?
-# TODO: Jon mentioned reparametrizing our line from p + t b to tp - b so that our sum goes from -∑1/s_i to (do i add a negative here?)∑s_i.
-#That is, I replace l = p + tb ---> t^{-1} l = t p + b
+
 end
 
 function _single_slice(
