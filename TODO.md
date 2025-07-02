@@ -1,11 +1,11 @@
 # Computation of the critical points
-- [ ] Debug the code in `routing_pts.jl`.
-- The method in `routing_pts.jl` involves introducing auxilary variables in such a way that each critical point gives rise to a whole orbit under a faithful action of $(S_d)^k$, which has very large cardinality, even for moderately sized problems. 
-- [ ] To avoid the auxilary varibles, we could turn the gradient into an `AbstractSystem` (see the HC [documentation](https://www.juliahomotopycontinuation.org/HomotopyContinuation.jl/stable/systems/#Interface)), and apply `monodromy_solve` to find the critical points. 
-- [ ] Another idea is to mod out by the group action ahead of time, by computing the ring of invariants.
+- The method in `routing_pts.jl` involves introducing auxilary variables in such a way that each critical point gives rise to a whole orbit under a faithful action of $(S_d)^k$, which has very large cardinality, even for moderately sized problems. There are a couple of approaches we can use to deal with this:
+- [ ] Use the built-in functionality in HC for doing monodromy modulo a group action. We have implemented a function `relabeling` for computing the orbits. However, the current system that we use for monodromy have extra parameters `V` and `W` (for ensuring that the incidence variety is irreducible), and for random values of these parameters, we lose the symmetry. We need a more clever way to obtain an irreducible incidence variety without breaking the symmetry!
+- [ ] Mod out by the group action ahead of time, by computing the ring of invariants.
+- [ ] Avoid the auxilary varibles altogether, by turning the gradient into an `AbstractSystem` (see the HC [documentation](https://www.juliahomotopycontinuation.org/HomotopyContinuation.jl/stable/systems/#Interface)), and apply `monodromy_solve` to find the critical points. 
 
 # Find connected components given critical points
-- [ ] Get critical points, and identify which have index 1
+- [ ] Get critical points, and identify which have index 1.
 - [ ] Implement gradient flow. One option is to use the `DifferentialEquations` package; see `main.jl` for an exanple of this.
 
 # Computation of the Hessian
