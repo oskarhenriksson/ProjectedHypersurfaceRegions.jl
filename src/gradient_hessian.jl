@@ -207,7 +207,7 @@ function _many_slices(
     k = length(projection_vars)
     @var u[1:n-k], t, p[1:k], b[1:k]
     JsuF = differentiate(F([p+(1/t)*b; u]), vcat(t,u[:]))
-    JpF = differentiate(F([p+t*b; u]), p)
+    JpF = differentiate(F([p+(1/t)*b; u]), p)
     q = 1 + sum((p-c) .* (p-c))
     Hlogqe(pt) = evaluate(differentiate(differentiate(log(q^e),p),p), p => pt) # Can expand to make faster?
     
