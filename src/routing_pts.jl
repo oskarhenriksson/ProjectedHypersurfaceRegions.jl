@@ -30,7 +30,7 @@ function routing_points(
     d = degree(PWS)
 
     # Compute the minimal exponent for the denominator
-    minimal_e = floor(d / 2) + 1
+    minimal_e = Int(floor(d / 2)) + 1
     if isnothing(e)
         e = minimal_e
     else
