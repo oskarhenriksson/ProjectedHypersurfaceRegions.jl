@@ -50,9 +50,9 @@ function routing_points(
     ∇q = differentiate(q, p)
 
     if method == :monodromy
-        solns = _routing_monodromy(F_ordered, k, q, ∇q, B, e)
+        solns = _routing_monodromy(F_ordered, k, d, q, ∇q, B, e)
     elseif method == :polynomial
-        solns = _routing_polynomial(F_ordered, k, q, ∇q, B, e)
+        solns = _routing_polynomial(F_ordered, k, d, q, ∇q, B, e)
     end
 
     p_values = map(sol -> sol[(end-k+1):end], solutions(solns))
@@ -63,6 +63,7 @@ end
 
 function _routing_monodromy(F_ordered::System,
     k::Int,
+    d::Int,
     q::Expression,
     ∇q::Vector{Expression},
     B::Matrix{Float64},
@@ -141,6 +142,7 @@ end
 
 function _routing_polynomial(F_ordered::System,
     k::Int,
+    d::Int,
     q::Expression,
     ∇q::Vector{Expression},
     B::Matrix{Float64},
