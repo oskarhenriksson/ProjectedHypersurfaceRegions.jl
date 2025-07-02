@@ -8,7 +8,9 @@ function routing_points(
     projection_variables::Vector{Variable};
     c::Union{Vector{Float64},Nothing}=nothing,
     B::Union{Matrix{Float64},Nothing}=nothing,
-    e::Union{Real,Nothing}=nothing)
+    e::Union{Real,Nothing}=nothing,
+    method::Symbol = :polynomial
+)
 
     k = length(projection_variables)
 
@@ -43,70 +45,137 @@ function routing_points(
     m = length(x_vars)
     @var p[1:k] s[1:k, 1:d] u[1:k, 1:d, 1:m]
 
-    # Parameters
-    @var Bv[1:k, 1:k]
-
     # Denominator
     q = 1 + sum((p - c) .* (p - c))
     ∇q = differentiate(q, p)
 
-    # Intersection points should be on the hypersurface   
-    evaluated_F = Expression[]
-    for i = 1:k
-        for j = 1:d
-            append!(evaluated_F, F_ordered([p + s[i, j] .* Bv[:, i]; u[i, j, :]]))
-        end
+    if method == :monodromy
+        solns = _routing_monodromy(F_ordered, k, q, ∇q, B, e)
+    elseif method == :polynomial
+        solns = _routing_polynomial(F_ordered, k, q, ∇q, B, e)
     end
-
-    # Gradient equations
-    gradient_equations = map(1:k) do i
-        sum(1 / (-s[i, j]) for j = 1:d) - e * transpose(∇q) * Bv[:, i] / q
-    end
-
-    # Additional parameters for monodromy solve (to make the incidence variety irreducible)
-    @var V[1:length(evaluated_F)], W[1:length(gradient_equations)]
-    vw0 = zeros(length(V) + length(W))
-
-    # System for monodromy solve
-    S = System(
-        vcat(evaluated_F - V, gradient_equations - W),
-        variables=vcat(s[:], u[:], p),
-        parameters=vcat(Bv[:], V[:], W[:]),
-    )
-
-    # Defining the symmetric group S_d
-    G = SymmetricGroup(d)
-
-    # Labeling of the points, s, intersecting the hypersurface and
-    # the solutions, u, of the upstairs system is arbitrary in the d component.
-    function relabeling(v::Vector{ComplexF64}, i::Int)
-
-        s_part = reshape(v[1:k*d], k, d)
-        u_part = reshape(v[k*d+1:k*d+k*d*m], k, d, m)
-        p_part = v[k*d+k*d*m+1:k*d+k*d*m+k]
-
-        return map(G) do σ
-            s_part_permuted = copy(s_part)
-            u_part_permuted = copy(u_part)
-            s_part_permuted[i, :] = s_part[i, σ]
-            u_part_permuted[i, :, :] = u_part[i, σ, :]
-            vcat(s_part_permuted[:], u_part_permuted[:], p_part)
-        end
-
-    end
-
-    result = monodromy_solve(S, group_actions=[v -> relabeling(v, i) for i in 1:k])
-
-    # Specialize to our target values of B, and set the additional parameters V and W to zero
-    solns = HC.solve(
-        S,
-        solutions(result),
-        start_parameters=parameters(result),
-        target_parameters=[vec(B); vw0],
-    )
 
     p_values = map(sol -> sol[(end-k+1):end], solutions(solns))
     real_p_values = filter(sol -> norm(imag(sol)) < 1e-14, p_values) |> real
 
     return unique_points(real_p_values)
+end
+
+function _routing_monodromy(F_ordered::System,
+    k::Int,
+    q::Expression,
+    ∇q::Vector{Expression},
+    B::Matrix{Float64},
+    e::Real
+)
+
+        m = nvariables(F_ordered) - k
+
+         # Setting up variables
+        @var p[1:k] s[1:k, 1:d] u[1:k, 1:d, 1:m]
+
+        # Parameters
+        @var Bv[1:k, 1:k]
+        
+        # Intersection points should be on the hypersurface   
+        evaluated_F = Expression[]
+        for i = 1:k
+            for j = 1:d
+                append!(evaluated_F, F_ordered([p + s[i, j] .* Bv[:, i]; u[i, j, :]]))
+            end
+        end
+
+        # Gradient equations
+        gradient_equations = map(1:k) do i
+            sum(1 / (-s[i, j]) for j = 1:d) - e * transpose(∇q) * Bv[:, i] / q
+        end
+
+        # Additional parameters for monodromy solve (to make the incidence variety irreducible)
+       
+        @var V[1:length(evaluated_F)], W[1:length(gradient_equations)]
+        vw0 = zeros(length(V) + length(W))
+
+        # System for monodromy solve
+        S = System(
+            vcat(evaluated_F - V, gradient_equations - W),
+            variables=vcat(s[:], u[:], p),
+            parameters=vcat(Bv[:], V[:], W[:]),
+        )
+
+        # NOTE: Adding the V parameters breaks the symmetry, so the group action does not work!
+
+        # # Defining the symmetric group S_d
+        # G = SymmetricGroup(d)
+
+        # # Labeling of the points, s, intersecting the hypersurface and
+        # # the solutions, u, of the upstairs system is arbitrary in the d component.
+        # function relabeling(v::Vector{ComplexF64}, i::Int)
+
+        #     s_part = reshape(v[1:k*d], k, d)
+        #     u_part = reshape(v[k*d+1:k*d+k*d*m], k, d, m)
+        #     p_part = v[k*d+k*d*m+1:k*d+k*d*m+k]
+
+        #     return map(G) do σ
+        #         s_part_permuted = copy(s_part)
+        #         u_part_permuted = copy(u_part)
+        #         s_part_permuted[i, :] = s_part[i, σ]
+        #         u_part_permuted[i, :, :] = u_part[i, σ, :]
+        #         vcat(s_part_permuted[:], u_part_permuted[:], p_part)
+        #     end
+        # end
+
+        # result = monodromy_solve(S, group_actions=[v -> relabeling(v, i) for i in 1:k])
+
+        result = monodromy_solve(S)
+
+        # Specialize to our target values of B, and set the additional parameters V and W to zero
+        solns = HC.solve(
+            S,
+            solutions(result),
+            start_parameters=parameters(result),
+            target_parameters=[vec(B); vw0],
+        )
+        
+        return solns
+end
+
+function _routing_polynomial(F_ordered::System,
+    k::Int,
+    q::Expression,
+    ∇q::Vector{Expression},
+    B::Matrix{Float64},
+    e::Real
+)
+        m = nvariables(F_ordered) - k
+
+        # Setting up variables
+        @var p[1:k] s[1:k, 1:d] u[1:k, 1:d, 1:m]
+
+        # Inverse of q 
+        @var g 
+        q_inverse_relation = g * q - 1
+
+        @var ζ[1:k, 1:d]
+        s_inverse_relations = [ζ[i, j] * s[i, j] - 1 for i = 1:k, j = 1:d]
+
+        # Intersection points should be on the hypersurface   
+        evaluated_F = Expression[]
+        for i = 1:k
+            for j = 1:d
+                append!(evaluated_F, F_ordered([p + s[i, j] .* B[:, i]; u[i, j, :]]))
+            end
+        end
+
+        # Gradient equations
+        gradient_equations = map(1:k) do i
+            sum(-ζ[i,j] for j = 1:d) - e * transpose(∇q) * B[:, i] * g
+        end
+
+        # System to solve
+        S = System(
+            vcat(evaluated_F, gradient_equations, s_inverse_relations[:], q_inverse_relation),
+            variables=vcat(s[:], u[:], ζ[:], g, p),
+        )
+
+        return HC.solve(S) 
 end
