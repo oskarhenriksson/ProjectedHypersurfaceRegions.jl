@@ -1,17 +1,37 @@
-∇log_r(F::Vector{Expression}, k::Int; kwargs...) = ∇log_r(System(F), variables(F)[1:k]; kwargs ...)
-∇log_r(F::Vector{Expression}, projection_vars::Vector{Variable}; kwargs...) = ∇log_r(System(F), projection_vars; kwargs ...)
-∇log_r(F::System, k::Int; kwargs...) = ∇log_r(F, variables(F)[1:k]; kwargs ...)
-function ∇log_r(
-    F::System,
-    projection_vars::Vector{Variable};
-    kwargs...
-) 
-    
+mutable struct GradientCache
+    Ks::Vector{LinearSubspace}
+    line_hypersurface_intersections::Vector
+    tracker::EndgameTracker
+end
+
+function GradientCache(k, PWS)
+    n = ambient_dim(PWS)
+    d = degree(PWS)
+
+    Ks = Vector{LinearSubspace}(undef, k)
+    line_hypersurface_intersections = [[zeros(ComplexF64, n) for _ = 1:d] for _ = 1:k]
+
+    Hom = linear_subspace_homotopy(F, PWS.L, PWS.L; intrinsic = true)
+    tracker = EndgameTracker(Hom)
+
+
+    GradientCache(Ks, line_hypersurface_intersections, tracker)
+end
+
+
+
+∇log_r(F::Vector{Expression}, k::Int; kwargs...) =
+    ∇log_r(System(F), variables(F)[1:k]; kwargs...)
+∇log_r(F::Vector{Expression}, projection_vars::Vector{Variable}; kwargs...) =
+    ∇log_r(System(F), projection_vars; kwargs...)
+∇log_r(F::System, k::Int; kwargs...) = ∇log_r(F, variables(F)[1:k]; kwargs...)
+function ∇log_r(F::System, projection_vars::Vector{Variable}; kwargs...)
+
     all_vars = variables(F)
     x_vars = setdiff(all_vars, projection_vars)
     F_ordered = System(F.expressions, variables = [projection_vars; x_vars])
     k = length(projection_vars)
-    PWS = PseudoWitnessSet(F_ordered, k, linear_subspace_codim = k-1)
+    PWS = PseudoWitnessSet(F_ordered, k, linear_subspace_codim = k - 1)
 
     ∇log_r(PWS, k; kwargs...)
 end
@@ -20,32 +40,36 @@ end
 function ∇log_r(
     PWS::PseudoWitnessSet,
     k::Int;
-    e::Union{Real, Nothing} = nothing,
-    c::Union{AbstractVector{<:Real}, Nothing} = nothing,
-    B::Union{Matrix{<:Real}, Nothing} = nothing
+    e::Union{Real,Nothing} = nothing,
+    c::Union{AbstractVector{<:Real},Nothing} = nothing,
+    B::Union{Matrix{<:Real},Nothing} = nothing,
 )
     if isnothing(e)
-        e = floor(degree(PWS)/2) + 1
+        e = floor(degree(PWS) / 2) + 1
     end
     if isnothing(c)
         c = randn(k)
     end
     if isnothing(B)
-        B = Matrix(qr(randn(k,k)).Q)
+        B = Matrix(qr(randn(k, k)).Q)
     end
-    
+
+    GC = GradientCache(k, PWS)
+
     Q(p) = (sum((p - c) .^ 2) + 1, 2 .* (p - c))
 
     function f(p)
         Qp = Q(p)
 
-        line_hypersurface_intersections = track_pws_to_lines(p, B, PWS)
+        line_hypersurface_intersections = track_pws_to_lines!(GC, p, B, PWS)
 
-        out = map(zip(line_hypersurface_intersections, eachcol(B))) do (intersection_points, bj)
+        out = map(
+            zip(GC.line_hypersurface_intersections, eachcol(B)),
+        ) do (intersection_points, bj)
             ∂log_r(intersection_points, Qp, e, p, bj)
         end
 
-        real(B* out)
+        real(B * out)
     end
 
     return f
@@ -63,15 +87,15 @@ function ∂log_h(
     bj::AbstractVector{<:Real},
 )
     k = length(bj)
-    i = findfirst(x->abs(x) > 1e-5, bj)
+    i = findfirst(x -> abs(x) > 1e-5, bj)
     projection_points = map(s -> s[1:k], intersection_points)
-    s = map(y -> (y[i] - p[i])/bj[i], projection_points)
+    s = map(y -> (y[i] - p[i]) / bj[i], projection_points)
 
-    -sum(1/si for si in s)
+    -sum(1 / si for si in s)
 end
 
 function ∂log_qe(qp::Real, ∇qp::AbstractVector{<:Real}, e::Real, bj::AbstractVector{<:Real})
-    -e * (transpose(∇qp) * bj)/qp
+    -e * (transpose(∇qp) * bj) / qp
 end
 
 function ∂log_r(
@@ -94,18 +118,18 @@ function ∂2log_h(
     intersection_points::AbstractVector{<:AbstractVector{<:Number}},
     p::AbstractVector{<:Real},
     bj::AbstractVector{<:Real},
-    )
+)
     k = length(bj)
-    i = findfirst(x->abs(x) > 1e-5, bj)
+    i = findfirst(x -> abs(x) > 1e-5, bj)
     projection_points = map(s -> s[1:k], intersection_points)
-    s = map(y -> (y[i] - p[i])/bj[i], projection_points)
+    s = map(y -> (y[i] - p[i]) / bj[i], projection_points)
 
-    -sum(1/si^2 for si in s) 
+    -sum(1 / si^2 for si in s)
 end
 
 function ∂2log_qe(Qp::Tuple, e::Real, bj::AbstractVector{<:Real})
     (qp, ∇qp) = Qp
-    -e * (transpose(bj)*2*bj*qp-(transpose(∇qp)*bj)^2)/qp^2
+    -e * (transpose(bj) * 2 * bj * qp - (transpose(∇qp) * bj)^2) / qp^2
 end
 
 function ∂2log_r(
@@ -119,32 +143,34 @@ function ∂2log_r(
 end
 
 function compute_off_diag(intermediate, bi_val, bj_val)
-    (intermediate - bi_val - bj_val)/2
+    (intermediate - bi_val - bj_val) / 2
 end
 
 # The following allows you to be lazy and not input a System.
-hess_log_r(F::Vector{Expression}, e::Real, projection_vars::Vector{Variable}; kwargs...) = hess_log_r(System(F), e, projection_vars; kwargs...)
-hess_log_r(F::System, e::Real, k::Int; kwargs...) = hess_log_r(F, e, variables(F)[1:k]; kwargs...)
+hess_log_r(F::Vector{Expression}, e::Real, projection_vars::Vector{Variable}; kwargs...) =
+    hess_log_r(System(F), e, projection_vars; kwargs...)
+hess_log_r(F::System, e::Real, k::Int; kwargs...) =
+    hess_log_r(F, e, variables(F)[1:k]; kwargs...)
 # The following function will determine the method of computing the hessian you want and send it off.
 function hess_log_r(
     F::System,
     e::Real,
     projection_vars::Vector{Variable};
     method::Symbol = :off_diag,
-    c::Union{AbstractVector{<:Real}, Nothing} = nothing,
-    B::Union{Matrix{<:Real}, Nothing} = nothing
+    c::Union{AbstractVector{<:Real},Nothing} = nothing,
+    B::Union{Matrix{<:Real},Nothing} = nothing,
 )
     k = length(projection_vars)
     if isnothing(c)
         c = randn(k) # Is there any use in having a random c? probably not.
     end
     if isnothing(B)
-        B = Matrix(qr(randn(k,k)).Q)
+        B = Matrix(qr(randn(k, k)).Q)
     end
     all_vars = variables(F)
     x_vars = setdiff(all_vars, projection_vars)
     F_ordered = System(F.expressions, variables = [projection_vars; x_vars])
-    PWS = PseudoWitnessSet(F_ordered, k; linear_subspace_codim = k-1)  
+    PWS = PseudoWitnessSet(F_ordered, k; linear_subspace_codim = k - 1)
 
     if method == :off_diag
         hess = hess_log_r(PWS, e, k; c, B)
@@ -160,33 +186,35 @@ function hess_log_r(
     PWS::PseudoWitnessSet,
     e::Real,
     k::Int;
-    c::Union{AbstractVector{<:Real}, Nothing} = nothing,
-    B::Union{Matrix{<:Real}, Nothing} = nothing
+    c::Union{AbstractVector{<:Real},Nothing} = nothing,
+    B::Union{Matrix{<:Real},Nothing} = nothing,
 )
 
     if isnothing(c)
         c = randn(k)
     end
     if isnothing(B)
-        B = Matrix(qr(randn(k,k)).Q)
+        B = Matrix(qr(randn(k, k)).Q)
     end
     function f(p)
         Qp = (sum((p - c) .^ 2) + 1, 2 .* (p - c))
 
         line_hypersurface_intersections = track_pws_to_lines(p, B, PWS)
-        diagonals = map(zip(line_hypersurface_intersections, eachcol(B))) do (intersection_points, bj)
-                ∂2log_r(intersection_points, Qp, e, p, bj)
+        diagonals = map(
+            zip(line_hypersurface_intersections, eachcol(B)),
+        ) do (intersection_points, bj)
+            ∂2log_r(intersection_points, Qp, e, p, bj)
         end
         H = diagm(diagonals)
-        for i in 1:k
-            for j in i+1:k
-                intersection_points = track_pws_to_lines(p, B[:,i] - B[:,j], PWS)
-                intermediate = ∂2log_r(intersection_points[1], Qp, e, p, B[:,i] - B[:,j])
-                H[i,j] = -compute_off_diag(intermediate, diagonals[i], diagonals[j])
-                H[j,i] = -compute_off_diag(intermediate, diagonals[i], diagonals[j])
+        for i = 1:k
+            for j = i+1:k
+                intersection_points = track_pws_to_lines(p, B[:, i] - B[:, j], PWS)
+                intermediate = ∂2log_r(intersection_points[1], Qp, e, p, B[:, i] - B[:, j])
+                H[i, j] = -compute_off_diag(intermediate, diagonals[i], diagonals[j])
+                H[j, i] = -compute_off_diag(intermediate, diagonals[i], diagonals[j])
             end
         end
-        real(B*H*B^(-1)) #Return the hessian in the standard basis.
+        real(B * H * B^(-1)) #Return the hessian in the standard basis.
     end
     f
 end
@@ -201,40 +229,40 @@ function _many_slices(
     e::Real,
     projection_vars::Vector{Variable};
     c::AbstractVector{<:Real},
-    B::Matrix{<:Real}
-)   
+    B::Matrix{<:Real},
+)
     n = length(variables(F))
     k = length(projection_vars)
     @var u[1:n-k], t, p[1:k], b[1:k]
-    JsuF = differentiate(F([p+(1/t)*b; u]), vcat(t,u[:]))
-    JpF = differentiate(F([p+(1/t)*b; u]), p)
-    q = 1 + sum((p-c) .* (p-c))
-    Hlogqe(pt) = evaluate(differentiate(differentiate(log(q^e),p),p), p => pt) # Can expand to make faster?
-    
+    JsuF = differentiate(F([p + (1 / t) * b; u]), vcat(t, u[:]))
+    JpF = differentiate(F([p + (1 / t) * b; u]), p)
+    q = 1 + sum((p - c) .* (p - c))
+    Hlogqe(pt) = evaluate(differentiate(differentiate(log(q^e), p), p), p => pt) # Can expand to make faster?
+
     d = degree(PWS) # Could figure out a suitable e from d. Specifically, e >= d/2?
     function f(P)
         line_hypersurface_intersections = track_pws_to_lines(P, B, PWS) # Our u's 
-        H = zeros(ComplexF64,k,k)
-        for bcol in 1:k
+        H = zeros(ComplexF64, k, k)
+        for bcol = 1:k
             num_intersections = length(line_hypersurface_intersections[bcol])
-            S = zeros(ComplexF64,num_intersections)
-            ∇pS = zeros(ComplexF64,k, num_intersections)
-            for i in 1:num_intersections
+            S = zeros(ComplexF64, num_intersections)
+            ∇pS = zeros(ComplexF64, k, num_intersections)
+            for i = 1:num_intersections
                 upoint = line_hypersurface_intersections[bcol][i] # world coordinates of the intersection point prior to projection
-                j = argmax(abs.(B[:,bcol]))
-                S[i] = B[j,bcol]/(upoint[j]-P[j]) # The value of t that corresponds to the intersection point 
+                j = argmax(abs.(B[:, bcol]))
+                S[i] = B[j, bcol] / (upoint[j] - P[j]) # The value of t that corresponds to the intersection point 
                 subs_dict = Dict(
                     [p[j] => P[j] for j in eachindex(p)]...,
                     [b[j] => B[j, bcol] for j in eachindex(b)]...,
                     t => S[i],
-                    [u[j] => upoint[k+j] for j in eachindex(u)]...
+                    [u[j] => upoint[k+j] for j in eachindex(u)]...,
                 )
                 JsuF_eval = evaluate(JsuF, subs_dict)
                 JpF_eval = evaluate(JpF, subs_dict)
 
                 sols = JsuF_eval \ (-JpF_eval) # This is a matrix [∇p s; Jp u]
-                ∇pS[:,i] = sols[1,:] 
-            end 
+                ∇pS[:, i] = sols[1, :]
+            end
             # Now, we compute the sum H(log(h(p))) * b = ∑_j^d 1/s_j^{-2} (∇p s_j)
             # h|L(t) = k(t-s_1)(t-s_2)
             # ∇h/h*b = -1/s_1 - 1/s_2
@@ -242,14 +270,14 @@ function _many_slices(
             # = -S[1] - S[2]
             # So if you take the derivative of this
             # = -∇S[1] - ∇S[2]
-            Hlogh = -1*sum(eachcol(∇pS))
+            Hlogh = -1 * sum(eachcol(∇pS))
 
-            H[:, bcol] = Hlogh - Hlogqe(P)*B[:,bcol]
+            H[:, bcol] = Hlogh - Hlogqe(P) * B[:, bcol]
         end
-        real(H*B^(-1)) # How to not to inverse?
+        real(H * B^(-1)) # How to not to inverse?
     end
     f
-# TODO: I am overcomputing here since the Hessian is symmetric. Also, to get each ∇s_p I think I'm solving a larger system than needed. Perhaps there is a way to only compute the upper triangular part?
+    # TODO: I am overcomputing here since the Hessian is symmetric. Also, to get each ∇s_p I think I'm solving a larger system than needed. Perhaps there is a way to only compute the upper triangular part?
 
 end
 
@@ -258,23 +286,27 @@ function _single_slice(
     PWS::PseudoWitnessSet,
     e::Real,
     projection_vars::Vector{Variable};
-    c::Union{AbstractVector{<:Real}, Nothing} = nothing,
-    B::Union{Matrix{<:Real}, Nothing} = nothing
+    c::Union{AbstractVector{<:Real},Nothing} = nothing,
+    B::Union{Matrix{<:Real},Nothing} = nothing,
 )
-# TODO: This needs to be implemented! For now, redirect to the off_diag method.
-hess_log_r(PWS, e, k; c, B)
+    # TODO: This needs to be implemented! For now, redirect to the off_diag method.
+    hess_log_r(PWS, e, k; c, B)
 end
 
 # If you happen to know the discriminant directly (and are not taking a projection), then this function can be used. 
 # This is useful for testing our other hessian methods.
-function hess_log_r_given_h(h::Expression, e::Real; c::Union{AbstractVector{<:Real}, Nothing} = nothing)
+function hess_log_r_given_h(
+    h::Expression,
+    e::Real;
+    c::Union{AbstractVector{<:Real},Nothing} = nothing,
+)
     if isnothing(c)
         c = randn(length(variables(h)))
     end
     p = variables(h)
-    q = 1 + sum((p-c) .* (p-c))
-    r = log(h/q^e)
-    H = differentiate(differentiate(r,p),p)
+    q = 1 + sum((p - c) .* (p - c))
+    r = log(h / q^e)
+    H = differentiate(differentiate(r, p), p)
     hess(P) = evaluate(H, p => P)
     hess
 end
