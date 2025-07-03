@@ -184,8 +184,8 @@ end
 #If you only have a pseudowitness set, then only one method remains.
 function hess_log_r(
     PWS::PseudoWitnessSet,
-    e::Real,
-    k::Int;
+    k::Int,
+    e::Real;
     c::Union{AbstractVector{<:Real},Nothing} = nothing,
     B::Union{Matrix{<:Real},Nothing} = nothing,
 )

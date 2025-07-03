@@ -34,6 +34,10 @@ p = rand(2)
 @time hess_off_diag(p) # 671 allocations
 @time hess_many_slices(p) # 2.46 k allocations
 
+r = RoutingGradient(F, [a; b]; c = c, B = B)
+@time _evaluate_jacobian(r,p)
+
+
 @time for _ = 1:1000
     p = rand(2)
     hess_off_diag(p)
