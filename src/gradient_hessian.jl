@@ -67,13 +67,17 @@ function ∇log_r(
 
         track_pws_to_lines!(GC, p, B, PWS)
 
-        out = map(
-            zip(GC.line_hypersurface_intersections, eachcol(B)),
-        ) do (intersection_points, bj)
-            ∂log_r(intersection_points, Qp, e, p, bj)
+        # out = map(
+        #     zip(GC.line_hypersurface_intersections, eachcol(B)),
+        # ) do (intersection_points, bj)
+        #     ∂log_r(intersection_points, Qp, e, p, bj)
+        # end
+        iter = zip(GC.line_hypersurface_intersections, eachcol(B))
+        for (i, (intersection_points, bj)) in enumerate(iter)   
+            GC.v[i] = ∂log_r(intersection_points, Qp, e, p, bj)
         end
 
-        real(B * out)
+        real(B * GC.v)
     end
 
     return f
@@ -207,12 +211,18 @@ function hess_log_r(
 
         track_pws_to_lines!(GC, p, B, PWS)
 
-        diagonals = map(
-            zip(GC.line_hypersurface_intersections, eachcol(B)),
-        ) do (intersection_points, bj)
-            ∂2log_r(intersection_points, Qp, e, p, bj)
+        iter = zip(GC.line_hypersurface_intersections, eachcol(B))
+        for (i, (intersection_points, bj)) in enumerate(iter)   
+            GC.v[i] = ∂2log_r(intersection_points, Qp, e, p, bj)
         end
-        H = diagm(diagonals)
+        # diagonals = map(
+        #     zip(GC.line_hypersurface_intersections, eachcol(B)),
+        # ) do (intersection_points, bj)
+        #     ∂2log_r(intersection_points, Qx, e, x, bj)
+        # end
+        for i in 1:k
+            GC.H[i,i] = GC.v[i]
+        end
         for i = 1:k
             for j = i+1:k
                 track_pws_to_lines!(GC, p, B[:, i] - B[:, j], PWS)
@@ -223,11 +233,33 @@ function hess_log_r(
                     p,
                     B[:, i] - B[:, j],
                 )
-                H[i, j] = -compute_off_diag(intermediate, diagonals[i], diagonals[j])
-                H[j, i] = -compute_off_diag(intermediate, diagonals[i], diagonals[j])
+                hij = -compute_off_diag(intermediate, GC.v[i], GC.v[j])
+                GC.H[i, j] = hij
+                GC.H[j, i] = hij
             end
         end
-        real(B * H * B^(-1)) #Return the hessian in the standard basis.
+        real(B * GC.H * B^(-1)) #Return the hessian in the standard basis.
+        # diagonals = map(
+        #     zip(GC.line_hypersurface_intersections, eachcol(B)),
+        # ) do (intersection_points, bj)
+        #     ∂2log_r(intersection_points, Qp, e, p, bj)
+        # end
+        # H = diagm(diagonals)
+        # for i = 1:k
+        #     for j = i+1:k
+        #         track_pws_to_lines!(GC, p, B[:, i] - B[:, j], PWS)
+        #         intermediate = ∂2log_r(
+        #             GC.line_hypersurface_intersections[1],
+        #             Qp,
+        #             e,
+        #             p,
+        #             B[:, i] - B[:, j],
+        #         )
+        #         H[i, j] = -compute_off_diag(intermediate, diagonals[i], diagonals[j])
+        #         H[j, i] = -compute_off_diag(intermediate, diagonals[i], diagonals[j])
+        #     end
+        # end
+        # real(B * H * B^(-1)) #Return the hessian in the standard basis.
     end
     f
 end

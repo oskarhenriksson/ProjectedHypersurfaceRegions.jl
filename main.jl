@@ -21,17 +21,32 @@ q = 1 + sum((p - c) .* (p - c))
 
 
 ###### Critical points 
-pts = routing_points(F, [a; b]; c = c, e = e)
-g = ∇log_r(F, [a; b]; c = c, B = B)
+#pts = routing_points(F, [a; b]; c = c, e = e)
+
 
 #### Test RoutingGradient 
 r = RoutingGradient(F, [a; b]; c = c, B = B)
+g = ∇log_r(F, [a; b]; c = c, B = B)
 u = zeros(Float64, 2)
 p = randn(2)
+
 
 @time g(p) # 387 allocations
 @time evaluate!(u, r, p)
 u
+
+## Hessian test 
+k = 2
+disc = a^2 - 4 * b
+hess_off_diag = hess_log_r(F, e, k; method = :off_diag, c, B)
+actual_hess = hess_log_r_given_h(disc, e; c)
+
+p = rand(2)
+@time actual_hess(p) # 119 allocations
+@time hess_off_diag(p) # 671 allocations
+u, U = randn(Float64, k), randn(Float64, k, k)
+@time evaluate_and_jacobian!(u, U, r, p)
+U
 
 
 

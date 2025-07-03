@@ -10,7 +10,6 @@ struct RoutingGradient <: HC.AbstractSystem
     e::Int
     c::Vector
     B::Matrix
-    H::Function
 end
 function RoutingGradient(F, projection_vars; 
                                 e::Union{Int, Nothing} = nothing, 
@@ -35,8 +34,7 @@ function RoutingGradient(F, projection_vars;
 
     GC = GradientCache(k, PWS)
 
-    H = hess_log_r(PWS, k, e; c, B)
-    RoutingGradient(F_ordered, projection_vars, PWS, GC, e, c, B, H)
+    RoutingGradient(F_ordered, projection_vars, PWS, GC, e, c, B)
 end
 
 
