@@ -30,9 +30,9 @@ actual_hess = hess_log_r_given_h(disc, e; c)
 
 
 p = rand(2)
-actual_hess(p)
-hess_off_diag(p)
-hess_many_slices(p)
+@time actual_hess(p) # 119 allocations
+@time hess_off_diag(p) # 671 allocations
+@time hess_many_slices(p) # 2.46 k allocations
 
 @time for _=1:1000 p = rand(2); hess_off_diag(p) end
 

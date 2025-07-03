@@ -196,20 +196,25 @@ function hess_log_r(
     if isnothing(B)
         B = Matrix(qr(randn(k, k)).Q)
     end
-    function f(p)
-        Qp = (sum((p - c) .^ 2) + 1, 2 .* (p - c))
 
-        line_hypersurface_intersections = track_pws_to_lines(p, B, PWS)
+    GC = GradientCache(k, PWS)
+    Q(p) = (sum((p - c) .^ 2) + 1, 2 .* (p - c))
+
+    function f(p)
+        Qp = Q(p)
+
+        track_pws_to_lines!(GC, p, B, PWS)
+
         diagonals = map(
-            zip(line_hypersurface_intersections, eachcol(B)),
+            zip(GC.line_hypersurface_intersections, eachcol(B)),
         ) do (intersection_points, bj)
             ∂2log_r(intersection_points, Qp, e, p, bj)
         end
         H = diagm(diagonals)
         for i = 1:k
             for j = i+1:k
-                intersection_points = track_pws_to_lines(p, B[:, i] - B[:, j], PWS)
-                intermediate = ∂2log_r(intersection_points[1], Qp, e, p, B[:, i] - B[:, j])
+                track_pws_to_lines!(GC, p, B[:, i] - B[:, j], PWS)
+                intermediate = ∂2log_r(GC.line_hypersurface_intersections[1], Qp, e, p, B[:, i] - B[:, j])
                 H[i, j] = -compute_off_diag(intermediate, diagonals[i], diagonals[j])
                 H[j, i] = -compute_off_diag(intermediate, diagonals[i], diagonals[j])
             end
@@ -240,15 +245,19 @@ function _many_slices(
     Hlogqe(pt) = evaluate(differentiate(differentiate(log(q^e), p), p), p => pt) # Can expand to make faster?
 
     d = degree(PWS) # Could figure out a suitable e from d. Specifically, e >= d/2?
+
+    GC = GradientCache(k, PWS)
+
     function f(P)
-        line_hypersurface_intersections = track_pws_to_lines(P, B, PWS) # Our u's 
+        track_pws_to_lines!(GC, P, B, PWS) # Our u's 
+
         H = zeros(ComplexF64, k, k)
         for bcol = 1:k
-            num_intersections = length(line_hypersurface_intersections[bcol])
+            num_intersections = length(GC.line_hypersurface_intersections[bcol])
             S = zeros(ComplexF64, num_intersections)
             ∇pS = zeros(ComplexF64, k, num_intersections)
             for i = 1:num_intersections
-                upoint = line_hypersurface_intersections[bcol][i] # world coordinates of the intersection point prior to projection
+                upoint = GC.line_hypersurface_intersections[bcol][i] # world coordinates of the intersection point prior to projection
                 j = argmax(abs.(B[:, bcol]))
                 S[i] = B[j, bcol] / (upoint[j] - P[j]) # The value of t that corresponds to the intersection point 
                 subs_dict = Dict(
