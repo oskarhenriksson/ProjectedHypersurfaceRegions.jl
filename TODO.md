@@ -7,6 +7,7 @@
 # Find connected components given critical points
 - [ ] Get critical points, and identify which have index 1.
 - [ ] Implement gradient flow. One option is to use the `DifferentialEquations` package; see `main.jl` for an exanple of this.
+Comment by Paul: This part can for the most part be copy-and-pasted from the code in https://github.com/JuliaAlgebra/HypersurfaceRegions.jl
 
 # Computation of the Hessian
 - [ ] Implement the 'single slice' method (see notes in the overleaf file and email from Jon).

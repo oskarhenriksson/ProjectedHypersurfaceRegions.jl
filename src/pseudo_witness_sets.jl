@@ -68,7 +68,7 @@ end
 
 
 function track_pws_to_lines!(
-    GC::GradientCache,
+    GC,
     point::AbstractVector{<:Real},
     directions::AbstractArray{Float64},
     PWS::PseudoWitnessSet,
