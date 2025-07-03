@@ -22,19 +22,17 @@ q = 1 + sum((p - c) .* (p - c))
 
 ###### Critical points 
 pts = routing_points(F, [a; b]; c = c, e = e)
-
 g = ∇log_r(F, [a; b]; c = c, B = B)
-p = randn(2)
-@time g(p) # 387 allocations
-# old_pts = include("old/discr_pw.jl")|> unique_points
-# map(norm, sort(pts)-sort(old_pts))
 
-#### Test RoutingGradient
+#### Test RoutingGradient 
 r = RoutingGradient(F, [a; b]; c = c, B = B)
-@time _evaluate(r,p)
 u = zeros(Float64, 2)
-evaluate!(u, r, p)
-_evaluate(r, p)
+p = randn(2)
+
+@time g(p) # 387 allocations
+@time evaluate!(u, r, p)
+u
+
 
 
 ###### ODE Solver

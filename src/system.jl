@@ -6,10 +6,10 @@ struct RoutingGradient <: HC.AbstractSystem
     F::HC.System
     projection_vars::Vector{HC.Variable}
     PWS::PseudoWitnessSet
+    GC::GradientCache
     e::Int
     c::Vector
     B::Matrix
-    ∇::Function
     H::Function
 end
 function RoutingGradient(F, projection_vars; 
@@ -33,12 +33,13 @@ function RoutingGradient(F, projection_vars;
         B = Matrix(qr(randn(k, k)).Q)
     end
 
-    ∇ = ∇log_r(PWS, k; e, c, B)
+    GC = GradientCache(k, PWS)
+
     H = hess_log_r(PWS, k, e; c, B)
-    RoutingGradient(F_ordered, projection_vars, PWS, e, c, B, ∇, H)
+    RoutingGradient(F_ordered, projection_vars, PWS, GC, e, c, B, H)
 end
 
-(r::RoutingGradient)(x) = (r.∇)(x)
+
 
 # Base.size(F::AbstractSystem)
 # ModelKit.variables(F::AbstractSystem)::Vector{Variable}
@@ -64,9 +65,24 @@ ModelKit.variables(r::RoutingGradient) = r.projection_vars
 import HomotopyContinuation.evaluate!
 import HomotopyContinuation.evaluate_and_jacobian!
 import HomotopyContinuation.evaluate
-import HomotopyContinuation.evaluate_and_jacobian
 function evaluate!(u, r::RoutingGradient, x, p = nothing)
-    u .= (r.∇)(x)
+    PWS, GC, e, c, B  = r.PWS, r.GC, r.e, r.c, r.B
+    v = GC.v
+
+    Qx = (sum((x - c) .^ 2) + 1, 2 .* (x - c))
+    track_pws_to_lines!(GC, x, B, PWS)
+
+    # out = map( # TODO: Cache this
+    #     zip(GC.line_hypersurface_intersections, eachcol(B)),
+    # ) do (intersection_points, bj)
+    #     ∂log_r(intersection_points, Qx, e, x, bj)
+    # end
+    iter = zip(GC.line_hypersurface_intersections, eachcol(B))
+    for (i, (intersection_points, bj)) in enumerate(iter)   
+        v[i] = ∂log_r(intersection_points, Qx, e, x, bj)
+    end
+
+    u .= real(B * v) # TODO: Cache this
     if !isnothing(p)
         u .= u - p
     end
@@ -79,12 +95,59 @@ function evaluate(r::RoutingGradient, x, p = nothing)
     evaluate!(u, r, x, p)
     u  
 end
+(r::RoutingGradient)(x) = evaluate(r, x)
 function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
-    u .= (r.∇)(x)
-    U .= (r.H)(p)
+
+    PWS, GC, e, c, B  = r.PWS, r.GC, r.e, r.c, r.B
+    v, H = GC.v, GC.H
+
+    Qx = (sum((x - c) .^ 2) + 1, 2 .* (x - c))
+    track_pws_to_lines!(GC, x, B, PWS)
+
+    ## Gradient
+    # out = map( # TODO: Cache this
+    #     zip(GC.line_hypersurface_intersections, eachcol(B)),
+    # ) do (intersection_points, bj)
+    #     ∂log_r(intersection_points, Qx, e, x, bj)
+    # end
+    iter = zip(GC.line_hypersurface_intersections, eachcol(B))
+    for (i, (intersection_points, bj)) in enumerate(iter)   
+        v[i] = ∂log_r(intersection_points, Qx, e, x, bj)
+    end
+
+    u .= real(B * v) # TODO: Cache this
     if !isnothing(p)
         u .= u - p
     end
+
+    ## Hessian
+    for (i, (intersection_points, bj)) in enumerate(iter)   
+        v[i] = ∂2log_r(intersection_points, Qx, e, x, bj)
+    end
+    # diagonals = map(
+    #     zip(GC.line_hypersurface_intersections, eachcol(B)),
+    # ) do (intersection_points, bj)
+    #     ∂2log_r(intersection_points, Qx, e, x, bj)
+    # end
+    for i in 1:k
+        H[i,i] = v[i]
+    end
+    for i = 1:k
+        for j = i+1:k
+            track_pws_to_lines!(GC, x, B[:, i] - B[:, j], PWS)
+            intermediate = ∂2log_r(
+                GC.line_hypersurface_intersections[1],
+                Qx,
+                e,
+                x,
+                B[:, i] - B[:, j],
+            )
+            hij = -compute_off_diag(intermediate, v[i], v[j])
+            H[i, j] = hij
+            H[j, i] = hij
+        end
+    end
+    U .= real(B * H * B^(-1)) #Return the hessian in the standard basis.
 
     nothing
 end
@@ -99,7 +162,7 @@ end
 # TODO: taylor!(u, ::Val{1}, F::AbstractSystem, x, p::TaylorVector{2})
 
 ## for testing
-_evaluate(r::RoutingGradient, p::Vector) = (r.∇)(p)
+_evaluate(r::RoutingGradient, p::Vector) = evaluate(r, p)
 _evaluate_jacobian(r::RoutingGradient, p::Vector) = (r.H)(p)
 
 

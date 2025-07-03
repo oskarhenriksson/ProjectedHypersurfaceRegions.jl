@@ -2,6 +2,8 @@ mutable struct GradientCache
     Ks::Vector{LinearSubspace}
     line_hypersurface_intersections::Vector
     tracker::EndgameTracker
+    v::Vector
+    H::Matrix
 end
 
 function GradientCache(k, PWS)
@@ -14,8 +16,10 @@ function GradientCache(k, PWS)
     Hom = linear_subspace_homotopy(F, PWS.L, PWS.L; intrinsic = true)
     tracker = EndgameTracker(Hom)
 
+    grad = zeros(ComplexF64, k)
+    H = zeros(ComplexF64, k, k)
 
-    GradientCache(Ks, line_hypersurface_intersections, tracker)
+    GradientCache(Ks, line_hypersurface_intersections, tracker, grad, H)
 end
 
 
@@ -74,8 +78,6 @@ function ∇log_r(
 
     return f
 end
-
-
 
 
 
