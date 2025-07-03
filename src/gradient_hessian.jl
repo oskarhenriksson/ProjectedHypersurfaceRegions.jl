@@ -61,7 +61,7 @@ function ∇log_r(
     function f(p)
         Qp = Q(p)
 
-        line_hypersurface_intersections = track_pws_to_lines!(GC, p, B, PWS)
+        track_pws_to_lines!(GC, p, B, PWS)
 
         out = map(
             zip(GC.line_hypersurface_intersections, eachcol(B)),
