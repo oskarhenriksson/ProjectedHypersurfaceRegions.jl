@@ -214,7 +214,13 @@ function hess_log_r(
         for i = 1:k
             for j = i+1:k
                 track_pws_to_lines!(GC, p, B[:, i] - B[:, j], PWS)
-                intermediate = ∂2log_r(GC.line_hypersurface_intersections[1], Qp, e, p, B[:, i] - B[:, j])
+                intermediate = ∂2log_r(
+                    GC.line_hypersurface_intersections[1],
+                    Qp,
+                    e,
+                    p,
+                    B[:, i] - B[:, j],
+                )
                 H[i, j] = -compute_off_diag(intermediate, diagonals[i], diagonals[j])
                 H[j, i] = -compute_off_diag(intermediate, diagonals[i], diagonals[j])
             end

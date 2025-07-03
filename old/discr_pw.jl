@@ -27,7 +27,7 @@ d = 2 # degree
 
 
 # Denominator
-q = 1 + sum((p-c) .* (p-c))
+q = 1 + sum((p - c) .* (p - c))
 ∇q = differentiate(q, p)
 
 # Intersection points should be on the discriminant   
@@ -79,7 +79,7 @@ end
 
 #Gradient equations
 gradient_equations = map(1:n) do i
-    sum(1/(-s[i, j]) for j = 1:d) - e*transpose(∇q)*Bv[:, i]/q
+    sum(1 / (-s[i, j]) for j = 1:d) - e * transpose(∇q) * Bv[:, i] / q
 end
 
 @var V[1:length(evaluated_F)], W[1:length(gradient_equations)]
