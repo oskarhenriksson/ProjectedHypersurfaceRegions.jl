@@ -21,16 +21,39 @@ q = 1 + sum((p - c) .* (p - c))
 
 
 ###### Critical points 
-pts = routing_points(F, [a; b]; c = c, e = e)
+@time pts = routing_points(F, [a; b]; c = c, e = e, method = :monodromy)
 
-# old_pts = include("old/discr_pw.jl")|> unique_points
-# map(norm, sort(pts)-sort(old_pts))
+
+#### Test RoutingGradient 
+r = RoutingGradient(F, [a; b]; c = c, B = B)
+rr = ∇log_r(F, [a; b]; c = c, B = B)
+u = zeros(ComplexF64, 2)
+p = randn(2)
+
+
+@time r(p) # 387 allocations
+@time evaluate!(u, r, p)
+u
+
+## Hessian test 
+k = 2
+disc = a^2 - 4 * b
+hess_off_diag = hess_log_r(F, e, k; method = :off_diag, c, B)
+actual_hess = hess_log_r_given_h(disc, e; c)
+
+p = rand(2)
+@time actual_hess(p) # 119 allocations
+@time hess_off_diag(p) # 671 allocations
+u, U = randn(ComplexF64, k), randn(ComplexF64, k, k)
+@time evaluate_and_jacobian!(u, U, r, p)
+U
+
 
 
 ###### ODE Solver
-g = ∇log_r(F, [a; b]; c = c, B = B)
-f(x, param, t) = g(x)
-@time g(randn(2)) # 387 allocations
+
+f(x, param, t) = real.(evaluate(r, x))
+
 
 
 
@@ -42,11 +65,11 @@ sol = DE.solve(prob, reltol = 1e-6, abstol = 1e-6)
 
 
 ##### Plotting 
-M = maximum(abs, vcat(pts...))
-M_x = maximum(p -> abs(p[1]), pts)
-M_y = maximum(p -> abs(p[2]), pts)
+M = maximum(abs, vcat(pts...)) + 2
+M_x = maximum(p -> abs(p[1]), pts) + 2
+M_y = maximum(p -> abs(p[2]), pts) + 2
 
-R(x, y) = log(abs((x^2 - 4 * y) / evaluate(q, p => [x; y])))
+R(x, y) = log(abs((x^2 - 4 * y) / (1 + (x-c[1])^2 + (y-c[2])^2)^e))
 contour(
     (-M_x):0.1:M_x,
     (-M_y):0.1:M_y,

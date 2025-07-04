@@ -33,6 +33,13 @@ p = rand(2)
 @time actual_hess(p) # 119 allocations
 @time hess_off_diag(p) # 671 allocations
 @time hess_many_slices(p) # 2.46 k allocations
+u, U = randn(Float64, k), randn(Float64, k, k)
+@time evaluate_and_jacobian!(u, U, r, p)
+U
+
+r = RoutingGradient(F, [a; b]; c = c, B = B)
+@time _evaluate_jacobian(r,p)
+
 
 @time for _ = 1:1000
     p = rand(2)
