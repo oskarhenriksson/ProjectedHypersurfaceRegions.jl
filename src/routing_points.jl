@@ -62,7 +62,7 @@ function routing_points(
     p_values = map(sol -> sol[(end-k+1):end], solutions(solns))
     real_p_values = filter(sol -> norm(imag(sol)) < 1e-14, p_values) |> real
 
-    return unique_points(real_p_values)
+    return HomotopyContinuation.unique_points(real_p_values)
 end
 
 function _routing_monodromy(
@@ -133,6 +133,7 @@ function _routing_monodromy(
     # result = monodromy_solve(S, group_actions=[v -> relabeling(v, i) for i in 1:k])
 
     result = monodromy_solve(S)
+    @show result
 
     # Specialize to our target values of B, and set the additional parameters V and W to zero
     solns = HC.solve(

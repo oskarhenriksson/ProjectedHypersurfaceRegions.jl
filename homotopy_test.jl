@@ -58,7 +58,7 @@ MS = HomotopyContinuation.MonodromySolver(
 s0 = randn(ComplexF64, 2)
 p0 = evaluate(r, s0)
 
-### Monodromy
+### Monodromy 
 seed = rand(UInt32)
 mon_result = monodromy_solve(
     MS,
@@ -67,9 +67,50 @@ mon_result = monodromy_solve(
     seed;
 )
 
-### parameters homotopy
+### parameter homotopy
 start_parameters!(egtracker, p0)
 target_parameters!(egtracker, zeros(2))
-result = map(solutions(mon_result)) do s
-    track(egtracker, s, 1.0)
-end
+result = HomotopyContinuation.solve(H, solutions(mon_result))
+pts = real_solutions(result)
+
+
+
+
+##### Plotting 
+g(x, param, t) = real(evaluate(r, x))
+u0 = randn(2)
+tspan = (0.0, 1e4)
+prob = ODEProblem(g, u0, tspan)
+sol = DE.solve(prob, reltol = 1e-6, abstol = 1e-6)
+
+M = maximum(abs, vcat(pts...)) + 2
+M_x = maximum(p -> abs(p[1]), pts) + 2
+M_y = maximum(p -> abs(p[2]), pts) + 2
+
+R(x, y) = log(abs((x^2 - 4 * y) / (1 + (x-c[1])^2 + (y-c[2])^2)^e))
+contour(
+    (-M_x):0.1:M_x,
+    (-M_y):0.1:M_y,
+    R,
+    levels = 50,
+    color = :plasma,
+    clabels = false,
+    cbar = false,
+    lw = 1,
+    fill = true,
+)
+A = [[b; b^2 / 4] for b = (-M_x):M_x]
+plot!(
+    Tuple.(A),
+    xlims = (-M_x, M_x),
+    ylims = (-M_y, M_y),
+    linecolor = :black,
+    linewidth = 8,
+    label = "discriminant",
+)
+
+scatter!(Tuple.(pts), markercolor = :green, markersize = 8, label = "critical points")
+plot!(Tuple.(sol.u), linecolor = :steelblue, linewidth = 4, label = "gradient flow")
+#scatter!([Tuple(u0)], markercolor=:blue, markersize=8, label="gradient flow start")
+
+plot!(; legend = false)

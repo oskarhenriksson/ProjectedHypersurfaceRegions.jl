@@ -85,13 +85,13 @@ function evaluate!(u, r::RoutingGradient, x, p = nothing)
 end
 function evaluate(r::RoutingGradient, x, p = nothing)
 
-    T = eltype(x)
-    if T <: Real 
-        T = Float64
-    end
+    # T = eltype(x)
+    # if T <: Real 
+    #     T = Float64
+    # end
 
     m, n = size(r)
-    u = zeros(T, m)
+    u = zeros(ComplexF64, m)
 
     evaluate!(u, r, x, p)
     u  
@@ -102,7 +102,7 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
     PWS, GC, e, c, B  = r.PWS, r.GC, r.e, r.c, r.B
     v, H = GC.v, GC.H
     k = length(v)
-    
+
     Qx = (sum((x - c) .^ 2) + 1, 2 .* (x - c))
     track_pws_to_lines!(GC, x, B, PWS)
 
@@ -144,14 +144,14 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
 end
 function evaluate_and_jacobian(r::RoutingGradient, x, p = nothing)
     
-    T = eltype(x)
-    if T <: Real 
-        T = Float64
-    end
+    # T = eltype(x)
+    # if T <: Real 
+    #     T = Float64
+    # end
 
     m, n = size(r)
-    u = zeros(T, m)
-    U = zeros(T, m, n)
+    u = zeros(ComplexF64, m)
+    U = zeros(ComplexF64, m, n)
     evaluate_and_jacobian!(u, U, r, x, p)
     u, U    
 end
