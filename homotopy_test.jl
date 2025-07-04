@@ -1,3 +1,9 @@
+using Pkg
+Pkg.activate(".")
+
+using Plots, DifferentialEquations
+
+include("src/functions.jl");
 
 ########
 @var a b x
