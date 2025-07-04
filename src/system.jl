@@ -37,6 +37,7 @@ function RoutingGradient(F, projection_vars;
     RoutingGradient(F_ordered, projection_vars, PWS, GC, e, c, B)
 end
 
+denominator_exponent(r::RoutingGradient) = r.e
 
 
 # Base.size(F::AbstractSystem)

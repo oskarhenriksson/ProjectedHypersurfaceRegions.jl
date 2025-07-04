@@ -13,6 +13,7 @@ F = System([x^2 + a * x + b; 2x + a], variables = [a, b, x])
 B = qr(rand(2, 2)).Q |> Matrix
 c = 10 .* randn(2)
 r = RoutingGradient(F, [a; b]; c = c, B = B)
+e = denominator_exponent(r)
 
 p1 = zeros(2)
 q1 = randn(2)
