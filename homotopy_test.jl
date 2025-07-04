@@ -27,7 +27,7 @@ evaluate!(u1, H, x0, t1)
 
 egtracker = EndgameTracker(H) # we want to add options later 
 trackers = [egtracker]
-x₀ = zeros(ComplexF64, size(F, 2))
+x₀ = zeros(ComplexF64, size(H, 2))
 
 unique_points = UniquePoints(
     x₀,
@@ -51,10 +51,19 @@ MS = HomotopyContinuation.MonodromySolver(
 #### set up start pair
 s0 = randn(ComplexF64, 2)
 p0 = evaluate(r, s0)
+
+### Monodromy
 seed = rand(UInt32)
-monodromy_solve(
+mon_result = monodromy_solve(
     MS,
     s0,
     p0,
     seed;
 )
+
+### parameters homotopy
+start_parameters!(egtracker, p0)
+target_parameters!(egtracker, zeros(2))
+result = map(solutions(mon_result)) do s
+    track(egtracker, s, 1.0)
+end
