@@ -63,6 +63,7 @@ ModelKit.variables(r::RoutingGradient) = r.projection_vars
 import HomotopyContinuation.evaluate!
 import HomotopyContinuation.evaluate_and_jacobian!
 import HomotopyContinuation.evaluate
+import HomotopyContinuation.taylor!
 function evaluate!(u, r::RoutingGradient, x, p = nothing)
     PWS, GC, e, c, B  = r.PWS, r.GC, r.e, r.c, r.B
     v = GC.v
@@ -70,17 +71,12 @@ function evaluate!(u, r::RoutingGradient, x, p = nothing)
     Qx = (sum((x - c) .^ 2) + 1, 2 .* (x - c))
     track_pws_to_lines!(GC, x, B, PWS)
 
-    # out = map( # TODO: Cache this
-    #     zip(GC.line_hypersurface_intersections, eachcol(B)),
-    # ) do (intersection_points, bj)
-    #     ∂log_r(intersection_points, Qx, e, x, bj)
-    # end
     iter = zip(GC.line_hypersurface_intersections, eachcol(B))
     for (i, (intersection_points, bj)) in enumerate(iter)   
         v[i] = ∂log_r(intersection_points, Qx, e, x, bj)
     end
 
-    u .= real(B * v) # TODO: Cache this
+    u .= B * v # TODO: Cache this
     if !isnothing(p)
         u .= u - p
     end
@@ -88,8 +84,15 @@ function evaluate!(u, r::RoutingGradient, x, p = nothing)
     nothing
 end
 function evaluate(r::RoutingGradient, x, p = nothing)
+
+    T = eltype(x)
+    if T <: Real 
+        T = Float64
+    end
+
     m, n = size(r)
-    u = zeros(Float64, m)
+    u = zeros(T, m)
+
     evaluate!(u, r, x, p)
     u  
 end
@@ -98,22 +101,17 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
 
     PWS, GC, e, c, B  = r.PWS, r.GC, r.e, r.c, r.B
     v, H = GC.v, GC.H
-
+    k = length(v)
+    
     Qx = (sum((x - c) .^ 2) + 1, 2 .* (x - c))
     track_pws_to_lines!(GC, x, B, PWS)
 
-    ## Gradient
-    # out = map( # TODO: Cache this
-    #     zip(GC.line_hypersurface_intersections, eachcol(B)),
-    # ) do (intersection_points, bj)
-    #     ∂log_r(intersection_points, Qx, e, x, bj)
-    # end
     iter = zip(GC.line_hypersurface_intersections, eachcol(B))
     for (i, (intersection_points, bj)) in enumerate(iter)   
         v[i] = ∂log_r(intersection_points, Qx, e, x, bj)
     end
 
-    u .= real(B * v) # TODO: Cache this
+    u .= B * v # TODO: Cache this
     if !isnothing(p)
         u .= u - p
     end
@@ -122,11 +120,6 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
     for (i, (intersection_points, bj)) in enumerate(iter)   
         v[i] = ∂2log_r(intersection_points, Qx, e, x, bj)
     end
-    # diagonals = map(
-    #     zip(GC.line_hypersurface_intersections, eachcol(B)),
-    # ) do (intersection_points, bj)
-    #     ∂2log_r(intersection_points, Qx, e, x, bj)
-    # end
     for i in 1:k
         H[i,i] = v[i]
     end
@@ -145,19 +138,29 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
             H[j, i] = hij
         end
     end
-    U .= real(B * H * B^(-1)) #Return the hessian in the standard basis.
+    U .= B * H * B^(-1) #Return the hessian in the standard basis.
 
     nothing
 end
 function evaluate_and_jacobian(r::RoutingGradient, x, p = nothing)
+    
+    T = eltype(x)
+    if T <: Real 
+        T = Float64
+    end
+
     m, n = size(r)
-    u = zeros(Float64, m)
-    U = zeros(Float64, m, n)
+    u = zeros(T, m)
+    U = zeros(T, m, n)
     evaluate_and_jacobian!(u, U, r, x, p)
     u, U    
 end
 
-# TODO: taylor!(u, ::Val{1}, F::AbstractSystem, x, p::TaylorVector{2})
+function taylor!(u, ::Val, F::RoutingGradient, x, p)
+    for i in 1:length(u)
+        u[i] = ComplexF64(0)
+    end
+end
 
 ## for testing
 _evaluate(r::RoutingGradient, p::Vector) = evaluate(r, p)

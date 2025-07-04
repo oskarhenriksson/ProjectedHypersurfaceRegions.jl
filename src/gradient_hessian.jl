@@ -44,9 +44,9 @@ end
 function ∇log_r(
     PWS::PseudoWitnessSet,
     k::Int;
-    e::Union{Real,Nothing} = nothing,
-    c::Union{AbstractVector{<:Real},Nothing} = nothing,
-    B::Union{Matrix{<:Real},Nothing} = nothing,
+    e::Union{Number, Nothing} = nothing,
+    c::Union{AbstractVector,Nothing} = nothing,
+    B::Union{Matrix,Nothing} = nothing,
 )
     if isnothing(e)
         e = floor(degree(PWS) / 2) + 1
@@ -89,8 +89,8 @@ end
 ### Computing Derivatives ###
 function ∂log_h(
     intersection_points::AbstractVector{<:AbstractVector{<:Number}},
-    p::AbstractVector{<:Real},
-    bj::AbstractVector{<:Real},
+    p::AbstractVector,
+    bj::AbstractVector,
 )
     k = length(bj)
     i = findfirst(x -> abs(x) > 1e-5, bj)
@@ -100,16 +100,16 @@ function ∂log_h(
     -sum(1 / si for si in s)
 end
 
-function ∂log_qe(qp::Real, ∇qp::AbstractVector{<:Real}, e::Real, bj::AbstractVector{<:Real})
+function ∂log_qe(qp, ∇qp::AbstractVector, e, bj::AbstractVector)
     -e * (transpose(∇qp) * bj) / qp
 end
 
 function ∂log_r(
     intersection_points::AbstractVector{<:AbstractVector{<:Number}},
     Qp::Tuple,
-    e::Real,
-    p::AbstractVector{<:Real},
-    bj::AbstractVector{<:Real},
+    e,
+    p::AbstractVector,
+    bj::AbstractVector,
 )
     qp, ∇qp = Qp
     ∂log_h(intersection_points, p, bj) + ∂log_qe(qp, ∇qp, e, bj)
@@ -122,8 +122,8 @@ end
 
 function ∂2log_h(
     intersection_points::AbstractVector{<:AbstractVector{<:Number}},
-    p::AbstractVector{<:Real},
-    bj::AbstractVector{<:Real},
+    p::AbstractVector,
+    bj::AbstractVector,
 )
     k = length(bj)
     i = findfirst(x -> abs(x) > 1e-5, bj)
@@ -133,7 +133,7 @@ function ∂2log_h(
     -sum(1 / si^2 for si in s)
 end
 
-function ∂2log_qe(Qp::Tuple, e::Real, bj::AbstractVector{<:Real})
+function ∂2log_qe(Qp::Tuple, e, bj::AbstractVector)
     (qp, ∇qp) = Qp
     -e * (transpose(bj) * 2 * bj * qp - (transpose(∇qp) * bj)^2) / qp^2
 end
@@ -141,9 +141,9 @@ end
 function ∂2log_r(
     intersection_points::AbstractVector{<:AbstractVector{<:Number}},
     Qp::Tuple,
-    e::Real,
-    p::AbstractVector{<:Real},
-    bj::AbstractVector{<:Real},
+    e,
+    p::AbstractVector,
+    bj::AbstractVector,
 )
     ∂2log_h(intersection_points, p, bj) + ∂2log_qe(Qp, e, bj)
 end
@@ -153,18 +153,18 @@ function compute_off_diag(intermediate, bi_val, bj_val)
 end
 
 # The following allows you to be lazy and not input a System.
-hess_log_r(F::Vector{Expression}, e::Real, projection_vars::Vector{Variable}; kwargs...) =
+hess_log_r(F::Vector{Expression}, e, projection_vars::Vector{Variable}; kwargs...) =
     hess_log_r(System(F), e, projection_vars; kwargs...)
-hess_log_r(F::System, e::Real, k::Int; kwargs...) =
+hess_log_r(F::System, e, k::Int; kwargs...) =
     hess_log_r(F, e, variables(F)[1:k]; kwargs...)
 # The following function will determine the method of computing the hessian you want and send it off.
 function hess_log_r(
     F::System,
-    e::Real,
+    e,
     projection_vars::Vector{Variable};
     method::Symbol = :off_diag,
-    c::Union{AbstractVector{<:Real},Nothing} = nothing,
-    B::Union{Matrix{<:Real},Nothing} = nothing,
+    c::Union{AbstractVector,Nothing} = nothing,
+    B::Union{Matrix,Nothing} = nothing,
 )
     k = length(projection_vars)
     if isnothing(c)
@@ -191,9 +191,9 @@ end
 function hess_log_r(
     PWS::PseudoWitnessSet,
     k::Int,
-    e::Real;
-    c::Union{AbstractVector{<:Real},Nothing} = nothing,
-    B::Union{Matrix{<:Real},Nothing} = nothing,
+    e;
+    c::Union{AbstractVector,Nothing} = nothing,
+    B::Union{Matrix,Nothing} = nothing,
 )
 
     if isnothing(c)
@@ -271,10 +271,10 @@ end
 function _many_slices(
     F::System,
     PWS::PseudoWitnessSet,
-    e::Real,
+    e,
     projection_vars::Vector{Variable};
-    c::AbstractVector{<:Real},
-    B::Matrix{<:Real},
+    c::AbstractVector,
+    B::Matrix,
 )
     n = length(variables(F))
     k = length(projection_vars)
@@ -333,10 +333,10 @@ end
 function _single_slice(
     F::System,
     PWS::PseudoWitnessSet,
-    e::Real,
+    e,
     projection_vars::Vector{Variable};
-    c::Union{AbstractVector{<:Real},Nothing} = nothing,
-    B::Union{Matrix{<:Real},Nothing} = nothing,
+    c::Union{AbstractVector,Nothing} = nothing,
+    B::Union{Matrix,Nothing} = nothing,
 )
     # TODO: This needs to be implemented! For now, redirect to the off_diag method.
     hess_log_r(PWS, e, k; c, B)
@@ -346,8 +346,8 @@ end
 # This is useful for testing our other hessian methods.
 function hess_log_r_given_h(
     h::Expression,
-    e::Real;
-    c::Union{AbstractVector{<:Real},Nothing} = nothing,
+    e;
+    c::Union{AbstractVector,Nothing} = nothing,
 )
     if isnothing(c)
         c = randn(length(variables(h)))

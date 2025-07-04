@@ -50,26 +50,26 @@ end
 
 
 @doc raw"""
-    lifted_line(point::AbstractVector{<:Number}, direction::AbstractVector{<:Number}, n::Int64)
+    lifted_line(point::AbstractVector, direction::AbstractVector, n::Int64)
 
 Lifts the line `point+t*direction` in $\mathbb{C}^k$ to a LinearSubspace in $\mathbb{C}^k\timess \mathbb{C}^{n-k}$.
 """
-function lifted_line(
-    point::AbstractVector{<:Number},
-    direction::AbstractVector{<:Number},
+function lifted_line( 
+    point::AbstractVector,
+    direction::AbstractVector,
     n::Int64,
 )
     k = length(point)
-    πA = nullspace(direction')'
+    πA = transpose(nullspace(direction'))
     A = hcat(πA, zeros(k - 1, n - k))
     b = πA * point
-    LinearSubspace(A, b)
+    LinearSubspace(Complex.(A), Complex.(b))
 end
 
 
 function track_pws_to_lines!(
     GC,
-    point::AbstractVector{<:Real},
+    point::AbstractVector,
     directions::AbstractArray{Float64},
     PWS::PseudoWitnessSet,
 )
@@ -78,16 +78,6 @@ function track_pws_to_lines!(
         GC.Ks[j] = lifted_line(point, bj, n)
     end
 
-    # L = PWS.L
-    # new_lines = map(bj -> lifted_line(point, bj, ambient_dim(L)), eachcol(directions))
-    # HC.solve(
-    #     PWS.F,
-    #     PWS.W,
-    #     start_subspace=L,
-    #     target_subspaces=new_lines,
-    #     intrinsic=true,
-    #     transform_result=(r, p) -> solutions(r),
-    # )
     for (j, K) in enumerate(GC.Ks)
         target_parameters!(GC.tracker, K)
         for (l, w) in enumerate(PWS.W)
