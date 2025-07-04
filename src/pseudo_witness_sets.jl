@@ -63,7 +63,7 @@ function lifted_line(
     πA = transpose(nullspace(direction'))
     A = hcat(πA, zeros(k - 1, n - k))
     b = πA * point
-    LinearSubspace(Complex.(A), Complex.(b))
+    LinearSubspace(ComplexF64.(A), ComplexF64.(b))
 end
 
 
