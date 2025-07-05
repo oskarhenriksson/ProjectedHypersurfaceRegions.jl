@@ -1,9 +1,11 @@
 using Pkg
 Pkg.activate(".")
 
-using ImplicitPlots, Plots, DifferentialEquations
+using ImplicitPlots, Plots, DifferentialEquations, Random
 
 include("src/functions.jl");
+
+Random.seed!(0x8b868320)
 
 ########
 
@@ -36,7 +38,7 @@ unique_points = UniquePoints(
 
 trace = zeros(ComplexF64, length(x₀) + 1, 3)
 P = Vector{ComplexF64}
-options = MonodromyOptions()
+options = MonodromyOptions() 
 MS = HomotopyContinuation.MonodromySolver(
     trackers,
     HomotopyContinuation.MonodromyLoop{P}[],
@@ -62,13 +64,27 @@ mon_result = monodromy_solve(
 )
 
 ### Use a parameter homotopy to trace the solutions of ∇r = p0 to solutions of ∇r = 0
+
+# Direct parameter homotopy
+# start_parameters!(egtracker, p0)
+# target_parameters!(egtracker, zeros(2))
+# result = HomotopyContinuation.solve(H, solutions(mon_result))
+# #pv = @profview result = HomotopyContinuation.solve(H, solutions(mon_result))
+# pts = real_solutions(result)
+
+
+# Parameter homotopy using the "detour trick"
+# NOTE: You might have to repeat this since paths are sometimes lost
 start_parameters!(egtracker, p0)
+p_intermediate = randn(ComplexF64, 2)
+target_parameters!(egtracker, p_intermediate)
+intermediate_result = HomotopyContinuation.solve(H, solutions(mon_result))
+
+start_parameters!(egtracker, p_intermediate)
 target_parameters!(egtracker, zeros(2))
-result = HomotopyContinuation.solve(H, solutions(mon_result))
+result = HomotopyContinuation.solve(H, solutions(intermediate_result))
+
 pts = real_solutions(result)
-
-
-
 
 ##### Plotting 
 M = maximum(abs, vcat(pts...)) + 2
@@ -116,6 +132,6 @@ for (i, u0) in enumerate(pts)
     plot!(Tuple.(sol.u), linecolor = :steelblue, linewidth = 4, label = "gradient flow")
 end
 
-plot!(; legend = false)
+plot!(; legend = false, dpi=400)
 
 #savefig("homotopy_test_cubic.png")
