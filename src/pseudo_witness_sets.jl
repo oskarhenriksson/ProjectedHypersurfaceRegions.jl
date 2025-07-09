@@ -4,7 +4,7 @@ struct PseudoWitnessSet
     F::System
     k::Int
     L::LinearSubspace
-    W::Result
+    W::Vector
 end
 degree(PWS::PseudoWitnessSet) = length(PWS.W)
 ambient_dim(PWS::PseudoWitnessSet) = HC.ambient_dim(PWS.L)
@@ -45,7 +45,7 @@ function PseudoWitnessSet(
     startL = rand_subspace(n; codim = linear_subspace_codim)
     S = solutions(witness_set(F, startL))
     W = HC.solve(F, S, start_subspace = startL, target_subspace = L, intrinsic = true)
-    PseudoWitnessSet(F, k, L, W)
+    PseudoWitnessSet(F, k, L, solutions(W; only_nonsingular = true))
 end
 
 
@@ -81,7 +81,7 @@ function track_pws_to_lines!(
     for (j, K) in enumerate(GC.Ks)
         target_parameters!(GC.tracker, K)
         for (l, w) in enumerate(PWS.W)
-            track!(GC.tracker, solution(w), 1)
+            track!(GC.tracker, w, 1)
             GC.line_hypersurface_intersections[j][l] .= solution(GC.tracker)
         end
     end
