@@ -38,7 +38,11 @@ unique_points = UniquePoints(
 
 trace = zeros(ComplexF64, length(x₀) + 1, 3)
 P = Vector{ComplexF64}
-options = MonodromyOptions() 
+options = MonodromyOptions(
+    #parameter_sampler = p -> 10 .* [0; randn(ComplexF64, length(p) - 1)], # bigger lopps
+    parameter_sampler = p -> 10 .* randn(ComplexF64, length(p)), # bigger lopps
+    # max_loops_no_progress = 10 # change the stopping criterion
+) 
 MS = HomotopyContinuation.MonodromySolver(
     trackers,
     HomotopyContinuation.MonodromyLoop{P}[],
@@ -74,11 +78,11 @@ mon_result = monodromy_solve(
 
 
 # Parameter homotopy using the "detour trick"
-# NOTE: You might have to repeat this since paths are sometimes lost
 start_parameters!(egtracker, p0)
 p_intermediate = randn(ComplexF64, 2)
 target_parameters!(egtracker, p_intermediate)
 intermediate_result = HomotopyContinuation.solve(H, solutions(mon_result))
+
 
 start_parameters!(egtracker, p_intermediate)
 target_parameters!(egtracker, zeros(2))
@@ -87,7 +91,6 @@ result = HomotopyContinuation.solve(H, solutions(intermediate_result))
 pts = real_solutions(result)
 
 ##### Plotting 
-M = maximum(abs, vcat(pts...)) + 2
 M_x = maximum(p -> abs(p[1]), pts) + 2
 M_y = maximum(p -> abs(p[2]), pts) + 2
 
@@ -108,6 +111,8 @@ contour(
     fill = true,
 )
 
+
+
 implicit_plot!(
     h; 
     xlims = (-M_x, M_x),
@@ -118,7 +123,7 @@ implicit_plot!(
 )
 
 
-scatter!(Tuple.(pts), markercolor = :green, markersize = 8, label = "critical points")
+scatter!(Tuple.(pts), markercolor = :green, markersize = 7, label = "critical points")
 
 
 # Gradient flow
@@ -134,4 +139,4 @@ end
 
 plot!(; legend = false, dpi=400)
 
-#savefig("homotopy_test_cubic.png")
+savefig("homotopy_test_cubic.png")
