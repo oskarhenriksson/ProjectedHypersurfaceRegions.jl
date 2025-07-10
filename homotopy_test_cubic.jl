@@ -139,4 +139,4 @@ end
 
 plot!(; legend = false, dpi=400)
 
-savefig("homotopy_test_cubic.png")
+savefig("example_cubic.png")
