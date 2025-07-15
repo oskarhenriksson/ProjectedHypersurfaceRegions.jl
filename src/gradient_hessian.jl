@@ -307,8 +307,6 @@ function _many_slices(
                 )
                 JsuF_eval = evaluate(JsuF, subs_dict)
                 JpF_eval = evaluate(JpF, subs_dict)
-                display(JsuF_eval)
-                display(JpF_eval)
                 sols = JsuF_eval \ (-JpF_eval) # This is a matrix [∇p s; Jp u]
                 ∇pS[:, i] = sols[1, :]
             end
