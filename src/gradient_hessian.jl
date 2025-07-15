@@ -179,7 +179,7 @@ function hess_log_r(
     PWS = PseudoWitnessSet(F_ordered, k; linear_subspace_codim = k - 1)
 
     if method == :off_diag
-        hess = hess_log_r(PWS, e, k; c, B)
+        hess = hess_log_r(PWS, k, e; c, B)
     elseif method == :many_slices
         hess = _many_slices(F_ordered, PWS, e, projection_vars; c, B)
     elseif method == :single_slice
@@ -202,7 +202,6 @@ function hess_log_r(
     if isnothing(B)
         B = Matrix(qr(randn(k, k)).Q)
     end
-
     GC = GradientCache(k, PWS)
     Q(p) = (sum((p - c) .^ 2) + 1, 2 .* (p - c))
 
@@ -308,7 +307,8 @@ function _many_slices(
                 )
                 JsuF_eval = evaluate(JsuF, subs_dict)
                 JpF_eval = evaluate(JpF, subs_dict)
-
+                display(JsuF_eval)
+                display(JpF_eval)
                 sols = JsuF_eval \ (-JpF_eval) # This is a matrix [∇p s; Jp u]
                 ∇pS[:, i] = sols[1, :]
             end
