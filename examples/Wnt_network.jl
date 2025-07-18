@@ -1,10 +1,8 @@
-# This is our attempt to compute the Wnt chemical reaction network discriminant.
-# Cant continue till we find the determinant of the jacobian, which is a 19x19 matrix. )
-
-
-### Idea for avoiding computing the determinant of the Jacobian:
-# Encode that the Jacobian is singular by adding equations Jac*v=0 and rand(19)⋅v-1=0
-# In addition to avoiding the slow and memory intensive determinant, I think this also performs better numerically
+## Method for applying functions to larger systems
+# Want to show that Jacobian is singular without computing determinant
+# Add non-zero dummy variable vector l in the nullspace of the Jacobian
+# To do this, add equations Jac*l=0 and rand(19)'l-1=0
+# In addition to avoiding the slow and memory intensive determinant, this should be faster
 # since it replaces a dense polynomial of high degree with 19 spare polynomials of low degree
 
 using Pkg
@@ -12,7 +10,7 @@ Pkg.activate("..")
 include("../src/functions.jl");
 
 
-@var κ[1:31] x[1:19] T[1:5]
+@var κ[1:31] x[1:19] T[1:5] l[1:19]
 # Define the system of equations for the Wnt Signaling Pathway
 # Goal: We want to say something about the real discriminant of this system (so eliminate the x's)
 # k reaction rate coefficients
@@ -53,10 +51,13 @@ chemical_eqns = [
 ]
 #The commented out equations are redundant.
 
-#Jac = differentiate(chemical_eqns,x)
+Jac = differentiate(chemical_eqns,x)
 #dJ = det(Jac) #This is taking forever!
-# So lets just try to eliminats the x's from the chemical_eqns (without the Jacobian).
-F = System(chemical_eqns, variables = [κ; T; x])
+# Because we can't take the determinant of the Jacobian we can still find when it is singular
+# We use dummy variable l and make it nonzero to give the Jacobian a non-trivial nullspace
+lconst = l[1]+l[2]+3*l[3]+l[4]+l[5]+l[6]+l[7]+l[8]+l[9]+3*l[10]+l[11]+l[12]+l[13]+l[14]+l[15]+l[16]+3*l[17]+l[18]+l[19]-1 
+# random l constraint to make l nonzero
+F = System(vcat(chemical_eqns,Jac*l,lconst), variables = [κ; T; x; l])
 all_vars = variables(F)
 projection_vars = [κ; T]
 x_vars = setdiff(all_vars, projection_vars)
