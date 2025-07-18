@@ -183,7 +183,7 @@ function hess_log_r(
     elseif method == :many_slices
         hess = _many_slices(F_ordered, PWS, e, projection_vars; c, B)
     elseif method == :single_slice
-        hess = _single_slice(F_ordered, PWS, e, projection_vars; c, B)
+        hess = _single_slice(F_ordered, e, projection_vars; c, B)
     end
     hess
 end
@@ -328,18 +328,120 @@ function _many_slices(
 
 end
 
+# function _single_slice(
+#     F::System,
+#     PWS::PseudoWitnessSet,
+#     e,
+#     projection_vars::Vector{Variable};
+#     c::Union{AbstractVector,Nothing} = nothing,
+#     B::Union{Matrix,Nothing} = nothing,
+# )
+#     # TODO: This needs to be implemented! For now, redirect to the off_diag method.
+#     hess_log_r(PWS, e, k; c, B)
+# end
+
 function _single_slice(
     F::System,
-    PWS::PseudoWitnessSet,
     e,
-    projection_vars::Vector{Variable};
+    projection_variables::Vector{Variable};
     c::Union{AbstractVector,Nothing} = nothing,
     B::Union{Matrix,Nothing} = nothing,
 )
-    # TODO: This needs to be implemented! For now, redirect to the off_diag method.
-    hess_log_r(PWS, e, k; c, B)
-end
+    n = nvariables(F)
+    k = length(projection_variables)
+    if isnothing(B)
+        B = randn(k);
+        B = B/norm(B)
+    else
+        B = B[1,:]
+    end
 
+    if isnothing(c)
+        c = randn(k) 
+    end
+
+    @var u[1:n-k] p[1:k] β[1:k] t
+
+    #evaluating the system on the line p+tb 
+    F_on_line = F([p + t * β; u])
+
+    #getting the jacobians
+    JsuF = differentiate(F_on_line, vcat(t, u[:]))
+
+    JPF = differentiate(F_on_line, p)
+
+    JBF = differentiate(F_on_line, β)
+
+    #set up function for hess(q)
+    q = 1 + sum((p - c) .* (p - c))
+    Hlogqe(pt) = evaluate(differentiate(differentiate(log(q^e), p), p), p => pt) 
+
+    function f(P)
+        
+        
+        evaluated_F = HC.solve(evaluate(F_on_line, vcat(p,β)=> vcat(P, B)))
+        S = zeros(ComplexF64, nsolutions(evaluated_F))
+        U = zeros(ComplexF64, n-k, nsolutions(evaluated_F))
+        for (j,sol) in enumerate(solutions(evaluated_F; only_nonsingular = true))
+            S[j] = sol[1]
+            U[:, j] = sol[2:end] 
+        end
+        
+        SP = zeros(ComplexF64, length(S), k)
+        SB = zeros(ComplexF64, length(S), k)
+        UP = zeros(ComplexF64, length(S), k)
+        UB = zeros(ComplexF64, length(S), k)
+        for i = 1:length(S)
+        Jsu = evaluate(JsuF, vcat(t, u, p, β) => vcat(S[i], U[:,i], P, B))
+        JP = evaluate(JPF, vcat(t, u, p, β) => vcat(S[i], U[:,i], P, B))
+        JB = evaluate(JBF, vcat(t, u, p, β) => vcat(S[i], U[:,i], P, B))
+        A = -Jsu \ [JP JB]
+        SP[i,:] = A[1, 1:k]
+        SB[i,:] = A[1, k+1:end]
+        UP[i,:] = A[2, 1:k]
+        UB[i,:] = A[2, k+1:end]
+        end
+
+
+        A = zeros(ComplexF64, length(S), size(F_on_line,1), k,k)
+        for i = 1:size(F_on_line,1)
+            HF = differentiate(differentiate(F_on_line[i], vcat(t,u)), vcat(t,u))
+            JxB = differentiate(differentiate(F_on_line[i], vcat(t,u)), β)
+            JxP = differentiate(differentiate(F_on_line[i], vcat(t,u)), p)
+            JBP = differentiate(differentiate(F_on_line[i], β), p)
+            for j = 1:length(S)
+                H = evaluate(HF, vcat(t, u, p, β) => vcat(S[j], U[:,j], P, B))
+                Jxb = evaluate(JxB, vcat(t, u, p, β) => vcat(S[j], U[:,j], P, B))
+                Jxp = evaluate(JxP, vcat(t, u, p, β) => vcat(S[j], U[:,j], P, B))
+                Jbp = evaluate(JBP, vcat(t, u, p, β) => vcat(S[j], U[:,j], P, B))  
+                A[j, i, :, :] = transpose(([SP[j,:] UP[j, :]]*H*transpose([SB[j,:] UB[j, :]])
+                                + Jbp + [SP[j,:] UP[j,:]]*Jxb 
+                                + transpose(Jxp)*transpose([SB[j, :] UB[j, :]]))) |> Matrix
+                
+            end
+        end
+        A
+        hess1 = zeros(ComplexF64, k, k)
+        hess2 = zeros(ComplexF64, k, k)
+        for j = 1:length(S)
+            Jtu = evaluate(JsuF, vcat(t, u, p, β) => vcat(S[j], U[:,j], P, B))
+            A1 = Array(A[j,1,:,:])
+            A2 = Array(A[j,2,:,:])
+            E = zeros(ComplexF64, k, k)
+            for a in 1:k, b in 1:k
+                rhs = [A1[a,b]; A2[a,b]]
+                E[a,b] = - (Jtu\ rhs)[1]
+            end
+            hess1 = hess1 - 2*S[j]^(-3)*SP[j,:]*transpose(SB[j,:])
+            hess2 = hess2 + S[j]^(-2) * E
+        end
+
+        hess = hess1 + hess2 + Hlogqe(P)
+
+        real(hess)
+    end    
+    f
+end
 # If you happen to know the discriminant directly (and are not taking a projection), then this function can be used. 
 # This is useful for testing our other hessian methods.
 function hess_log_r_given_h(

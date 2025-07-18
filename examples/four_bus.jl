@@ -17,7 +17,7 @@ bus_eqns = [
 #Note that b[i,k] == b[k,i]. As such, only keep one. 
 bus_eqns = subs(bus_eqns, b[2,1]=> b[1,2], b[3,1]=> b[1,3], b[4,1]=> b[1,4], b[3,2]=> b[2,3], b[4,2]=> b[2,4], b[4,3]=> b[3,4])
 Jac = differentiate(bus_eqns, [Vd[2:4]; Vq[2:4]])
-D = expand(det(Jac))
+D = det(Jac)
 
 F = System([bus_eqns; D])
 # System for the incidence variety of the discriminant
