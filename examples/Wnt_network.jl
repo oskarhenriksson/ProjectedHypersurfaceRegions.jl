@@ -1,21 +1,22 @@
 ## Method for applying functions to larger systems
 # Want to show that Jacobian is singular without computing determinant
-# Add non-zero dummy variable vector l in the nullspace of the Jacobian
-# To do this, add equations Jac*l=0 and rand(19)'l-1=0
+# Add non-zero dummy variable vector λ in the nullspace of the Jacobian
+# To do this, add equations Jac*λ=0 and rand(19)'λ-1=0
 # In addition to avoiding the slow and memory intensive determinant, this should be faster
-# since it replaces a dense polynomial of high degree with 19 spare polynomials of low degree
+# since it replaces a dense polynomial of high degree with 19 sparse polynomials of low degree
 
 using Pkg
-Pkg.activate("..")
+Pkg.activate(".")
 include("../src/functions.jl");
 
-
-@var κ[1:31] x[1:19] T[1:5] l[1:19]
+@var κ[1:31] x[1:19] T[1:5]
 # Define the system of equations for the Wnt Signaling Pathway
 # Goal: We want to say something about the real discriminant of this system (so eliminate the x's)
 # k reaction rate coefficients
 # c conservation constants
 # x chemical concentrations
+
+# Steady state equations (the commented out equations are redundant)
 chemical_eqns = [
     #-κ[1]*x[1]+κ[2]*x[2], 
     κ[1] * x[1] - (κ[2] + κ[26]) * x[2] + κ[27] * x[3] - κ[3] * x[2] * x[4] +
@@ -49,33 +50,32 @@ chemical_eqns = [
     x[9] + x[17] - T[4],
     x[12] + x[13] - T[5],
 ]
-#The commented out equations are redundant.
 
+# Jacobian
 Jac = differentiate(chemical_eqns,x)
+
 #dJ = det(Jac) #This is taking forever!
 # Because we can't take the determinant of the Jacobian we can still find when it is singular
-# We use dummy variable l and make it nonzero to give the Jacobian a non-trivial nullspace
-lconst = l[1]+l[2]+3*l[3]+l[4]+l[5]+l[6]+l[7]+l[8]+l[9]+3*l[10]+l[11]+l[12]+l[13]+l[14]+l[15]+l[16]+3*l[17]+l[18]+l[19]-1 
-# random l constraint to make l nonzero
-F = System(vcat(chemical_eqns,Jac*l,lconst), variables = [κ; T; x; l])
+# We use dummy variable λ and make it nonzero to give the Jacobian a non-trivial nullspace
+# random λ constraint to enforece that λ nonzero
+@var λ[1:19]
+singular_jacobian = Jac*λ
+λ_nonzero = rand(1:100, length(λ)) ⋅ λ - 1
+#λ_nonzero = λ[1]+λ[2]+3*λ[3]+λ[4]+λ[5]+λ[6]+λ[7]+λ[8]+λ[9]+3*λ[10]+λ[11]+λ[12]+λ[13]+λ[14]+λ[15]+λ[16]+3*λ[17]+λ[18]+λ[19]-1 
+
+# System for the incidence variety of the discriminant
+F = System([chemical_eqns; singular_jacobian; λ_nonzero], variables = [κ; T; x; λ])
+
+# Choose projection variables and reorder the system
 all_vars = variables(F)
 projection_vars = [κ; T]
 x_vars = setdiff(all_vars, projection_vars)
 F_ordered = System(F.expressions, variables = [projection_vars; x_vars])
-
-# System for the incidence variety of the discriminant
 k = length(projection_vars)
+
+# Computation of the pseudo witness set (takes a long time!)
+PWS = PseudoWitnessSet(F_ordered, k; linear_subspace_codim = k - 1) 
+
+e = floor(degree(PWS) / 2) + 1
 B = qr(rand(k, k)).Q |> Matrix
 c = 10 .* randn(k)
-e = 20
-# e should be at least  floor(degree(PWS)/2) + 1
-
-
-PWS = PseudoWitnessSet(F_ordered, k; linear_subspace_codim = k - 1) # issue! Our linear space intersects at something larger than points.
-
-# u + tv this in R^(36). Lift it to R^(55). So codimension of (u+tv) was 35, and the pullback to R^(55) still has codimension 35. So it has dimension 20.
-L = create_line(u, v, size(F_ordered, 2))
-#WITHIN PseudoWitnessSet
-n = ambient_dim(L)
-startL = rand_subspace(n; codim = codim(L))
-ourWitnessSet = witness_set(F, startL) # Get an error here.
