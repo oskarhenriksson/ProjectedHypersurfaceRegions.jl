@@ -27,6 +27,7 @@ function PseudoWitnessSet(
     k::Int;
     linear_subspace_codim::Union{Int,Nothing} = nothing,
     L::Union{LinearSubspace,Nothing} = nothing,
+    start_system::Symbol = :polyhedral
 )
     n = nvariables(F)
     if isnothing(linear_subspace_codim)
@@ -43,7 +44,7 @@ function PseudoWitnessSet(
         @assert ambient_dim(L) == n "The ambient dimension of the linear subspace L must match the number of variables in the system F."
     end
     startL = rand_subspace(n; codim = linear_subspace_codim)
-    S = solutions(witness_set(F, startL))
+    S = solutions(witness_set(F, startL; start_system = start_system))
     W = HC.solve(F, S, start_subspace = startL, target_subspace = L, intrinsic = true)
     PseudoWitnessSet(F, k, L, solutions(W; only_nonsingular = true))
 end
