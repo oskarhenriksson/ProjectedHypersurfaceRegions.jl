@@ -61,7 +61,7 @@ Jac = differentiate(chemical_eqns,x)
 @var λ[1:19]
 singular_jacobian = Jac*λ
 λ_nonzero = rand(1:100, length(λ)) ⋅ λ - 1
-#λ_nonzero = λ[1]+λ[2]+3*λ[3]+λ[4]+λ[5]+λ[6]+λ[7]+λ[8]+λ[9]+3*λ[10]+λ[11]+λ[12]+λ[13]+λ[14]+λ[15]+λ[16]+3*λ[17]+λ[18]+λ[19]-1 
+#λ_nonzero = λ ⋅ λ - 1
 
 # System for the incidence variety of the discriminant
 F = System([chemical_eqns; singular_jacobian; λ_nonzero], variables = [κ; T; x; λ])
@@ -73,8 +73,10 @@ x_vars = setdiff(all_vars, projection_vars)
 F_ordered = System(F.expressions, variables = [projection_vars; x_vars])
 k = length(projection_vars)
 
-# Computation of the pseudo witness set (takes a long time!)
+# Computation of the pseudo witness set 
+# Note: The initial witness set computation run out of memory regardless of start system  
 PWS = PseudoWitnessSet(F_ordered, k; linear_subspace_codim = k - 1) 
+PWS = PseudoWitnessSet(F_ordered, k; linear_subspace_codim = k - 1, start_system = :total_degree) 
 
 e = floor(degree(PWS) / 2) + 1
 B = qr(rand(k, k)).Q |> Matrix
