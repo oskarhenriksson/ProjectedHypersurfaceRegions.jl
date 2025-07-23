@@ -1,13 +1,19 @@
+# Test files
+- The code is getting more complex, so we should probably start being a bit more careful with testing. 
+- [ ] Create test files.
+
 # Computation of the critical points
+- [ ] Try different choices of the Hessian (also consider numerically differentiating)
+<!--
 - The method in `routing_pts.jl` involves introducing auxilary variables in such a way that each critical point gives rise to a whole orbit under a faithful action of $(S_d)^k$, which has very large cardinality, even for moderately sized problems. There are a couple of approaches we can use to deal with this:
 - [ ] Use the built-in functionality in HC for doing monodromy modulo a group action. We have implemented a function `relabeling` for computing the orbits. However, the current system that we use for monodromy have extra parameters `V` and `W` (for ensuring that the incidence variety is irreducible), and for random values of these parameters, we lose the symmetry. We need a more clever way to obtain an irreducible incidence variety without breaking the symmetry!
 - [ ] Mod out by the group action ahead of time, by computing the ring of invariants.
 - [ ] Avoid the auxilary varibles altogether, by turning the gradient into an `AbstractSystem` (see the HC [documentation](https://www.juliahomotopycontinuation.org/HomotopyContinuation.jl/stable/systems/#Interface)), and apply `monodromy_solve` to find the critical points. 
+-->
 
 # Find connected components given critical points
 - [ ] Get critical points, and identify which have index 1.
-- [ ] Implement gradient flow. One option is to use the `DifferentialEquations` package; see `main.jl` for an exanple of this.
-Comment by Paul: This part can for the most part be copy-and-pasted from the code in https://github.com/JuliaAlgebra/HypersurfaceRegions.jl
+- [ ] Implement gradient flow. One option is to use the `DifferentialEquations` package; see `main.jl` for an exanple of this. Use https://github.com/JuliaAlgebra/HypersurfaceRegions.jl as inspiration.
 
 # Computation of the Hessian
 - [ ] Implement the 'single slice' method (see notes in the overleaf file and email from Jon).
