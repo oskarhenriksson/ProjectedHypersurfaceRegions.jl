@@ -6,9 +6,10 @@ mutable struct GradientCache
     H::Matrix
 end
 
-function GradientCache(k, PWS)
+function GradientCache(PWS)
     n = ambient_dim(PWS)
     d = degree(PWS)
+    k = n_projection_variables(PWS)
 
     Ks = Vector{LinearSubspace}(undef, k)
     line_hypersurface_intersections = [[zeros(ComplexF64, n) for _ = 1:d] for _ = 1:k]
@@ -58,7 +59,7 @@ function ∇log_r(
         B = Matrix(qr(randn(k, k)).Q)
     end
 
-    GC = GradientCache(k, PWS)
+    GC = GradientCache(PWS)
 
     Q(p) = (sum((p - c) .^ 2) + 1, 2 .* (p - c))
 
@@ -179,30 +180,25 @@ function hess_log_r(
     PWS = PseudoWitnessSet(F_ordered, k; linear_subspace_codim = k - 1)
 
     if method == :off_diag
-        hess = hess_log_r(PWS, k, e; c, B)
+        hess = _off_diag(PWS, e, c, B)
     elseif method == :many_slices
-        hess = _many_slices(F_ordered, PWS, e, projection_vars; c, B)
+        hess = _many_slices(PWS, e, c, B)
     elseif method == :single_slice
-        hess = _single_slice(F_ordered, e, projection_vars; c, B)
+        hess = _single_slice(F_ordered, e, projection_vars, c, B)
     end
     hess
 end
-#If you only have a pseudowitness set, then only one method remains.
-function hess_log_r(
+
+function _off_diag(
     PWS::PseudoWitnessSet,
-    k::Int,
-    e;
-    c::Union{AbstractVector,Nothing} = nothing,
-    B::Union{Matrix,Nothing} = nothing,
+    e,
+    c::AbstractVector,
+    B::Matrix
 )
 
-    if isnothing(c)
-        c = randn(k)
-    end
-    if isnothing(B)
-        B = Matrix(qr(randn(k, k)).Q)
-    end
-    GC = GradientCache(k, PWS)
+    k = n_projection_variables(PWS)
+
+    GC = GradientCache(PWS)
     Q(p) = (sum((p - c) .^ 2) + 1, 2 .* (p - c))
 
     function f(p)
@@ -268,15 +264,14 @@ end
 #That is, I replace l = p + tb ---> t^{-1} l = t^{-1} p + b  ---> l' = t*p+b. This is now
 #implemented and seems to perform more accurately than the original parametrization.
 function _many_slices(
-    F::System,
     PWS::PseudoWitnessSet,
     e,
-    projection_vars::Vector{Variable};
     c::AbstractVector,
     B::Matrix,
 )
-    n = length(variables(F))
-    k = length(projection_vars)
+    F = system(PWS)
+    n = ambient_dim(PWS)
+    k = n_projection_variables(PWS)
     @var u[1:n-k], t, p[1:k], b[1:k]
     JsuF = differentiate(F([p + (1 / t) * b; u]), vcat(t, u[:]))
     JpF = differentiate(F([p + (1 / t) * b; u]), p)
@@ -285,7 +280,7 @@ function _many_slices(
 
     d = degree(PWS) # Could figure out a suitable e from d. Specifically, e >= d/2?
 
-    GC = GradientCache(k, PWS)
+    GC = GradientCache(PWS)
 
     function f(P)
         track_pws_to_lines!(GC, P, B, PWS) # Our u's 
@@ -337,15 +332,15 @@ end
 #     B::Union{Matrix,Nothing} = nothing,
 # )
 #     # TODO: This needs to be implemented! For now, redirect to the off_diag method.
-#     hess_log_r(PWS, e, k; c, B)
+#     hess_log_r(PWS, e; c, B)
 # end
 
 function _single_slice(
     F::System,
     e,
-    projection_variables::Vector{Variable};
-    c::Union{AbstractVector,Nothing} = nothing,
-    B::Union{Matrix,Nothing} = nothing,
+    projection_variables::Vector{Variable},
+    c::AbstractVector,
+    B::Matrix
 )
     n = nvariables(F)
     k = length(projection_variables)

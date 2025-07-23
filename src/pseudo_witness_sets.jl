@@ -8,6 +8,8 @@ struct PseudoWitnessSet
 end
 degree(PWS::PseudoWitnessSet) = length(PWS.W)
 ambient_dim(PWS::PseudoWitnessSet) = HC.ambient_dim(PWS.L)
+n_projection_variables(PWS::PseudoWitnessSet) = PWS.k
+system(PWS::PseudoWitnessSet) = PWS.F
 
 @doc raw"""
     PseudoWitnessSet(F::System, k::Int; linear_subspace_codim::Int, L::LinearSubspace)

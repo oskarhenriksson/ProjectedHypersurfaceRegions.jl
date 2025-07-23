@@ -32,7 +32,7 @@ function RoutingGradient(F, projection_vars;
         B = Matrix(qr(randn(k, k)).Q)
     end
 
-    GC = GradientCache(k, PWS)
+    GC = GradientCache(PWS)
 
     RoutingGradient(F_ordered, projection_vars, PWS, GC, e, c, B)
 end
