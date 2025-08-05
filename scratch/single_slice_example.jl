@@ -5,124 +5,50 @@ Pkg.activate(".")
 using HomotopyContinuation, LinearAlgebra, DifferentialEquations, Plots
 
 include("../src/functions.jl")
+include("single_slice.jl")
 
-### a 2-dim example
-@var x a b
-F = System([x^2 + a * x + b; 2 * x + a])
+# Incidence variety
+@var a b γ δ x y
+G = [x^3 + a * x^2 + b*x*y + γ; x - y + δ]
+JG = differentiate(G, [x; y]);
+F = System([G; det(JG)],  variables = [a; b; γ; δ; x; y])
 
-projection_variables = [a; b]
+# Reorder the variables of F
+projection_variables = [a; b; γ; δ]
+x_variables = setdiff(variables(F), projection_variables)
+F = System(F.expressions, variables = [projection_variables; x_variables])
 
-c = 10 .* randn(2)
-e = 2
+# Fix a denominator point
+denominator_point = [3; -2; 5; -1]
 
-# Fixed point where we will compute gradients and Hessians
-P = [3; -2]
+# Fixed direction
+B = [2; 5; -1; 3]
 
-# For comparsion: the actual gradient and hessian of log(h)
-h = a^2 - 4 * b
-grad_symbolic = differentiate(log(h), [a; b])
-grad_true = grad_symbolic([a; b] => P)
-hess_symbolic = differentiate(grad_symbolic, [a; b])
-hess_true = hess_symbolic([a; b] => P)
+# Point for evaluation
+P = [1,2,3,4]
 
-##################################
+# Actual h polynomial
+@var c d
+h = a^2*b^2*d^2+2*a*b^3*d^2+b^4*d^2-4*b^3*d^3-4*a^3*c-12*a^2*b*c-12*a*b^2*c-4*b^3*c+18*a*b*c*d+18*b^2*c*d-27*c^2
+h = h(c => γ, d => δ)
+grad_symbolic = differentiate(log(h), projection_variables)
+grad_true = grad_symbolic(projection_variables => P)
+hess_symbolic = differentiate(grad_symbolic, projection_variables)
+hess_true = hess_symbolic(projection_variables => P)
 
-# single_slice method starts here
-# Assumes that the variables of F are already ordered!
+# Set up function for hess(q)
+q = 1 + sum((p - denominator_point) .* (p - denominator_point))
+Hlogqe(pt) = evaluate(differentiate(differentiate(log(q^e), p), p), p => pt) 
 
-n = nvariables(F)
-k = length(projection_variables)
+# Test of our new function
+PWS = PseudoWitnessSet(F, 4, linear_subspace_codim=3)
+e = Int(floor( degree(PWS)/2) + 1)
 
-# Random unit direction
-# B = rand(k)
-B = [2; 5]
-B = B / norm(B);
+our_hessian = hess_log_r(F, e, projection_variables; method = :single_slice, c = denominator_point) 
+@time H = our_hessian(P)
 
+our_hessian_off_diag = hess_log_r(F, e, projection_variables; method = :off_diag, c = denominator_point) 
+@time H_off_diag = our_hessian_off_diag(P)
 
-# Evaluating the system on the line p+tβ 
-@var u[1:n-k] p[1:k] β[1:k] t
-F_on_line = F([p + t * β; u])
-
-N = length(F_on_line)
-@assert N == n-k+1 "Unexpected length of system"
-
-# Symbolic Jacobians
-JsuF = differentiate(F_on_line, vcat(t, u[:])) #Jacobian of F with respect to s and u
-JPF = differentiate(F_on_line, p)
-JBF = differentiate(F_on_line, β)
-
-# Compute the intersection points through a pseudowitness set
-# Note: The PWS should be given as an input of the function
-# TODO: Use gradient cache for this 
-# The tracking function would need to be adapted to the case of a single direction
-PWS = PseudoWitnessSet(F, k; linear_subspace_codim=k - 1);
-L_target = lifted_line(P, B, n)
-list_of_solutions = solutions(HC.solve(PWS.F, PWS.W, start_subspace=PWS.L, target_subspace=L_target, intrinsic=true))
-S = zeros(ComplexF64, length(list_of_solutions))
-U = zeros(ComplexF64, n - k, length(list_of_solutions))
-for (j, sol) in enumerate(list_of_solutions)
-    X = sol[1:k]
-    U[:, j] = sol[k+1:end]
-    _, nonzero_coordinate = findmax(abs, X - P)
-    S[j] = (X[nonzero_coordinate] - P[nonzero_coordinate]) / B[nonzero_coordinate]
-end
-
-# Compute first-order Jacobians of s and u
-SP = zeros(ComplexF64, length(S), k)
-SB = zeros(ComplexF64, length(S), k)
-UP = zeros(ComplexF64, length(S), n - k, k)
-UB = zeros(ComplexF64, length(S), n - k, k)
-for i = 1:length(S)
-    Jsu = evaluate(JsuF, vcat(t, u, p, β) => vcat(S[i], U[:, i], P, B))
-    JP = evaluate(JPF, vcat(t, u, p, β) => vcat(S[i], U[:, i], P, B))
-    JB = evaluate(JBF, vcat(t, u, p, β) => vcat(S[i], U[:, i], P, B))
-    A = -Jsu \ [JP JB] # solves the linear system Jsu * A = -[JP JB]
-    SP[i, :] = A[1, 1:k]
-    SB[i, :] = A[1, k+1:end]
-    UP[i, :, :] = A[2:end, 1:k]
-    UB[i, :, :] = A[2:end, k+1:end]
-end
-
-
-
-# Testing
-hess_b_direction = sum(S[j]^(-2) * SP[j, :] for j = 1:length(S))
-norm(hess_true*B - hess_b_direction) # close to zero
-
-grad = sum(S[j]^(-2) * SB[j, :] for j = 1:length(S))
-norm(grad_true - grad) #also nearly zero.
-
-# Compute second-order Jacobians of s and use this to estimate the Hessian
-A = zeros(ComplexF64, length(S), size(F_on_line, 1), k, k)
-for i = 1:length(F_on_line)# loop through every equation in F?
-    HF = differentiate(differentiate(F_on_line[i], vcat(t, u)), vcat(t, u))
-    JxB = differentiate(differentiate(F_on_line[i], vcat(t, u)), β)
-    JxP = differentiate(differentiate(F_on_line[i], vcat(t, u)), p)
-    JPB = differentiate(differentiate(F_on_line[i], p), β)
-    for j = 1:length(S)
-        H = evaluate(HF, vcat(t, u, p, β) => vcat(S[j], U[:, j], P, B))
-        Jxb = evaluate(JxB, vcat(t, u, p, β) => vcat(S[j], U[:, j], P, B))
-        Jxp = evaluate(JxP, vcat(t, u, p, β) => vcat(S[j], U[:, j], P, B))
-        Jpb = evaluate(JPB, vcat(t, u, p, β) => vcat(S[j], U[:, j], P, B))
-        A[j, i, :, :] = ([SP[j, :] transpose(UP[j, :, :])] * H * transpose([SB[j, :] transpose(UB[j, :, :])])
-                         + Jpb + [SP[j, :] transpose(UP[j, :, :])] * Jxb
-                         + transpose(Jxp) * transpose([SB[j, :] transpose(UB[j, :, :])])) |> transpose |> Matrix
-
-    end
-end
-
-hess1 = zeros(ComplexF64, k, k)
-hess2 = zeros(ComplexF64, k, k)
-for j = 1:length(S)
-    Jtu = evaluate(JsuF, vcat(t, u, p, β) => vcat(S[j], U[:, j], P, B))
-    sols = zeros(ComplexF64, k, k)
-    for a in 1:k, b in 1:k
-        rhs = vcat([A[j, i, a, b] for i = 1:length(F_on_line)]...)
-        sols[a, b] = -(Jtu\rhs)[1]
-    end
-    hess1 = hess1 - 2 * S[j]^(-3) * SP[j, :] * transpose(SB[j, :])
-    hess2 = hess2 + S[j]^(-2) * sols
-end
-
-hess = hess1 + hess2 |> real
-norm(hess_true - hess) # should be close to zero
+norm(H' - H) # should be close to zero
+norm(hess_true + Hlogqe(P) - H)  # should be close to zero

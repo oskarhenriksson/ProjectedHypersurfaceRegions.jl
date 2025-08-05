@@ -184,7 +184,7 @@ function hess_log_r(
     elseif method == :many_slices
         hess = _many_slices(PWS, e, c, B)
     elseif method == :single_slice
-        hess = _single_slice(F_ordered, e, projection_vars, c, B)
+        hess = _single_slice(PWS, e, c, B[:,1])
     end
     hess
 end
@@ -335,108 +335,104 @@ end
 #     hess_log_r(PWS, e; c, B)
 # end
 
-function _single_slice(
-    F::System,
-    e,
-    projection_variables::Vector{Variable},
-    c::AbstractVector,
-    B::Matrix
-)
-    n = nvariables(F)
-    k = length(projection_variables)
-    if isnothing(B)
-        B = randn(k);
-        B = B/norm(B)
-    else
-        B = B[1,:]
-    end
 
-    if isnothing(c)
-        c = randn(k) 
-    end
+
+function _single_slice(
+    PWS::PseudoWitnessSet,
+    e,
+    c::AbstractVector,
+    B::Vector
+)
+
+    F = PWS.F
+    
+    n = length(F.variables)
+    k = n_projection_variables(PWS)
 
     @var u[1:n-k] p[1:k] β[1:k] t
-
-    #evaluating the system on the line p+tb 
     F_on_line = F([p + t * β; u])
+    N = length(F_on_line)
+    @assert N == n-k+1 "Unexpected length of system"
 
-    #getting the jacobians
-    JsuF = differentiate(F_on_line, vcat(t, u[:]))
+    # Symbolic Jacobians
+    JsuF = differentiate(F_on_line, vcat(t, u[:])) #Jacobian of F with respect to s and u
+    JPF = differentiate(F_on_line, p) #Jacobian of F with respect to p
+    JBF = differentiate(F_on_line, β) #Jacobian of F with respect to \beta
 
-    JPF = differentiate(F_on_line, p)
-
-    JBF = differentiate(F_on_line, β)
-
-    #set up function for hess(q)
+    # Set up function for hess(q)
     q = 1 + sum((p - c) .* (p - c))
     Hlogqe(pt) = evaluate(differentiate(differentiate(log(q^e), p), p), p => pt) 
 
-    function f(P)
-        
-        
-        evaluated_F = HC.solve(evaluate(F_on_line, vcat(p,β)=> vcat(P, B)))
-        S = zeros(ComplexF64, nsolutions(evaluated_F))
-        U = zeros(ComplexF64, n-k, nsolutions(evaluated_F))
-        for (j,sol) in enumerate(solutions(evaluated_F; only_nonsingular = true))
-            S[j] = sol[1]
-            U[:, j] = sol[2:end] 
+    function f(P) 
+        # Compute the intersection points through a pseudowitness set
+        # TODO: Use gradient cache for this 
+        # The tracking function would need to be adapted to the case of a single direction
+        L_target = lifted_line(P, B, n)
+        list_of_solutions = solutions(HC.solve(PWS.F, PWS.W, start_subspace=PWS.L, target_subspace=L_target, intrinsic=true))
+        S = zeros(ComplexF64, length(list_of_solutions))
+        U = zeros(ComplexF64, n - k, length(list_of_solutions))
+        for (j, sol) in enumerate(list_of_solutions)
+            X = sol[1:k]
+            U[:, j] = sol[k+1:end]
+            _, nonzero_coordinate = findmax(abs, X - P)
+            S[j] = (X[nonzero_coordinate] - P[nonzero_coordinate]) / B[nonzero_coordinate]
         end
-        
-        SP = zeros(ComplexF64, length(S), k)
+
+        # Compute first-order Jacobians of s and u
+        SP = zeros(ComplexF64, length(S), k) 
         SB = zeros(ComplexF64, length(S), k)
-        UP = zeros(ComplexF64, length(S), k)
-        UB = zeros(ComplexF64, length(S), k)
+        UP = zeros(ComplexF64, length(S), n - k, k)
+        UB = zeros(ComplexF64, length(S), n - k, k)
         for i = 1:length(S)
-        Jsu = evaluate(JsuF, vcat(t, u, p, β) => vcat(S[i], U[:,i], P, B))
-        JP = evaluate(JPF, vcat(t, u, p, β) => vcat(S[i], U[:,i], P, B))
-        JB = evaluate(JBF, vcat(t, u, p, β) => vcat(S[i], U[:,i], P, B))
-        A = -Jsu \ [JP JB]
-        SP[i,:] = A[1, 1:k]
-        SB[i,:] = A[1, k+1:end]
-        UP[i,:] = A[2, 1:k]
-        UB[i,:] = A[2, k+1:end]
+            Jsu = evaluate(JsuF, vcat(t, u, p, β) => vcat(S[i], U[:, i], P, B)) 
+            JP = evaluate(JPF, vcat(t, u, p, β) => vcat(S[i], U[:, i], P, B))
+            JB = evaluate(JBF, vcat(t, u, p, β) => vcat(S[i], U[:, i], P, B))
+            solution_p = -Jsu \ JP # solves the system Jsu*sol_p = -JP
+            solution_b = -Jsu \ JB # solves the system Jsu*sol_b = -JB
+            SP[i, :] = solution_p[1, :]
+            SB[i, :] = solution_b[1, :]
+            UP[i, :, :] = solution_p[2:end, :]
+            UB[i, :, :] = solution_b[2:end, :]
         end
 
-
-        A = zeros(ComplexF64, length(S), size(F_on_line,1), k,k)
-        for i = 1:size(F_on_line,1)
-            HF = differentiate(differentiate(F_on_line[i], vcat(t,u)), vcat(t,u))
-            JxB = differentiate(differentiate(F_on_line[i], vcat(t,u)), β)
-            JxP = differentiate(differentiate(F_on_line[i], vcat(t,u)), p)
-            JBP = differentiate(differentiate(F_on_line[i], β), p)
+        # Compute second-order Jacobians of s and use this to estimate the Hessian
+        A = zeros(ComplexF64, length(S), size(F_on_line, 1), k, k)
+        for i = 1:length(F_on_line)# loop through every equation in F?
+            HF = differentiate(differentiate(F_on_line[i], vcat(t, u)), vcat(t, u))
+            JxB = differentiate(differentiate(F_on_line[i], vcat(t, u)), β)
+            JxP = differentiate(differentiate(F_on_line[i], vcat(t, u)), p)
+            JPB = differentiate(differentiate(F_on_line[i], p), β)
             for j = 1:length(S)
-                H = evaluate(HF, vcat(t, u, p, β) => vcat(S[j], U[:,j], P, B))
-                Jxb = evaluate(JxB, vcat(t, u, p, β) => vcat(S[j], U[:,j], P, B))
-                Jxp = evaluate(JxP, vcat(t, u, p, β) => vcat(S[j], U[:,j], P, B))
-                Jbp = evaluate(JBP, vcat(t, u, p, β) => vcat(S[j], U[:,j], P, B))  
-                A[j, i, :, :] = transpose(([SP[j,:] UP[j, :]]*H*transpose([SB[j,:] UB[j, :]])
-                                + Jbp + [SP[j,:] UP[j,:]]*Jxb 
-                                + transpose(Jxp)*transpose([SB[j, :] UB[j, :]]))) |> Matrix
-                
+                H = evaluate(HF, vcat(t, u, p, β) => vcat(S[j], U[:, j], P, B))
+                Jxb = evaluate(JxB, vcat(t, u, p, β) => vcat(S[j], U[:, j], P, B))
+                Jxp = evaluate(JxP, vcat(t, u, p, β) => vcat(S[j], U[:, j], P, B))
+                Jpb = evaluate(JPB, vcat(t, u, p, β) => vcat(S[j], U[:, j], P, B))
+                A[j, i, :, :] = ([SP[j, :] transpose(UP[j, :, :])] * H * transpose([SB[j, :] transpose(UB[j, :, :])])
+                                + Jpb + [SP[j, :] transpose(UP[j, :, :])] * Jxb
+                                + transpose(Jxp) * transpose([SB[j, :] transpose(UB[j, :, :])])) |> transpose |> Matrix
+
             end
         end
-        A
+        
         hess1 = zeros(ComplexF64, k, k)
         hess2 = zeros(ComplexF64, k, k)
         for j = 1:length(S)
-            Jtu = evaluate(JsuF, vcat(t, u, p, β) => vcat(S[j], U[:,j], P, B))
-            A1 = Array(A[j,1,:,:])
-            A2 = Array(A[j,2,:,:])
-            E = zeros(ComplexF64, k, k)
+            Jtu = evaluate(JsuF, vcat(t, u, p, β) => vcat(S[j], U[:, j], P, B))
+            sols = zeros(ComplexF64, k, k)
             for a in 1:k, b in 1:k
-                rhs = [A1[a,b]; A2[a,b]]
-                E[a,b] = - (Jtu\ rhs)[1]
+                rhs = vcat([A[j, i, a, b] for i = 1:length(F_on_line)]...)
+                sols[a, b] = -(Jtu\rhs)[1]
             end
-            hess1 = hess1 - 2*S[j]^(-3)*SP[j,:]*transpose(SB[j,:])
-            hess2 = hess2 + S[j]^(-2) * E
+            hess1 = hess1 - 2 * S[j]^(-3) * SP[j, :] * transpose(SB[j, :])
+            hess2 = hess2 + S[j]^(-2) * sols
         end
-
-        hess = hess1 + hess2 + Hlogqe(P)
-
+        hess = hess1 + hess2 + Hlogqe(P) 
         real(hess)
-    end    
+    end
     f
 end
+
+
 # If you happen to know the discriminant directly (and are not taking a projection), then this function can be used. 
 # This is useful for testing our other hessian methods.
 function hess_log_r_given_h(
