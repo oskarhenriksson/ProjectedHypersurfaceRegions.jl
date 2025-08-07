@@ -426,7 +426,7 @@ function _single_slice(
             hess1 = hess1 - 2 * S[j]^(-3) * SP[j, :] * transpose(SB[j, :])
             hess2 = hess2 + S[j]^(-2) * sols
         end
-        hess = hess1 + hess2 + Hlogqe(P) 
+        hess = hess1 + hess2 - Hlogqe(P) 
         real(hess)
     end
     f
