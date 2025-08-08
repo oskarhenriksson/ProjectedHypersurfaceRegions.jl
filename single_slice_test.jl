@@ -75,8 +75,8 @@ p = rand(k)
 #on this example, single slice is faster than off_diag and many_slices. but it still allocates more memory than off_diag.
 @time H_od = hess_off_diag(p) #0.219 seconds (on my machine), 13.84k allocations
 @time H_ms = hess_many_slices(p) #0.085 seconds (on my machine), 108.03k allocations 
-@time H_ss = hess_single_slice(p) #0.051 seconds (on my machine) 100.15k allocations
-norm(H_od - H_ss) #still very small, on the order of 1e-10
+@time H_ss = hess_single_slice(p) #0.051 seconds (on my machine) 91.15k allocations
+norm(H_od - H_ss) #still very small, on the order of 1e-12
 
 
 
