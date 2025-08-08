@@ -6,13 +6,18 @@ mutable struct GradientCache
     H::Matrix
 end
 
-function GradientCache(PWS)
+function GradientCache(PWS; single_slice = false)
     n = ambient_dim(PWS)
     d = degree(PWS)
     k = n_projection_variables(PWS)
 
-    Ks = Vector{LinearSubspace}(undef, k)
-    line_hypersurface_intersections = [[zeros(ComplexF64, n) for _ = 1:d] for _ = 1:k]
+    if single_slice
+        Ks = Vector{LinearSubspace}(undef, 1)
+        line_hypersurface_intersections = [zeros(ComplexF64, n) for _ in 1:d]
+    else
+        Ks = Vector{LinearSubspace}(undef, k)
+        line_hypersurface_intersections = [[zeros(ComplexF64, n) for _ = 1:d] for _ = 1:k]
+    end
 
     Hom = linear_subspace_homotopy(F, PWS.L, PWS.L; intrinsic = true)
     tracker = EndgameTracker(Hom)
@@ -323,18 +328,6 @@ function _many_slices(
 
 end
 
-# function _single_slice(
-#     F::System,
-#     PWS::PseudoWitnessSet,
-#     e,
-#     projection_vars::Vector{Variable};
-#     c::Union{AbstractVector,Nothing} = nothing,
-#     B::Union{Matrix,Nothing} = nothing,
-# )
-#     # TODO: This needs to be implemented! For now, redirect to the off_diag method.
-#     hess_log_r(PWS, e; c, B)
-# end
-
 
 
 function _single_slice(
@@ -359,6 +352,9 @@ function _single_slice(
     JPF = differentiate(F_on_line, p) #Jacobian of F with respect to p
     JBF = differentiate(F_on_line, β) #Jacobian of F with respect to \beta
 
+
+    GC = GradientCache(PWS; single_slice = true)
+
     # Set up function for hess(q)
     q = 1 + sum((p - c) .* (p - c))
     Hlogqe(pt) = evaluate(differentiate(differentiate(log(q^e), p), p), p => pt) 
@@ -367,8 +363,11 @@ function _single_slice(
         # Compute the intersection points through a pseudowitness set
         # TODO: Use gradient cache for this 
         # The tracking function would need to be adapted to the case of a single direction
-        L_target = lifted_line(P, B, n)
-        list_of_solutions = solutions(HC.solve(PWS.F, PWS.W, start_subspace=PWS.L, target_subspace=L_target, intrinsic=true))
+
+        track_pws_to_line!(GC, P, B, PWS)
+        list_of_solutions = GC.line_hypersurface_intersections
+        # L_target = lifted_line(P, B, n)
+        # list_of_solutions = solutions(HC.solve(PWS.F, PWS.W, start_subspace=PWS.L, target_subspace=L_target, intrinsic=true))
         S = zeros(ComplexF64, length(list_of_solutions))
         U = zeros(ComplexF64, n - k, length(list_of_solutions))
         for (j, sol) in enumerate(list_of_solutions)

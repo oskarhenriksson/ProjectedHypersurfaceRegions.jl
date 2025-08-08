@@ -1,5 +1,5 @@
 using Pkg
-Pkg.activate("..")
+Pkg.activate(".")
 include("../src/functions.jl");
 
 @var κ[1:6] x[1:2] T[1:2]
@@ -24,17 +24,17 @@ projection_vars = [κ; T]  # These are the variables we are projecting to.
 k = 8
 B = qr(rand(k, k)).Q |> Matrix
 c = 10 .* randn(k)
-
-PWS = PseudoWitnessSet(F, k; linear_subspace_codim = k - 1)
+F_ordered = System(F.expressions, variables = [projection_vars; x])
+PWS = PseudoWitnessSet(F_ordered, k; linear_subspace_codim = k - 1)
 e = Int(floor(degree(PWS) / 2)) + 1
 
-F_ordered = System(F.expressions, variables = [projection_vars; x])
+
 
 hess_off_diag = hess_log_r(F_ordered, e, projection_vars; method = :off_diag, c, B)
 hess_many_slices = hess_log_r(F_ordered, e, projection_vars; method = :many_slices, c, B)
-
+hess_single_slice = hess_log_r(F_ordered, e, projection_vars; method = :single_slice, c, B)
 p = rand(k)
-H_od = hess_off_diag(p)
-H_ms = hess_many_slices(p)
-
-norm(H_od - H_ms)
+@time H_od = hess_off_diag(p)
+@time H_ms = hess_many_slices(p)
+@time H_ss = hess_single_slice(p)
+norm(H_od - H_ss)

@@ -89,3 +89,21 @@ function track_pws_to_lines!(
         end
     end
 end
+
+function track_pws_to_line!(
+    GC,
+    point::AbstractVector,
+    single_direction::AbstractVector,
+    PWS::PseudoWitnessSet,
+)
+    n = ambient_dim(PWS)
+    GC.Ks = [lifted_line(point, single_direction, n)]
+
+    target_parameters!(GC.tracker, GC.Ks[1])
+    for (l, w) in enumerate(PWS.W)
+        track!(GC.tracker, w, 1)
+        GC.line_hypersurface_intersections[l] .= solution(GC.tracker)
+    end
+
+    
+end
