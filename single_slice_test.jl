@@ -37,6 +37,10 @@ P = rand(k)
 
 norm(hess_given_h_eval - hess_single_slice_eval) # should be small, and is about 1e-14
 
+
+###############################################################################################################
+###############################################################################################################
+
 #Testing on larger examples (cluster stabilization)
 @var κ[1:6] x[1:2] T[1:2]
 
@@ -75,11 +79,93 @@ p = rand(k)
 #on this example, single slice is faster than off_diag and many_slices. but it still allocates more memory than off_diag.
 @time H_od = hess_off_diag(p) #0.219 seconds (on my machine), 13.84k allocations
 @time H_ms = hess_many_slices(p) #0.085 seconds (on my machine), 108.03k allocations 
-@time H_ss = hess_single_slice(p) #0.051 seconds (on my machine) 91.15k allocations
+@time H_ss = hess_single_slice(p) #0.051 seconds (on my machine) 51.34k allocations
 norm(H_od - H_ss) #still very small, on the order of 1e-12
 
+###############################################################################################################
+###############################################################################################################
 
 
+#Example host-range expansion. 3 dimensional system from this paper: https://epubs.siam.org/doi/10.1137/23M1605582
+
+
+#Setting up the system (cleared denominators) here we have that κ_i=1/K_i where K_i is the carrying capacity of species i
+@var N[1:2] P r[1:2] κ[1:2] β λ 
+
+DE_eqs = [r[1]*N[1]*(1-N[1]*κ[1])-N[1]*N[2]-N[1]*P,
+          r[2]*N[2]*(1-N[1]*κ[1])-N[2]*N[1],
+          β*N[1]*P-P
+    ]
+
+#adding the condition that solutions to the system are singular
+J=differentiate(vcat(DE_eqs),vcat(N,P))
+
+#getting the characteristic polynomial 
+char=det(λ*I-J)
+
+
+#getting the coeffs of the characteristic poly 
+#to use in the Routh array
+
+coeffs=coefficients(char,λ)
+
+#Explicitly constructing the Hurwitz matrix
+#(there is definitely a more clever way to do this)
+
+hurwitz = zeros(Expression, 3, 3)
+
+a_3=coeffs[1]
+a_2=coeffs[2]
+a_1=coeffs[3]
+a_0=coeffs[4]
+
+hurwitz[1,1]=a_2
+hurwitz[1,2]=a_0 
+hurwitz[2,1]=a_3 
+hurwitz[2,2]=a_1
+hurwitz[3,2]=a_2
+hurwitz[3,3]=a_0
+
+
+#Routh_Hurwitz polynomials are the principal minors of the Hurwitz matrix
+minors = Expression[]
+for i in 1:3
+    minor = det(hurwitz[1:i, 1:i])
+    push!(minors, minor)
+end
+
+RH_boundary_eqs = minors[1]*minors[3]
+
+#System for the incidence variety of the hypersurface
+F = System(vcat(DE_eqs,RH_boundary_eqs), variables = vcat(β, r, κ, N, P))
+
+projection_variables = [β; r; κ]
+k = length(projection_variables)
+
+B = qr(rand(k, k)).Q |> Matrix
+c = 10 .* randn(k)
+F_ordered = System(F.expressions, variables = [projection_variables; N; P])
+
+PWS = PseudoWitnessSet(F_ordered, k; linear_subspace_codim = k - 1)
+
+e = Int(floor(degree(PWS) / 2)) + 1
+
+#testing hessian methods
+
+hess_off_diag = hess_log_r(F_ordered, e, projection_variables; method = :off_diag, c, B)
+hess_many_slices = hess_log_r(F_ordered, e, projection_variables; method = :many_slices, c, B)
+hess_single_slice = hess_log_r(F_ordered, e, projection_variables; method = :single_slice, c, B)
+
+P = rand(k)
+
+@time hess_off_diag_eval = hess_off_diag(P) #around 0.19 seconds (on my machine), 9.47k allocations
+@time hess_many_slices_eval = hess_many_slices(P) #around 0.09 seconds (on my machine), 216.49k allocations
+@time hess_single_slice_eval = hess_single_slice(P) #around 0.22 seconds (on my machine), 434.48k allocations
+
+norm(hess_off_diag_eval - hess_single_slice_eval) # should be small, and is about 1e-7
+
+#######################################################################################
+#######################################################################################
 
 # Another example, this time the four bus example 
 # In this lossless four bus system with zero power injections, we have 6 parameters (6 bij where i\neq j) and 6 variables (Vd[1:3], Vq[1:3])
