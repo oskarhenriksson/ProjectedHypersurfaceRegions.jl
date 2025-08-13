@@ -278,8 +278,8 @@ function _many_slices(
     q = 1 + sum((p - c) .* (p - c))
     Hlogqe(pt) = evaluate(differentiate(differentiate(log(q^e), p), p), p => pt) # Can expand to make faster?
 
-    d = degree(PWS) # Could figure out a suitable e from d. Specifically, e >= d/2?
-
+    d = degree(PWS)
+    
     GC = GradientCache(PWS)
 
     function f(P)
@@ -322,19 +322,6 @@ function _many_slices(
     # TODO: I am overcomputing here since the Hessian is symmetric. Also, to get each ∇s_p I think I'm solving a larger system than needed. Perhaps there is a way to only compute the upper triangular part?
 
 end
-
-# function _single_slice(
-#     F::System,
-#     PWS::PseudoWitnessSet,
-#     e,
-#     projection_vars::Vector{Variable};
-#     c::Union{AbstractVector,Nothing} = nothing,
-#     B::Union{Matrix,Nothing} = nothing,
-# )
-#     # TODO: This needs to be implemented! For now, redirect to the off_diag method.
-#     hess_log_r(PWS, e; c, B)
-# end
-
 
 
 function _single_slice(
