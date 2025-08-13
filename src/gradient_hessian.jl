@@ -14,7 +14,7 @@ function GradientCache(PWS)
     Ks = Vector{LinearSubspace}(undef, k)
     line_hypersurface_intersections = [[zeros(ComplexF64, n) for _ = 1:d] for _ = 1:k]
 
-    Hom = linear_subspace_homotopy(F, PWS.L, PWS.L; intrinsic = true)
+    Hom = linear_subspace_homotopy(PWS.F, PWS.L, PWS.L; intrinsic = true)
     tracker = EndgameTracker(Hom)
 
     grad = zeros(ComplexF64, k)
