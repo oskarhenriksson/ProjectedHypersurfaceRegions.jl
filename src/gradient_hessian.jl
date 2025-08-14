@@ -14,7 +14,7 @@ function GradientCache(PWS; single_slice = false)
 
     if single_slice
         Ks = Vector{LinearSubspace}(undef, 1)
-        line_hypersurface_intersections = [zeros(ComplexF64, n) for _ in 1:d]
+        line_hypersurface_intersections = [[zeros(ComplexF64, n) for _ in 1:d]]
     else
         Ks = Vector{LinearSubspace}(undef, k)
         line_hypersurface_intersections = [[zeros(ComplexF64, n) for _ = 1:d] for _ = 1:k]
@@ -387,18 +387,17 @@ function _single_slice(
         fill!(hess1, 0)
         fill!(hess2, 0)
 
-        track_pws_to_line!(GC, P, B, PWS)
-        # L_target = lifted_line(P, B, n)
-        # list_of_solutions = solutions(HC.solve(PWS.F, PWS.W, start_subspace=PWS.L, target_subspace=L_target, intrinsic=true))
-        # S = zeros(ComplexF64, length(GC.line_hypersurface_intersections))
-        # U = zeros(ComplexF64, n - k, length(GC.line_hypersurface_intersections))
-        for (j, sol) in enumerate(GC.line_hypersurface_intersections)
+        # Compute the intersection points through a pseudowitness set
+        track_pws_to_lines!(GC, P, B, PWS)
+        #Obtain U and the projection S
+        for (j, sol) in enumerate(GC.line_hypersurface_intersections[1])
             X = sol[1:k]
             U[:, j] = sol[k+1:end]
             _, nonzero_coordinate = findmax(abs, X - P)
             S[j] = (X[nonzero_coordinate] - P[nonzero_coordinate]) / B[nonzero_coordinate]
         end
 
+        #Obtain gradients of S and U with respect to p and β
         for i = 1:length(S)
             if typeof(JsuF) == Matrix{Expression}
                 Jsu = evaluate(JsuF, vcat(t, u, p) => vcat(S[i], U[:, i], P)) 
@@ -415,21 +414,18 @@ function _single_slice(
             else 
                 JB = JBF
             end
-            # solution_p = -Jsu \ JP # solves the system Jsu*sol_p = -JP
-            # solution_b = -Jsu \ JB # solves the system Jsu*sol_b = -JB
+
             PBsols = -Jsu \ [JP JB] # solves the system Jsu*A = -[JP JB]
-            # SP[i, :] = solution_p[1, :]
-            # SB[i, :] = solution_b[1, :]
+
             SP[i,:] = PBsols[1, 1:k]
             SB[i,:] = PBsols[1, k+1:end]
-            # UP[i, :, :] = solution_p[2:end, :]
-            # UB[i, :, :] = solution_b[2:end, :]
+
             UP[i,:,:] = PBsols[2:end, 1:k]
             UB[i,:,:] = PBsols[2:end, k+1:end]
         end
 
-        # Compute second-order Jacobians of s and use this to estimate the Hessian
-        for i = 1:length(F_on_line)# loop through every equation in F?
+        # Computation outlined in the abstract description Jon gave in Overleaf file
+        for i = 1:length(F_on_line)
             for j = 1:length(S)
                 if typeof(HF[i]) == Matrix{Expression}
                     H = evaluate(HF[i], vcat(t, u, p) => vcat(S[j], U[:, j], P))
@@ -459,6 +455,7 @@ function _single_slice(
             end
         end
         
+        #Compute Hessian
         for j = 1:length(S)
             if typeof(JsuF) == Matrix{Expression}
                 Jtu = evaluate(JsuF, vcat(t, u, p) => vcat(S[j], U[:, j], P)) 
