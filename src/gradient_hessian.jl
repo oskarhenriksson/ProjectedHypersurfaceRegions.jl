@@ -284,8 +284,8 @@ function _many_slices(
     q = 1 + sum((p - c) .* (p - c))
     Hlogqe(pt) = evaluate(differentiate(differentiate(log(q^e), p), p), p => pt) # Can expand to make faster?
 
-    d = degree(PWS) # Could figure out a suitable e from d. Specifically, e >= d/2?
-
+    d = degree(PWS)
+    
     GC = GradientCache(PWS)
 
     function f(P)
@@ -470,6 +470,7 @@ function _single_slice(
             hess1 = hess1 - 2 * S[j]^(-3) * SP[j, :] * transpose(SB[j, :])
             hess2 = hess2 + S[j]^(-2) * sols
         end
+
         GC.H = hess1 + hess2 - Hlogqe(P) 
         real(GC.H)
     end
