@@ -46,9 +46,12 @@ function PseudoWitnessSet(
         @assert ambient_dim(L) == n "The ambient dimension of the linear subspace L must match the number of variables in the system F."
     end
     startL = rand_subspace(n; codim = linear_subspace_codim)
-    S = solutions(witness_set(F, startL; start_system = start_system))
-    W = HC.solve(F, S, start_subspace = startL, target_subspace = L, intrinsic = true)
-    PseudoWitnessSet(F, k, L, solutions(W; only_nonsingular = true))
+
+    W = witness_set(F, startL; start_system = start_system)
+    E = HC.solve(F, results(W), start_subspace = startL, target_subspace = L, intrinsic = true)
+    M = monodromy_solve(F, solutions(E), L)
+
+    PseudoWitnessSet(F, k, L, solutions(M))
 end
 
 
