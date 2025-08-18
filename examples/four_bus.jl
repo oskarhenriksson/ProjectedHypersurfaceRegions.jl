@@ -32,6 +32,15 @@ d = degree(PWS)
 e= Int(floor(d/2)+1)
 B = qr(rand(k, k)).Q |> Matrix
 c = 10 .* randn(k)
+
+r = RoutingGradient(F, projection_vars)
+
+x0 = randn(ComplexF64, k)
+evaluate_and_jacobian(r, x0) # works fine
+
+
+
+
 ######################################################
 #Testing our hessian methods
 hess_off_diag = hess_log_r(F_ordered, e, projection_vars; method = :off_diag, c, B)
