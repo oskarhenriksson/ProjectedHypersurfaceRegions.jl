@@ -351,15 +351,15 @@ function _single_slice(
     #since B remains the same no matter what P, it makes sense to evaluate
     #the symbolic expressions at B here instead of when the function f(P) is called
     # Symbolic Jacobians (except evaluated at β = B)
-    JsuF = evaluate(differentiate(F_on_line, vcat(t, u[:])), β => B) #Jacobian of F with respect to s and u
-    JPF = evaluate(differentiate(F_on_line, p), β => B) #Jacobian of F with respect to p
-    JBF = evaluate(differentiate(F_on_line, β), β => B) #Jacobian of F with respect to \beta
+    JsuF = Expression.(evaluate(differentiate(F_on_line, vcat(t, u[:])), β => B)) #Jacobian of F with respect to s and u
+    JPF = Expression.(evaluate(differentiate(F_on_line, p), β => B)) #Jacobian of F with respect to p
+    JBF = Expression.(evaluate(differentiate(F_on_line, β), β => B)) #Jacobian of F with respect to \beta
 
     #Symbolic Hessians (except evaluated at β = B)
-    HF = [evaluate(differentiate(differentiate(F_on_line[i], vcat(t, u)), vcat(t, u)), β => B) for i in 1:N]
-    JxB = [evaluate(differentiate(differentiate(F_on_line[i], vcat(t, u)), β), β => B) for i in 1:N]
-    JxP = [evaluate(differentiate(differentiate(F_on_line[i], vcat(t, u)), p), β => B) for i in 1:N]
-    JPB = [evaluate(differentiate(differentiate(F_on_line[i], p), β), β => B) for i in 1:N]
+    HF = [Expression.(evaluate(differentiate(differentiate(F_on_line[i], vcat(t, u)), vcat(t, u)), β => B)) for i in 1:N]
+    JxB = [Expression.(evaluate(differentiate(differentiate(F_on_line[i], vcat(t, u)), β), β => B)) for i in 1:N]
+    JxP = [Expression.(evaluate(differentiate(differentiate(F_on_line[i], vcat(t, u)), p), β => B)) for i in 1:N]
+    JPB = [Expression.(evaluate(differentiate(differentiate(F_on_line[i], p), β), β => B)) for i in 1:N]
 
     GC = GradientCache(PWS; single_slice = true)
     
@@ -399,21 +399,10 @@ function _single_slice(
 
         #Obtain gradients of S and U with respect to p and β
         for i = 1:length(S)
-            if typeof(JsuF) == Matrix{Expression}
-                Jsu = evaluate(JsuF, vcat(t, u, p) => vcat(S[i], U[:, i], P)) 
-            else
-                Jsu = JsuF
-            end
-            if typeof(JPF) == Matrix{Expression}
-                JP = evaluate(JPF, vcat(t, u, p) => vcat(S[i], U[:, i], P))
-            else 
-                JP = JPF
-            end
-            if typeof(JBF) == Matrix{Expression}
-                JB = evaluate(JBF, vcat(t, u, p) => vcat(S[i], U[:, i], P))
-            else 
-                JB = JBF
-            end
+
+            Jsu = evaluate(JsuF, vcat(t, u, p) => vcat(S[i], U[:, i], P)) 
+            JP = evaluate(JPF, vcat(t, u, p) => vcat(S[i], U[:, i], P))
+            JB = evaluate(JBF, vcat(t, u, p) => vcat(S[i], U[:, i], P))
 
             PBsols = -Jsu \ [JP JB] # solves the system Jsu*A = -[JP JB]
 
@@ -427,26 +416,10 @@ function _single_slice(
         # Computation outlined in the abstract description Jon gave in Overleaf file
         for i = 1:length(F_on_line)
             for j = 1:length(S)
-                if typeof(HF[i]) == Matrix{Expression}
-                    H = evaluate(HF[i], vcat(t, u, p) => vcat(S[j], U[:, j], P))
-                else
-                    H = HF[i]
-                end
-                if typeof(JxB[i]) == Matrix{Expression}
-                    Jxb = evaluate(JxB[i], vcat(t, u, p) => vcat(S[j], U[:, j], P))
-                else
-                    Jxb = JxB[i]
-                end
-                if typeof(JxP[i]) == Matrix{Expression}
-                    Jxp = evaluate(JxP[i], vcat(t, u, p) => vcat(S[j], U[:, j], P))
-                else
-                    Jxp = JxP[i]
-                end
-                if typeof(JPB[i]) == Matrix{Expression}
-                    Jpb = evaluate(JPB[i], vcat(t, u, p) => vcat(S[j], U[:, j], P))
-                else
-                    Jpb = JPB[i]
-                end
+                H = evaluate(HF[i], vcat(t, u, p) => vcat(S[j], U[:, j], P))
+                Jxb = evaluate(JxB[i], vcat(t, u, p) => vcat(S[j], U[:, j], P))
+                Jxp = evaluate(JxP[i], vcat(t, u, p) => vcat(S[j], U[:, j], P))
+                Jpb = evaluate(JPB[i], vcat(t, u, p) => vcat(S[j], U[:, j], P))
 
                 A[j, i, :, :] = ([SP[j, :] transpose(UP[j, :, :])] * H * transpose([SB[j, :] transpose(UB[j, :, :])])
                                 + Jpb + [SP[j, :] transpose(UP[j, :, :])] * Jxb
@@ -457,11 +430,7 @@ function _single_slice(
         
         #Compute Hessian
         for j = 1:length(S)
-            if typeof(JsuF) == Matrix{Expression}
-                Jtu = evaluate(JsuF, vcat(t, u, p) => vcat(S[j], U[:, j], P)) 
-            else
-                Jtu = JsuF
-            end
+            Jtu = evaluate(JsuF, vcat(t, u, p) => vcat(S[j], U[:, j], P)) 
             sols = zeros(ComplexF64, k, k)
             for a in 1:k, b in 1:k
                 rhs = vcat([A[j, i, a, b] for i = 1:length(F_on_line)]...)
@@ -476,7 +445,6 @@ function _single_slice(
     end
     f
 end
-
 
 # If you happen to know the discriminant directly (and are not taking a projection), then this function can be used. 
 # This is useful for testing our other hessian methods.
