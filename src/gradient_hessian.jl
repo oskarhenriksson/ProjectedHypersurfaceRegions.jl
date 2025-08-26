@@ -344,7 +344,7 @@ function _single_slice(
     k = n_projection_variables(PWS)
 
     @var u[1:n-k] p[1:k] β[1:k] t
-    F_on_line = F([p + t * β; u])
+    F_on_line = F([p + (1 / t) * β; u])
     N = length(F_on_line)
     @assert N == n-k+1 "Unexpected length of system"
 
@@ -388,13 +388,13 @@ function _single_slice(
         fill!(hess2, 0)
 
         # Compute the intersection points through a pseudowitness set
-        track_pws_to_lines!(GC, P, B, PWS)
+        track_pws_to_lines!(GC, P, B, PWS) # TODO: Replace track_pws_to_lines with track_pws_to_line. That is, track less lines. We only need one.
         #Obtain U and the projection S
         for (j, sol) in enumerate(GC.line_hypersurface_intersections[1])
             X = sol[1:k]
             U[:, j] = sol[k+1:end]
             _, nonzero_coordinate = findmax(abs, X - P)
-            S[j] = (X[nonzero_coordinate] - P[nonzero_coordinate]) / B[nonzero_coordinate]
+            S[j] = B[nonzero_coordinate] / (X[nonzero_coordinate] - P[nonzero_coordinate]) 
         end
 
         #Obtain gradients of S and U with respect to p and β
@@ -436,11 +436,11 @@ function _single_slice(
                 rhs = vcat([A[j, i, a, b] for i = 1:length(F_on_line)]...)
                 sols[a, b] = -(Jtu\rhs)[1]
             end
-            hess1 = hess1 - 2 * S[j]^(-3) * SP[j, :] * transpose(SB[j, :])
-            hess2 = hess2 + S[j]^(-2) * sols
+           # hess1 = hess1 - 2 * S[j]^(-3) * SP[j, :] * transpose(SB[j, :])
+            hess2 = hess2 - sols
         end
 
-        GC.H = hess1 + hess2 - Hlogqe(P) 
+        GC.H = hess2 - Hlogqe(P) 
         real(GC.H)
     end
     f
