@@ -89,3 +89,26 @@ function track_pws_to_lines!(
         end
     end
 end
+
+
+"""track_pws_to_line!(GC, point, direction, PWS)
+
+Tracks the pseudo-witness set `PWS` to a single lifted line defined by
+`point` and `direction`. Results are stored in `GC.Ks[1]` and
+`GC.line_hypersurface_intersections[1]`, matching the shape used by
+`GradientCache(...; single_slice=true)`.
+"""
+function track_pws_to_line!(
+    GC,
+    point::AbstractVector,
+    direction::AbstractVector{Float64},
+    PWS::PseudoWitnessSet,
+)
+    n = ambient_dim(PWS)
+    GC.Ks[1] = lifted_line(point, direction, n)
+    target_parameters!(GC.tracker, GC.Ks[1])
+    for (l, w) in enumerate(PWS.W)
+        track!(GC.tracker, w, 1)
+        GC.line_hypersurface_intersections[1][l] .= solution(GC.tracker)
+    end
+end

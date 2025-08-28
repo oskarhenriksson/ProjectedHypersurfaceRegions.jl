@@ -226,7 +226,7 @@ function _off_diag(
         end
         for i = 1:k
             for j = i+1:k
-                track_pws_to_lines!(GC, p, B[:, i] - B[:, j], PWS)
+                track_pws_to_line!(GC, p, B[:, i] - B[:, j], PWS)
                 intermediate = ∂2log_r(
                     GC.line_hypersurface_intersections[1],
                     Qp,
@@ -388,7 +388,7 @@ function _single_slice(
         fill!(hess2, 0)
 
         # Compute the intersection points through a pseudowitness set
-        track_pws_to_lines!(GC, P, B, PWS) # TODO: Replace track_pws_to_lines with track_pws_to_line. That is, track less lines. We only need one.
+        track_pws_to_line!(GC, P, B, PWS) # TODO: Replace track_pws_to_lines with track_pws_to_line. That is, track less lines. We only need one.
         #Obtain U and the projection S
         for (j, sol) in enumerate(GC.line_hypersurface_intersections[1])
             X = sol[1:k]

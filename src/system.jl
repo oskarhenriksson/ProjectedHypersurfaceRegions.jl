@@ -126,7 +126,7 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
     end
     for i = 1:k
         for j = i+1:k
-            track_pws_to_lines!(GC, x, B[:, i] - B[:, j], PWS)
+            track_pws_to_line!(GC, x, B[:, i] - B[:, j], PWS)
             intermediate = ∂2log_r(
                 GC.line_hypersurface_intersections[1],
                 Qx,
