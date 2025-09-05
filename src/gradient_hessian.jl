@@ -186,7 +186,7 @@ function hess_log_r(
     PWS = PseudoWitnessSet(F_ordered, k; linear_subspace_codim = k - 1)
 
     if method == :off_diag
-        hess = _off_diag(PWS, e, c, B)
+        hess = _off_diag(PWS, e, c, B) 
     elseif method == :many_slices
         hess = _many_slices(PWS, e, c, B)
     elseif method == :single_slice
@@ -330,7 +330,11 @@ function _many_slices(
 end
 
 
-
+# TODO: Fix function below to compute hessian AND the gradient (at the same time)
+# Most importantly, both should reuse the output of track_pws_to_line!
+# Some things don't need to be computed everytime, and some things we do. We should isolate those.
+# Cache everything below into GC.
+# TODO: Put f(P) in evaluate_and_jacobian!
 function _single_slice(
     PWS::PseudoWitnessSet,
     e,
@@ -365,6 +369,7 @@ function _single_slice(
     
     d= degree(PWS) 
     #Initializing several variables for use in the function
+    # TODO: Consider not initializing these, or caching them for later.
     S = zeros(ComplexF64, d)
     U = zeros(ComplexF64, n - k, d)
 
@@ -388,23 +393,26 @@ function _single_slice(
         fill!(hess2, 0)
 
         # Compute the intersection points through a pseudowitness set
-        track_pws_to_line!(GC, P, B, PWS) # TODO: Replace track_pws_to_lines with track_pws_to_line. That is, track less lines. We only need one.
+        track_pws_to_line!(GC, P, B, PWS) 
         #Obtain U and the projection S
+
         for (j, sol) in enumerate(GC.line_hypersurface_intersections[1])
-            X = sol[1:k]
-            U[:, j] = sol[k+1:end]
+            X = view(sol, 1:k)  # TODO: This creates new memory :( Workaround: Write for loop to copy values into X, which is cached. The main point is to avoid new allocations! This is why it is slow.
+            # TODO: view creates a pointer rather than a copy. Might be bugged, try it. Same thing for U below.
+            U[:, j] = sol[k+1:end] # This creates a new vector in memory. should do a for loop.
             _, nonzero_coordinate = findmax(abs, X - P)
-            S[j] = B[nonzero_coordinate] / (X[nonzero_coordinate] - P[nonzero_coordinate]) 
+            S[j] = B[nonzero_coordinate] / (X[nonzero_coordinate] - P[nonzero_coordinate]) # We solving for t inside of this: p + (1 / t) * β = X
         end
 
         #Obtain gradients of S and U with respect to p and β
         for i = 1:length(S)
 
-            Jsu = evaluate(JsuF, vcat(t, u, p) => vcat(S[i], U[:, i], P)) 
+            Jsu = evaluate(JsuF, vcat(t, u, p) => vcat(S[i], U[:, i], P)) # TODO: Evaluate also creates memory... JsuF should be a vector of Systems, not expressions. This has evaluate!, which overwrites memory. Need to change this for ALL evaluates.
             JP = evaluate(JPF, vcat(t, u, p) => vcat(S[i], U[:, i], P))
             JB = evaluate(JBF, vcat(t, u, p) => vcat(S[i], U[:, i], P))
 
             PBsols = -Jsu \ [JP JB] # solves the system Jsu*A = -[JP JB]
+            # TODO: This should be an "in-place" operation to avoid memory allocation.
 
             SP[i,:] = PBsols[1, 1:k]
             SB[i,:] = PBsols[1, k+1:end]

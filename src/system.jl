@@ -118,6 +118,7 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
     end
 
     ## Hessian
+    ## TODO: Choose "best" Hessian and replace this calculation with that.
     for (i, (intersection_points, bj)) in enumerate(iter)   
         v[i] = ∂2log_r(intersection_points, Qx, e, x, bj)
     end

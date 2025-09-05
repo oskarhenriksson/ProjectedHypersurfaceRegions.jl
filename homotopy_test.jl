@@ -5,6 +5,7 @@ using Plots, DifferentialEquations
 
 include("src/functions.jl");
 
+## TODO: Make this work for single slice method. Replace the function evaluate_and_jacobian!
 ########
 @var a b x
 F = System([x^2 + a * x + b; 2x + a], variables = [a, b, x])
