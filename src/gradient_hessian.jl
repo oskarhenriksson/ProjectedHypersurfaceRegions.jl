@@ -380,8 +380,7 @@ function _single_slice(
 
     A = zeros(ComplexF64, length(S), size(F_on_line, 1), k, k)
 
-    hess1 = zeros(ComplexF64, k, k)
-    hess2 = zeros(ComplexF64, k, k)
+    hess = zeros(ComplexF64, k, k)
 
     # Set up function for hess(q)
     q = 1 + sum((p - c) .* (p - c))
@@ -389,8 +388,7 @@ function _single_slice(
 
     function f(P) 
 
-        fill!(hess1, 0)
-        fill!(hess2, 0)
+        fill!(hess, 0)
 
         # Compute the intersection points through a pseudowitness set
         track_pws_to_line!(GC, P, B, PWS) 
@@ -444,11 +442,10 @@ function _single_slice(
                 rhs = vcat([A[j, i, a, b] for i = 1:length(F_on_line)]...)
                 sols[a, b] = -(Jtu\rhs)[1]
             end
-           # hess1 = hess1 - 2 * S[j]^(-3) * SP[j, :] * transpose(SB[j, :])
-            hess2 = hess2 - sols
+            hess = hess - sols
         end
 
-        GC.H = hess2 - Hlogqe(P) 
+        GC.H = hess - Hlogqe(P) 
         real(GC.H)
     end
     f
