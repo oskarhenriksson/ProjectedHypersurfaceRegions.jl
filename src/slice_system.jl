@@ -67,15 +67,18 @@ import HomotopyContinuation.evaluate_and_jacobian!
 import HomotopyContinuation.evaluate
 import HomotopyContinuation.taylor!
 function evaluate!(u, r::RoutingGradient, x, p = nothing)
-    PWS, GC, e, c, B  = r.PWS, r.GC, r.e, r.c, r.B
+    PWS, GC, e, c, B, F  = r.PWS, r.GC, r.e, r.c, r.B, r.F
     v = GC.v
 
     Qx = (sum((x - c) .^ 2) + 1, 2 .* (x - c))
-    # For single-slice mode track only one lifted line and reuse its intersections
+    # For single-slice mode: if GC only caches one LinearSubspace, track the
+    # PWS to each basis-direction individually so the intersections correspond
+    # to the correct direction. Otherwise, track all lines at once and reuse
+    # the per-line intersections.
     if length(GC.Ks) == 1
-        track_pws_to_line!(GC, x, B[:, 1], PWS)
-        intersection_points = GC.line_hypersurface_intersections[1]
         for (i, bj) in enumerate(eachcol(B))
+            track_pws_to_line!(GC, x, bj, PWS)
+            intersection_points = GC.line_hypersurface_intersections[1]
             v[i] = ∂log_r(intersection_points, Qx, e, x, bj)
         end
     else
@@ -109,22 +112,24 @@ end
 (r::RoutingGradient)(x) = evaluate(r, x)
 function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
 
-    PWS, GC, e, c, B  = r.PWS, r.GC, r.e, r.c, r.B
+    PWS, GC, e, c, B, F  = r.PWS, r.GC, r.e, r.c, r.B, r.F
     v, H = GC.v, GC.H
     k = length(v)
 
     Qx = (sum((x - c) .^ 2) + 1, 2 .* (x - c))
-    # Prefer single-line tracking to avoid many target_parameters! calls
+    # Prefer single-line tracking to avoid many target_parameters! calls, but
+    # ensure we compute each directional derivative using intersections from
+    # the corresponding line.
     if length(GC.Ks) == 1
-        track_pws_to_line!(GC, x, B[:, 1], PWS)
-        intersection_points = GC.line_hypersurface_intersections[1]
         for (i, bj) in enumerate(eachcol(B))
+            track_pws_to_line!(GC, x, bj, PWS)
+            intersection_points = GC.line_hypersurface_intersections[1]
             v[i] = ∂log_r(intersection_points, Qx, e, x, bj)
         end
     else
-        track_pws_to_lines!(GC, x, B, PWS) #The only reason we track all the lines is so that we can evaluate.
+        track_pws_to_lines!(GC, x, B, PWS)
         iter = zip(GC.line_hypersurface_intersections, eachcol(B))
-        for (i, (intersection_points, bj)) in enumerate(iter)   
+        for (i, (intersection_points, bj)) in enumerate(iter)
             v[i] = ∂log_r(intersection_points, Qx, e, x, bj)
         end
     end
@@ -139,18 +144,18 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
     B = B[:,1]
     n = length(F.variables)
     k = n_projection_variables(PWS)
-    @var u[1:n-k] p[1:k] β[1:k] t
-    F_on_line = F([p + (1 / t) * β; u])
+    @var uval[1:n-k] p[1:k] β[1:k] t
+    F_on_line = F([p + (1 / t) * β; uval])
     N = length(F_on_line)
     # Symbolic Jacobians (except evaluated at β = B)
-    JsuF = Expression.(evaluate(differentiate(F_on_line, vcat(t, u[:])), β => B)) #Jacobian of F with respect to s and u
+    JsuF = Expression.(evaluate(differentiate(F_on_line, vcat(t, uval[:])), β => B)) #Jacobian of F with respect to s and u
     JPF = Expression.(evaluate(differentiate(F_on_line, p), β => B)) #Jacobian of F with respect to p
     JBF = Expression.(evaluate(differentiate(F_on_line, β), β => B)) #Jacobian of F with respect to \beta
 
     #Symbolic Hessians (except evaluated at β = B)
-    HF = [Expression.(evaluate(differentiate(differentiate(F_on_line[i], vcat(t, u)), vcat(t, u)), β => B)) for i in 1:N]
-    JxB = [Expression.(evaluate(differentiate(differentiate(F_on_line[i], vcat(t, u)), β), β => B)) for i in 1:N]
-    JxP = [Expression.(evaluate(differentiate(differentiate(F_on_line[i], vcat(t, u)), p), β => B)) for i in 1:N]
+    HF = [Expression.(evaluate(differentiate(differentiate(F_on_line[i], vcat(t, uval)), vcat(t, uval)), β => B)) for i in 1:N]
+    JxB = [Expression.(evaluate(differentiate(differentiate(F_on_line[i], vcat(t, uval)), β), β => B)) for i in 1:N]
+    JxP = [Expression.(evaluate(differentiate(differentiate(F_on_line[i], vcat(t, uval)), p), β => B)) for i in 1:N]
     JPB = [Expression.(evaluate(differentiate(differentiate(F_on_line[i], p), β), β => B)) for i in 1:N]
 
     d= degree(PWS) 
@@ -173,7 +178,7 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
     for (j, sol) in enumerate(GC.line_hypersurface_intersections[1])
         X = view(sol, 1:k)  # TODO: This creates new memory :( Workaround: Write for loop to copy values into X, which is cached. The main point is to avoid new allocations! This is why it is slow.
         # TODO: view creates a pointer rather than a copy. Might be bugged, try it. Same thing for U below.
-    Uvals[:, j] = sol[k+1:end] # This creates a new vector in memory. should do a for loop.
+        Uvals[:, j] = sol[k+1:end] # This creates a new vector in memory. should do a for loop.
         _ , nonzero_coordinate = findmax(abs, X - x)
         S[j] = B[nonzero_coordinate] / (X[nonzero_coordinate] - x[nonzero_coordinate]) # We solving for t inside of this: p + (1 / t) * β = X
     end
@@ -181,9 +186,9 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
     #Obtain gradients of S and U with respect to p and β
     for i = 1:length(S)
 
-    Jsu = evaluate(JsuF, vcat(t, u, p) => vcat(S[i], Uvals[:, i], x)) # TODO: Evaluate also creates memory... JsuF should be a vector of Systems, not expressions. This has evaluate!, which overwrites memory. Need to change this for ALL evaluates.
-    JP = evaluate(JPF, vcat(t, u, p) => vcat(S[i], Uvals[:, i], x))
-    JB = evaluate(JBF, vcat(t, u, p) => vcat(S[i], Uvals[:, i], x))
+    Jsu = evaluate(JsuF, vcat(t, uval, p) => vcat(S[i], Uvals[:, i], x)) # TODO: Evaluate also creates memory... JsuF should be a vector of Systems, not expressions. This has evaluate!, which overwrites memory. Need to change this for ALL evaluates.
+    JP = evaluate(JPF, vcat(t, uval, p) => vcat(S[i], Uvals[:, i], x))
+    JB = evaluate(JBF, vcat(t, uval, p) => vcat(S[i], Uvals[:, i], x))
 
         PBsols = -Jsu \ [JP JB] # solves the system Jsu*A = -[JP JB]
         # TODO: This should be an "in-place" operation to avoid memory allocation.
@@ -198,10 +203,10 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
     # Computation outlined in the abstract description Jon gave in Overleaf file
     for i = 1:length(F_on_line)
         for j = 1:length(S)
-            H = evaluate(HF[i], vcat(t, u, p) => vcat(S[j], Uvals[:, j], x))
-            Jxb = evaluate(JxB[i], vcat(t, u, p) => vcat(S[j], Uvals[:, j], x))
-            Jxp = evaluate(JxP[i], vcat(t, u, p) => vcat(S[j], Uvals[:, j], x))
-            Jpb = evaluate(JPB[i], vcat(t, u, p) => vcat(S[j], Uvals[:, j], x))
+            H = evaluate(HF[i], vcat(t, uval, p) => vcat(S[j], Uvals[:, j], x))
+            Jxb = evaluate(JxB[i], vcat(t, uval, p) => vcat(S[j], Uvals[:, j], x))
+            Jxp = evaluate(JxP[i], vcat(t, uval, p) => vcat(S[j], Uvals[:, j], x))
+            Jpb = evaluate(JPB[i], vcat(t, uval, p) => vcat(S[j], Uvals[:, j], x))
 
             A[j, i, :, :] = ([SP[j, :] transpose(UP[j, :, :])] * H * transpose([SB[j, :] transpose(UB[j, :, :])])
                             + Jpb + [SP[j, :] transpose(UP[j, :, :])] * Jxb
@@ -212,7 +217,7 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
     
     #Compute Hessian
     for j = 1:length(S)
-    Jtu = evaluate(JsuF, vcat(t, u, p) => vcat(S[j], Uvals[:, j], x)) 
+    Jtu = evaluate(JsuF, vcat(t, uval, p) => vcat(S[j], Uvals[:, j], x)) 
         sols = zeros(ComplexF64, k, k)
         for a in 1:k, b in 1:k
             rhs = vcat([A[j, i, a, b] for i = 1:length(F_on_line)]...)
