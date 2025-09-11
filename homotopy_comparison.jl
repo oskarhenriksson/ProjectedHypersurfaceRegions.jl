@@ -126,3 +126,13 @@ mon_result_slice = monodromy_solve(
     p0_slice,
     seed;
 )
+
+# mon_result_slice gives a warning that none of the solutions is a valid start solution.
+# This happens because check_start_solutions returns an empty PathResult[]:
+HomotopyContinuation.check_start_solutions(MS_slice, [s0], p0)
+
+# Digging in further, check_start_solutions fails when it runs the following:
+tracker = MS.trackers[1]
+parameters!(tracker, p0, p0)
+track(tracker, s0) # terminated, invalid start value
+
