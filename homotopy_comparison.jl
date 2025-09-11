@@ -30,15 +30,17 @@ projection_vars = [a, b]
 
 B = qr(rand(2, 2)).Q |> Matrix
 c = 10 .* randn(2)
+e=2
 # Construct both RoutingGradient objects
 r_sys = SysImpl.RoutingGradient(F, projection_vars; B = B, c = c)
-r_slice = SliceImpl.RoutingGradient(F, projection_vars; B = r_sys.B, c = r_sys.c, e = r_sys.e)
+r_slice = SliceImpl.RoutingGradient(F, projection_vars; B = B, c = c, e = e)
 
 
-p1 = zeros(2)
-q1 = randn(2)
+p1 = zeros(2) # starting point 
+q1 = randn(2) # target point
 H_sys = SysImpl.RoutingPointsHomotopy(r_sys, p1, q1)
 H_slice = SliceImpl.RoutingPointsHomotopy(r_slice, p1, q1)
+# These are homotopies grad(r(x)) - t*p_1 - (1-t)*q_1
 # pick a random x
 u = randn(ComplexF64, 2)
 x0 = randn(2)
@@ -107,6 +109,8 @@ p0_sys = evaluate(r_sys, s0)
 p0_slice = evaluate(r_slice, s0)
 # so p0_sys == p0_slice!
 
+evaluate(r_slice, s0, p0_slice) # equals zero
+evaluate(r_sys, s0, p0_sys) # equals zero
 
 ### Monodromy 
 seed = rand(UInt32)
