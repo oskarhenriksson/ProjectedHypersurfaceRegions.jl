@@ -10,6 +10,7 @@ mutable struct GradientCache
     JxP::Matrix{HC.System}
     JPB::Matrix{HC.System}
     S::Vector{ComplexF64}
+    X::Vector{ComplexF64}
     Uvals::Matrix{ComplexF64}
     SP::Matrix{ComplexF64}
     SB::Matrix{ComplexF64}
@@ -17,6 +18,8 @@ mutable struct GradientCache
     UB::Array{ComplexF64,3}
     A::Array{ComplexF64,4}
     hess::Matrix{ComplexF64}
+    rhs1::Matrix{ComplexF64}
+    rhs2::Vector{ComplexF64}
 end
 function compute_systems(F, n, k, B)
     @var uval[1:n-k] α[1:k] β[1:k] t
@@ -75,6 +78,7 @@ function GradientCache(PWS, B)
     tracker = EndgameTracker(Hom)
 
     S = zeros(ComplexF64, d)
+    X = zeros(ComplexF64, k)
     Uvals = zeros(ComplexF64, n - k, d)
     SP = zeros(ComplexF64, d, k)
     SB = zeros(ComplexF64, d, k)
@@ -84,7 +88,9 @@ function GradientCache(PWS, B)
     hess = zeros(ComplexF64, k, k)
 
     JsuF, JPF, JBF, HF, JxB, JxP, JPB = compute_systems(F, n, k, B)
-    
+
+    rhs1 = zeros(ComplexF64, n-k+1, 2*k)  
+    rhs2 = zeros(ComplexF64, N)  
 
     GradientCache(Ks, line_hypersurface_intersections, tracker,
                     JsuF,
@@ -94,7 +100,7 @@ function GradientCache(PWS, B)
                     JxB,
                     JxP,
                     JPB,
-                    S, Uvals, SP, SB, UP, UB, A, hess)
+                    S, X, Uvals, SP, SB, UP, UB, A, hess, rhs1, rhs2)
 end
 
 

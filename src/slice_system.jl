@@ -75,6 +75,7 @@ function evaluate!(u, r::RoutingGradient, x, p = nothing)
     JBF = GC.JBF
 
     S = GC.S
+    X = GC.X
     Uvals = GC.Uvals
     SP = GC.SP
     SB = GC.SB
@@ -114,7 +115,9 @@ function evaluate!(u, r::RoutingGradient, x, p = nothing)
     Hlogqe(pt) = evaluate(differentiate(differentiate(log(q^e), α), α), α => pt) 
 
     for (j, sol) in enumerate(GC.line_hypersurface_intersections[1])
-        X = view(sol, 1:k)  # TODO: This creates new memory :( Workaround: Write for loop to copy values into X, which is cached. The main point is to avoid new allocations! This is why it is slow.
+        for idx in 1:k
+            X[idx] = sol[idx]
+        end
         # TODO: view creates a pointer rather than a copy. Might be bugged, try it. Same thing for U below.
         Uvals[:, j] = sol[k+1:end] # This creates a new vector in memory. should do a for loop.
         _ , nonzero_coordinate = findmax(abs, X - x)
@@ -182,6 +185,7 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
     JPB = GC.JPB
 
     S = GC.S
+    X = GC.X
     Uvals = GC.Uvals
     SP = GC.SP
     SB = GC.SB
@@ -189,6 +193,8 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
     UB = GC.UB
     A = GC.A
     hess = GC.hess
+    rhs1 = GC.rhs1
+    rhs2 = GC.rhs2
 
     k = n_projection_variables(PWS)
     d = degree(PWS)
@@ -225,9 +231,12 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
     Hlogqe(pt) = evaluate(differentiate(differentiate(log(q^e), α), α), α => pt) 
 
     for (j, sol) in enumerate(GC.line_hypersurface_intersections[1])
-        X = view(sol, 1:k)  # TODO: This creates new memory :( Workaround: Write for loop to copy values into X, which is cached. The main point is to avoid new allocations! This is why it is slow.
-        # TODO: view creates a pointer rather than a copy. Might be bugged, try it. Same thing for U below.
-        Uvals[:, j] = sol[k+1:end] # This creates a new vector in memory. should do a for loop.
+        for i in 1:k
+            X[i] = sol[i]
+        end
+        for i in 1:(n-k)
+            Uvals[i, j] = sol[k+i]
+        end
         _ , nonzero_coordinate = findmax(abs, X - x)
         S[j] = B[nonzero_coordinate] / (X[nonzero_coordinate] - x[nonzero_coordinate]) # We solving for t inside of this: p + (1 / t) * β = X
     end
@@ -245,15 +254,26 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
             evaluate(J, vcat(S[i], Uvals[:, i], x))
         end...) 
         
+        # Fill rhs in-place
+        for col = 1:size(JP,2)
+            rhs1[:, col] .= JP[:, col]
+        end
+        for col = 1:size(JB,2)
+            rhs1[:, size(JP,2)+col] .= JB[:, col]
+        end
 
-        PBsols = -Jsu \ [JP JB] # solves the system Jsu*A = -[JP JB]
+        # In-place negation
+        rhs1 .*= -1
+        # In-place linear solving
+        Jsu0 = lu!(Jsu) 
+        LinearAlgebra.ldiv!(Jsu0, rhs1) # solves the system Jsu*A = -[JP JB]
         # TODO: This should be an "in-place" operation to avoid memory allocation.
 
-        SP[i,:] = PBsols[1, 1:k]
-        SB[i,:] = PBsols[1, k+1:end]
+        SP[i,:] = rhs1[1, 1:k]
+        SB[i,:] = rhs1[1, k+1:end]
 
-        UP[i,:,:] = PBsols[2:end, 1:k]
-        UB[i,:,:] = PBsols[2:end, k+1:end]
+        UP[i,:,:] = rhs1[2:end, 1:k]
+        UB[i,:,:] = rhs1[2:end, k+1:end]
     end
 
 
@@ -296,19 +316,22 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
         end
     end
     
+    
     #Compute Hessian
+    fill!(hess, 0.0 + 0.0im)
     for j = 1:length(S)
         Jtu = hcat(map(JsuF) do J 
                 evaluate(J, vcat(S[j], Uvals[:, j], x))
             end...) 
-        sols = zeros(ComplexF64, k, k)
+        Jtu0 = lu!(Jtu)
         for a in 1:k, b in 1:k
-            rhs = vcat([A[j, i, a, b] for i = 1:N]...)
-            sols[a, b] = -(Jtu\rhs)[1]
+            for i in 1:N
+                rhs2[i] = A[j, i, a, b]
+            end
+            LinearAlgebra.ldiv!(Jtu0, rhs2) # in-place linear algebra
+            hess[a, b] += rhs2[1]
         end
-        hess = hess - sols
     end
-
 
     U .= hess - Hlogqe(x)
 
