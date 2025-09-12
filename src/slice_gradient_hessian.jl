@@ -2,16 +2,13 @@ mutable struct GradientCache
     Ks::Vector{LinearSubspace}
     line_hypersurface_intersections::Vector
     tracker::EndgameTracker
-    v::Vector
-    H::Matrix
-    F_on_line::Vector{Expression}
-    JsuF::Matrix{Expression}
-    JPF::Matrix{Expression}
-    JBF::Matrix{Expression}
-    HF::Vector{Matrix{Expression}}
-    JxB::Vector{Matrix{Expression}}
-    JxP::Vector{Matrix{Expression}}
-    JPB::Vector{Matrix{Expression}}
+    JsuF::Vector{HC.System}
+    JPF::Vector{HC.System}
+    JBF::Vector{HC.System}
+    HF::Matrix{HC.System}
+    JxB::Matrix{HC.System}
+    JxP::Matrix{HC.System}
+    JPB::Matrix{HC.System}
     S::Vector{ComplexF64}
     Uvals::Matrix{ComplexF64}
     SP::Matrix{ComplexF64}
@@ -21,20 +18,61 @@ mutable struct GradientCache
     A::Array{ComplexF64,4}
     hess::Matrix{ComplexF64}
 end
+function compute_systems(F, n, k, B)
+    @var uval[1:n-k] α[1:k] β[1:k] t
+    F_on_line = F([α + (1 / t) * β; uval])
+    v = vcat(t, uval)
+    vars = vcat(t, uval, α)
+
+    ∇v = map(v) do vi
+        HC.ModelKit.differentiate(F_on_line, vi) 
+    end
+    ∇α = map(α) do αi
+        HC.ModelKit.differentiate(F_on_line, αi)
+    end
+
+    JsuF = map(∇v) do ∇vi
+        g = evaluate(∇vi, β => B)
+        System(g, variables = vars)
+    end
+    JPF = map(∇α) do ∇vi
+        g = evaluate(∇vi, β => B)
+        System(g, variables = vars)
+    end
+    JBF = map(F_on_line) do f
+        g = evaluate(HC.ModelKit.differentiate(f, β), β => B)
+        System(g, variables = vars)
+    end
+
+    function J(x) 
+        map(Iterators.product(∇v, x)) do (∇vi, xj)
+            hess_ij = evaluate(HC.ModelKit.differentiate(∇vi, xj), β => B)
+            System(hess_ij, variables = vars) 
+        end
+    end
+
+    HF = J(v)
+    JxB = J(β)
+    JxP = J(α)
+    JPB = map(Iterators.product(∇α, β)) do (∇αi, βj)
+            hess_ij = evaluate(HC.ModelKit.differentiate(∇αi, βj), β => B)
+            System(hess_ij, variables = vars) 
+        end
+
+    JsuF, JPF, JBF, HF, JxB, JxP, JPB
+end
 
 function GradientCache(PWS, B)
-    n = ambient_dim(PWS)
     d = degree(PWS)
     k = n_projection_variables(PWS)
+    F = PWS.F
+    N, n = size(F)
 
     Ks = Vector{LinearSubspace}(undef, 1)
     line_hypersurface_intersections = [[zeros(ComplexF64, n) for _ in 1:d]]
   
     Hom = linear_subspace_homotopy(PWS.F, PWS.L, PWS.L; intrinsic = true)
     tracker = EndgameTracker(Hom)
-
-    grad = zeros(ComplexF64, k)
-    H = zeros(ComplexF64, k, k)
 
     S = zeros(ComplexF64, d)
     Uvals = zeros(ComplexF64, n - k, d)
@@ -45,18 +83,10 @@ function GradientCache(PWS, B)
     A = zeros(ComplexF64, d, size(PWS.F, 1), k, k) 
     hess = zeros(ComplexF64, k, k)
 
-    @var uval[1:n-k] α[1:k] β[1:k] t
-    F_on_line = PWS.F([α + (1 / t) * β; uval])
-    N = length(F_on_line)
-    JsuF = Expression.(evaluate(differentiate(F_on_line, vcat(t, uval[:])), β => B))
-    JPF = Expression.(evaluate(differentiate(F_on_line, α), β => B))
-    JBF = Expression.(evaluate(differentiate(F_on_line, β), β => B))
-    HF = [Expression.(evaluate(differentiate(differentiate(F_on_line[i], vcat(t, uval)), vcat(t, uval)), β => B)) for i in 1:N]
-    JxB = [Expression.(evaluate(differentiate(differentiate(F_on_line[i], vcat(t, uval)), β), β => B)) for i in 1:N]
-    JxP = [Expression.(evaluate(differentiate(differentiate(F_on_line[i], vcat(t, uval)), α), β => B)) for i in 1:N]
-    JPB = [Expression.(evaluate(differentiate(differentiate(F_on_line[i], α), β), β => B)) for i in 1:N]
+    JsuF, JPF, JBF, HF, JxB, JxP, JPB = compute_systems(F, n, k, B)
+    
 
-    GradientCache(Ks, line_hypersurface_intersections, tracker, grad, H, F_on_line,
+    GradientCache(Ks, line_hypersurface_intersections, tracker,
                     JsuF,
                     JPF,
                     JBF,

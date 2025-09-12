@@ -16,7 +16,7 @@ module SliceImpl
 using ..HomotopyContinuation
 const HC = HomotopyContinuation
 include("src/pseudo_witness_sets.jl")
-include("src/gradient_hessian.jl")
+include("src/slice_gradient_hessian.jl")
 include("src/slice_system.jl")
 include("src/homotopy.jl")
 end
@@ -35,6 +35,26 @@ e=2
 r_sys = SysImpl.RoutingGradient(F, projection_vars; B = B, c = c)
 r_slice = SliceImpl.RoutingGradient(F, projection_vars; B = B, c = c, e = e)
 
+# compute jacobians
+u1 = randn(ComplexF64, 2)
+J1 = randn(ComplexF64, 2, 2)
+u2 = randn(ComplexF64, 2)
+J2 = randn(ComplexF64, 2, 2)
+x0 = randn(ComplexF64, 2)
+@time SysImpl.evaluate_and_jacobian!(u1, J1, r_sys, x0)
+@time SliceImpl.evaluate_and_jacobian!(u2, J2, r_slice, x0)
+println("max |u1-u2| = ", maximum(abs.(u1-u2)))
+println("max |J1-J2| = ", maximum(abs.(J1 - J2)))
+
+@time SysImpl.evaluate!(u1, r_sys, x0)
+@time SliceImpl.evaluate!(u2, r_slice, x0)
+println("max |u1-u2| = ", maximum(abs.(u1-u2)))
+
+
+
+
+
+###################
 
 p1 = zeros(2) # starting point 
 q1 = randn(2) # target point
@@ -59,11 +79,7 @@ u1
 # So evaluate works.
 
 
-# compute jacobians
-u1, J1 = SysImpl.evaluate_and_jacobian(r_sys, u)
-u2, J2 = SliceImpl.evaluate_and_jacobian(r_slice, u)
-println("max |u1-u2| = ", maximum(abs.(u1-u2)))
-println("max |J1-J2| = ", maximum(abs.(J1 - J2)))
+
 # So jacobian works.
 
 ### Test monodromy
@@ -114,25 +130,30 @@ evaluate(r_sys, s0, p0_sys) # equals zero
 
 ### Monodromy 
 seed = rand(UInt32)
-mon_result_sys = monodromy_solve(
-    MS_sys,
-    s0,
-    p0_sys,
-    seed;
-)
-mon_result_slice = monodromy_solve(
-    MS_slice,
-    s0,
-    p0_slice,
-    seed;
-)
+# mon_result_sys = monodromy_solve(
+#     MS_sys,
+#     s0,
+#     p0_sys,
+#     seed;
+# )
+# mon_result_slice = monodromy_solve(
+#     MS_slice,
+#     s0,
+#     p0_slice,
+#     seed;
+# )
 
 # mon_result_slice gives a warning that none of the solutions is a valid start solution.
 # This happens because check_start_solutions returns an empty PathResult[]:
-HomotopyContinuation.check_start_solutions(MS_slice, [s0], p0)
+HomotopyContinuation.check_start_solutions(MS_slice, [s0], p0_slice)
 
 # Digging in further, check_start_solutions fails when it runs the following:
 tracker = MS.trackers[1]
 parameters!(tracker, p0, p0)
 track(tracker, s0) # terminated, invalid start value
+
+
+
+
+
 
