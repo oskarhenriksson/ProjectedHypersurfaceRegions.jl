@@ -108,16 +108,22 @@ function evaluate!(u, r::RoutingGradient, x, p = nothing)
     #Obtain gradients of S and U with respect to p and β
     for i = 1:length(S)
 
-        Jsu = hcat(map(JsuF) do J 
-            evaluate(J, vcat(S[i], Uvals[:, i], x))
-        end...) 
-        #evaluate!(JsuF, )
-        JP = hcat(map(JPF) do J 
-            evaluate(J, vcat(S[i], Uvals[:, i], x))
-        end...) 
-        JB = hcat(map(JBF) do J 
-            evaluate(J, vcat(S[i], Uvals[:, i], x))
-        end...) 
+        v0 =  vcat(S[i], Uvals[:, i], x)
+
+        Jsu = GC.Jsu_temp
+        for (idx, J) in enumerate(JsuF)
+            evaluate!(view(Jsu, :, idx), CompiledSystem(J), v0)
+        end
+
+        JP = GC.JP_temp
+        for (idx, J) in enumerate(JPF)
+            evaluate!(view(JP, :, idx), CompiledSystem(J), v0)
+        end
+
+        JB = GC.JB_temp
+        for (idx, J) in enumerate(JBF)
+            evaluate!(view(JB, :, idx), CompiledSystem(J), v0)
+        end
 
         # Fill rhs in-place
         for col = 1:size(JP,2)
