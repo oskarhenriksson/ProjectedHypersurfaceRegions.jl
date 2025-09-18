@@ -9,6 +9,8 @@ struct RoutingGradient <: HC.AbstractSystem
     e::Int
     c::Vector
     B::Matrix
+    ∇logqe
+    Hlogqe
 end
 function RoutingGradient(F, projection_vars; 
                                 e::Union{Int, Nothing} = nothing, 
@@ -31,10 +33,15 @@ function RoutingGradient(F, projection_vars;
         B = Matrix(qr(randn(k, k)).Q)
     end
 
+    @var α[1:k]
+    q = 1 + sum((α - c) .* (α - c))
+    ∇logqe(pt) = evaluate(differentiate(log(q^e), α), α => pt)
+    Hlogqe(pt) = evaluate(differentiate(differentiate(log(q^e), α), α), α => pt) 
+
     # Use single-slice gradient cache to avoid tracking many lifted lines
     GC = GradientCache(PWS, B[:,1 ])
 
-    RoutingGradient(PWS, projection_vars, GC, e, c, B)
+    RoutingGradient(PWS, projection_vars, GC, e, c, B, ∇logqe, Hlogqe)
 end
 
 denominator_exponent(r::RoutingGradient) = r.e
@@ -66,7 +73,7 @@ import HomotopyContinuation.evaluate
 import HomotopyContinuation.taylor!
 
 function evaluate!(u, r::RoutingGradient, x, p = nothing)
-    PWS, GC, e, c, B  = r.PWS, r.GC, r.e, r.c, r.B
+    PWS, GC, B, ∇logqe  = r.PWS, r.GC, r.B, r.∇logqe
     
 
     # Use cached symbolic objects and arrays
@@ -77,43 +84,17 @@ function evaluate!(u, r::RoutingGradient, x, p = nothing)
     S = GC.S
     X = GC.X
     Uvals = GC.Uvals
-    SP = GC.SP
     SB = GC.SB
-    UP = GC.UP
-    UB = GC.UB
-
-    k = n_projection_variables(PWS)
-    d = degree(PWS)
-    N, n = size(PWS.F)
-
-     # ensure we compute each directional derivative using intersections from
-    # the corresponding line.
-    B = B[:,1]
-
-    track_pws_to_line!(GC, x, B, PWS)
-    # TODO: Change this to compute ∇_b(G(b,p))
-    #for (i, bj) in enumerate(eachcol(B))
-    #    track_pws_to_line!(GC, x, bj, PWS)
-    #    intersection_points = GC.line_hypersurface_intersections[1]
-    #    v[i] = ∂log_r(intersection_points, Qx, e, x, bj)
-    #end
-
-
-    #u .= B * v # TODO: Cache this
-    #if !isnothing(p)
-    #    u .= u - p
-    #end
-
-    ## Hessian
-    ## TODO: Choose "best" Hessian and replace this calculation with that. Need new routing gradient to cache our stuff (that is computed once only).#
-  
+    rhs1 = GC.rhs1
     
-    @var α[1:k]
-    q = 1 + sum((α - c) .* (α - c))
+    k = n_projection_variables(PWS)
 
-    ∇logqe(pt) = evaluate(differentiate(log(q^e), α), α => pt)
-    Hlogqe(pt) = evaluate(differentiate(differentiate(log(q^e), α), α), α => pt) 
+    # ensure we compute each directional derivative using intersections from
+    # the corresponding line.
 
+    # perhaps we should always pass in a single column as B to routing gradient in the first place...
+    track_pws_to_line!(GC, x, B[:,1], PWS)
+  
     for (j, sol) in enumerate(GC.line_hypersurface_intersections[1])
         for idx in 1:k
             X[idx] = sol[idx]
@@ -130,28 +111,35 @@ function evaluate!(u, r::RoutingGradient, x, p = nothing)
         Jsu = hcat(map(JsuF) do J 
             evaluate(J, vcat(S[i], Uvals[:, i], x))
         end...) 
+        #evaluate!(JsuF, )
         JP = hcat(map(JPF) do J 
             evaluate(J, vcat(S[i], Uvals[:, i], x))
         end...) 
         JB = hcat(map(JBF) do J 
             evaluate(J, vcat(S[i], Uvals[:, i], x))
         end...) 
+
+        # Fill rhs in-place
+        for col = 1:size(JP,2)
+            rhs1[:, col] .= JP[:, col]
+        end
+        for col = 1:size(JB,2)
+            rhs1[:, size(JP,2)+col] .= JB[:, col]
+        end
+
+        # In-place negation
+        rhs1 .*= -1
+        # In-place linear solving
+        Jsu0 = lu!(Jsu) 
+        LinearAlgebra.ldiv!(Jsu0, rhs1)
         
-
-        PBsols = -Jsu \ [JP JB] # solves the system Jsu*A = -[JP JB]
-        # TODO: This should be an "in-place" operation to avoid memory allocation.
-
-        SP[i,:] = PBsols[1, 1:k]
-        SB[i,:] = PBsols[1, k+1:end]
-
-        UP[i,:,:] = PBsols[2:end, 1:k]
-        UB[i,:,:] = PBsols[2:end, k+1:end]
+        SB[i,:] = rhs1[1, k+1:end]
     end
 
 
     u .= -sum(eachrow(SB)) - ∇logqe(x)
     if !isnothing(p)
-        u .= u - p
+        u .-= p
     end
 
     nothing
@@ -172,7 +160,7 @@ end
 (r::RoutingGradient)(x) = evaluate(r, x)
 function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
 
-    PWS, GC, e, c, B  = r.PWS, r.GC, r.e, r.c, r.B
+    PWS, GC, B, ∇logqe, Hlogqe = r.PWS, r.GC, r.B, r.∇logqe, r.Hlogqe
     
 
     # Use cached symbolic objects and arrays
@@ -202,33 +190,10 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
 
      # ensure we compute each directional derivative using intersections from
     # the corresponding line.
-    B = B[:,1]
-
     
 
-    track_pws_to_line!(GC, x, B, PWS)
-    # TODO: Change this to compute ∇_b(G(b,p))
-    #for (i, bj) in enumerate(eachcol(B))
-    #    track_pws_to_line!(GC, x, bj, PWS)
-    #    intersection_points = GC.line_hypersurface_intersections[1]
-    #    v[i] = ∂log_r(intersection_points, Qx, e, x, bj)
-    #end
+    track_pws_to_line!(GC, x, B[:,1], PWS)
 
-
-    #u .= B * v # TODO: Cache this
-    #if !isnothing(p)
-    #    u .= u - p
-    #end
-
-    ## Hessian
-    ## TODO: Choose "best" Hessian and replace this calculation with that. Need new routing gradient to cache our stuff (that is computed once only).#
-  
-    
-    @var α[1:k]
-    q = 1 + sum((α - c) .* (α - c))
-
-    ∇logqe(pt) = evaluate(differentiate(log(q^e), α), α => pt)
-    Hlogqe(pt) = evaluate(differentiate(differentiate(log(q^e), α), α), α => pt) 
 
     for (j, sol) in enumerate(GC.line_hypersurface_intersections[1])
         for i in 1:k
@@ -279,7 +244,7 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
 
     u .= -sum(eachrow(SB)) - ∇logqe(x)
     if !isnothing(p)
-        u .= u - p
+        u .-= p
     end
 
 
@@ -304,7 +269,7 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
         for i = 1:N
 
             # BAD!
-            Hi = [h[i] for h in H] 
+            Hi = [h[i] for h in H] #Hi .= H[1:N]
             Jxpi = [h[i] for h in Jxp] 
             Jxbi = [h[i] for h in Jxb] 
             Jpbi = [h[i] for h in Jpb] 
