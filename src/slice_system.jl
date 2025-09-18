@@ -268,24 +268,49 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
         H = map(HF) do h
             evaluate(h, v0)
         end
-        Jxb = map(JxB) do h
-            evaluate(h, v0)
+        #Jxb = map(JxB) do h
+        #    evaluate(h, v0)
+        #end
+        #Jxp = map(JxP) do h
+        #    evaluate(h, v0)
+        #end
+        #Jpb = map(JPB) do h
+        #    evaluate(h, v0)
+        #end
+        
+        # Evaluate JxB using evaluate! instead of map with evaluate
+        Jxb = GC.Jxb_temp
+        for (col_idx, col) in enumerate(eachcol(JxB))
+            for (row_idx, h) in enumerate(col)
+                evaluate!(view(Jxb,:, row_idx,col_idx), CompiledSystem(h), v0)
+            end
         end
-        Jxp = map(JxP) do h
-            evaluate(h, v0)
-        end 
-        Jpb = map(JPB) do h
-            evaluate(h, v0)
-        end 
+
+        Jxp = GC.Jxp_temp
+        for (col_idx, col) in enumerate(eachcol(JxP))
+            for (row_idx, h) in enumerate(col)
+                evaluate!(view(Jxp,:, row_idx,col_idx), CompiledSystem(h), v0)
+            end
+        end
+
+        Jpb = GC.Jpb_temp
+        for (col_idx, col) in enumerate(eachcol(JPB))
+            for (row_idx, h) in enumerate(col)
+                evaluate!(view(Jpb,:, row_idx,col_idx), CompiledSystem(h), v0)
+            end
+        end
        
 
         for i = 1:N
 
             # BAD!
             Hi = [h[i] for h in H] #Hi .= H[1:N]
-            Jxpi = [h[i] for h in Jxp] 
-            Jxbi = [h[i] for h in Jxb] 
-            Jpbi = [h[i] for h in Jpb] 
+            #Jxpi = [h[i] for h in Jxp]
+            #Jxbi = [h[i] for h in Jxb]
+            #Jpbi = [h[i] for h in Jpb]
+            Jxpi = view(Jxp, i, :, :)
+            Jxbi = view(Jxb, i, :, :) 
+            Jpbi = view(Jpb, i, :, :)
 
             A[j, i, :, :] = ([SP[j, :] transpose(UP[j, :, :])] * Hi * transpose([SB[j, :] transpose(UB[j, :, :])])
                             + Jpbi + [SP[j, :] transpose(UP[j, :, :])] * Jxbi
