@@ -209,19 +209,22 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
     #Obtain gradients of S and U with respect to p and β
     for i = 1:length(S)
 
+        v0 =  vcat(S[i], Uvals[:, i], x)
+
         Jsu = GC.Jsu_temp
         for (idx, J) in enumerate(JsuF)
-            evaluate!(view(Jsu, :, idx), CompiledSystem(J), vcat(S[i], Uvals[:, i], x))
+            evaluate!(view(Jsu, :, idx), CompiledSystem(J), v0)
         end
-        Jsu = hcat(map(JsuF) do J 
-            evaluate(J, vcat(S[i], Uvals[:, i], x))
-        end...) 
-        JP = hcat(map(JPF) do J 
-            evaluate(J, vcat(S[i], Uvals[:, i], x))
-        end...) 
-        JB = hcat(map(JBF) do J 
-            evaluate(J, vcat(S[i], Uvals[:, i], x))
-        end...) 
+
+        JP = GC.JP_temp
+        for (idx, J) in enumerate(JPF)
+            evaluate!(view(JP, :, idx), CompiledSystem(J), v0)
+        end
+
+        JB = GC.JB_temp
+        for (idx, J) in enumerate(JBF)
+            evaluate!(view(JB, :, idx), CompiledSystem(J), v0)
+        end
         
         # Fill rhs in-place
         for col = 1:size(JP,2)
@@ -258,10 +261,10 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
         v0 =  vcat(S[j], Uvals[:, j], x)
         H = map(HF) do h
             evaluate(h, v0)
-        end 
+        end
         Jxb = map(JxB) do h
             evaluate(h, v0)
-        end 
+        end
         Jxp = map(JxP) do h
             evaluate(h, v0)
         end 
