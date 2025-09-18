@@ -13,7 +13,7 @@ F = System([x^2 + a * x + b; 2x + a], variables = [a, b, x])
 
 B = qr(rand(2, 2)).Q |> Matrix
 c = 10 .* randn(2)
-r = RoutingGradient(F, [a; b]; c = c, B = B)
+r = RoutingGradient(F, [a, b]; c = c, B = B)
 e = denominator_exponent(r)
 
 p1 = zeros(2)
@@ -25,11 +25,14 @@ H = RoutingPointsHomotopy(r, p1, q1)
 u = randn(ComplexF64, 2)
 x0 = randn(2)
 t0 = 1.0
-evaluate!(u, H, x0, t0)
+@time evaluate!(u, H, x0, t0)
 
 u1 = randn(ComplexF64, 2)
 t1 = 0.0
 evaluate!(u1, H, x0, t1)
+
+evaluate(r, x0, q1) - u1
+evaluate(r, x0, p1) - u
 
 ### Test monodromy
 
@@ -60,6 +63,10 @@ MS = HomotopyContinuation.MonodromySolver(
 s0 = randn(ComplexF64, 2)
 p0 = evaluate(r, s0)
 
+evaluate(r, s0, p0)
+
+HomotopyContinuation.check_start_solutions(MS, [s0], p0)
+
 ### Monodromy 
 seed = rand(UInt32)
 mon_result = monodromy_solve(
@@ -68,6 +75,28 @@ mon_result = monodromy_solve(
     p0,
     seed;
 )
+
+tracker = MS.trackers[1]
+parameters!(tracker, p0, p0)
+X = [s0]
+track(tracker, s0) # terminated, invalid start value
+
+function check_start_solutions(MS::MonodromySolver, X, p)
+    tracker = MS.trackers[1]
+    parameters!(tracker, p, p)
+    results = PathResult[]
+    for x in X
+        res = track(tracker, x)
+        if is_success(res)
+            _, added = add!(MS, res, length(results) + 1)
+            if added
+                push!(results, res)
+            end
+        end
+    end
+
+    results
+end
 
 ### parameter homotopy
 start_parameters!(egtracker, p0)
