@@ -292,9 +292,10 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
     #Compute Hessian
     fill!(hess, 0.0 + 0.0im)
     for j = 1:length(S)
-        Jtu = hcat(map(JsuF) do J 
-                evaluate(J, vcat(S[j], Uvals[:, j], x))
-            end...) 
+        Jtu = GC.Jtu_temp
+        for (idx, J) in enumerate(JsuF)
+            evaluate!(view(Jtu, :, idx), CompiledSystem(J), vcat(S[j], Uvals[:, j], x))
+        end
         Jtu0 = lu!(Jtu)
         for a in 1:k, b in 1:k
             for i in 1:N

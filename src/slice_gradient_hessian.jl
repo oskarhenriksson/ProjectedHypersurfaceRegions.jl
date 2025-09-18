@@ -23,6 +23,7 @@ mutable struct GradientCache
     Jsu_temp::Matrix{ComplexF64}
     JP_temp::Matrix{ComplexF64}
     JB_temp::Matrix{ComplexF64}
+    Jtu_temp::Matrix{ComplexF64} # Temporary storage for evaluating JsuF
 end
 function compute_systems(F, n, k, B)
     @var uval[1:n-k] α[1:k] β[1:k] t
@@ -97,6 +98,7 @@ function GradientCache(PWS, B)
     Jsu_temp = zeros(ComplexF64, n-k+1, k)
     JP_temp = zeros(ComplexF64, n-k+1, k)
     JB_temp = zeros(ComplexF64, n-k+1, k)
+    Jtu_temp = zeros(ComplexF64, n-k+1, k)
 
 
     GradientCache(Ks, line_hypersurface_intersections, tracker,
@@ -107,7 +109,7 @@ function GradientCache(PWS, B)
                     JxB,
                     JxP,
                     JPB,
-                    S, X, Uvals, SP, SB, UP, UB, A, hess, rhs1, rhs2, Jsu_temp, JP_temp, JB_temp)
+                    S, X, Uvals, SP, SB, UP, UB, A, hess, rhs1, rhs2, Jsu_temp, JP_temp, JB_temp, Jtu_temp)
 end
 
 
