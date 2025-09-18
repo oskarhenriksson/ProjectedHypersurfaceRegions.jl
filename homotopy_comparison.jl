@@ -8,8 +8,8 @@ module SysImpl
 using ..HomotopyContinuation
 const HC = HomotopyContinuation
 include("src/pseudo_witness_sets.jl")
-include("src/gradient_hessian.jl")
-include("src/system.jl")
+include("old/gradient_hessian.jl")
+include("old/system.jl")
 include("src/homotopy.jl")
 end
 module SliceImpl
