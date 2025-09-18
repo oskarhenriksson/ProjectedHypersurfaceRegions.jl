@@ -209,6 +209,10 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
     #Obtain gradients of S and U with respect to p and β
     for i = 1:length(S)
 
+        Jsu = GC.Jsu_temp
+        for (idx, J) in enumerate(JsuF)
+            evaluate!(view(Jsu, :, idx), CompiledSystem(J), vcat(S[i], Uvals[:, i], x))
+        end
         Jsu = hcat(map(JsuF) do J 
             evaluate(J, vcat(S[i], Uvals[:, i], x))
         end...) 
