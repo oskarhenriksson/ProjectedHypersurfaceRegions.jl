@@ -129,8 +129,8 @@ function evaluate!(u, r::RoutingGradient, x, p = nothing)
         for col = 1:size(JP,2)
             rhs1[:, col] .= JP[:, col]
         end
-        for col = 1:size(JB,2)
-            rhs1[:, size(JP,2)+col] .= JB[:, col]
+        for col = 1:size(JB,1)
+            rhs1[:, size(JP,2)+col] .= JB[col, :]
         end
 
         # In-place negation
@@ -236,8 +236,8 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
         for col = 1:size(JP,2)
             rhs1[:, col] .= JP[:, col]
         end
-        for col = 1:size(JB,2)
-            rhs1[:, size(JP,2)+col] .= JB[:, col]
+        for col = 1:size(JB,1)
+            rhs1[:, size(JP,2)+col] .= JB[col, :]
         end
 
         # In-place negation
