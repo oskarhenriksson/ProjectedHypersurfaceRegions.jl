@@ -16,7 +16,7 @@ f = [ φ[1]^2 + φ[2]^2 - 1,
     ]
 
 J = differentiate(f, vcat(p,φ))
-D= expand(det(J))
+D= det(J)
 
 #Since we want the numerator of the routing function to have D(c)*c, 
 #we add D*c to the system before we project down. Not sure about this. 

@@ -68,8 +68,8 @@ function compute_systems(F, n, k, B)
             hess_ij = evaluate(HC.ModelKit.differentiate(∇αi, βj), β => B)
             System(hess_ij, variables = vars) 
         end
+    return JsuF, JPF, JBF, HF, JxB, JxP, JPB
 
-    JsuF, JPF, JBF, HF, JxB, JxP, JPB
 end
 
 function GradientCache(PWS, B)
@@ -96,15 +96,27 @@ function GradientCache(PWS, B)
 
     JsuF, JPF, JBF, HF, JxB, JxP, JPB = compute_systems(F, n, k, B)
 
-    rhs1 = zeros(ComplexF64, n-k+1, 2*k)  
+
+    # 
+    rhs1 = zeros(ComplexF64, N, 2*k)  
     rhs2 = zeros(ComplexF64, N)  
-    Jsu_temp = zeros(ComplexF64, n-k+1, k)
-    JP_temp = zeros(ComplexF64, n-k+1, k)
-    JB_temp = zeros(ComplexF64, n-k+1, k)
-    Jtu_temp = zeros(ComplexF64, n-k+1, k)
-    Jxb_temp = zeros(ComplexF64, N,N, k)
-    Jxp_temp = zeros(ComplexF64, N,N, k)
-    Jpb_temp = zeros(ComplexF64, N,N, k)
+
+    Jsu_temp = zeros(ComplexF64,N, 1+n-k)
+    JP_temp = zeros(ComplexF64, N, k)
+    JB_temp = transpose(zeros(ComplexF64, N, k))
+    Jtu_temp = zeros(ComplexF64, N, 1+n-k) # TODO: Maybe can reuse Jsu_temp....
+    Jxb_temp = zeros(ComplexF64, N, size(JxB)...) # size(JxB)
+    Jxp_temp = zeros(ComplexF64, N, size(JxP)...)
+    Jpb_temp = zeros(ComplexF64, N, size(JPB)...)
+
+    # Jsu_temp = zeros(ComplexF64, size(JsuF[1])...)
+    # JP_temp = zeros(ComplexF64, size(JPF[1])...)
+    # JB_temp = zeros(ComplexF64, N, k)
+    # JB_temp = zeros(ComplexF64, size(JBF[1])...)
+    # Jtu_temp = zeros(ComplexF64, size(JsuF[1])...) # TODO: Maybe can reuse Jsu_temp....
+    # Jxb_temp = zeros(ComplexF64, N, size(JxB)...) # size(JxB)
+    # Jxp_temp = zeros(ComplexF64, N, size(JxP)...)
+    # Jpb_temp = zeros(ComplexF64, N, size(JPB)...)
 
 
     GradientCache(Ks, line_hypersurface_intersections, tracker,

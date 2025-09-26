@@ -39,7 +39,7 @@ function RoutingGradient(F, projection_vars;
     Hlogqe(pt) = evaluate(differentiate(differentiate(log(q^e), α), α), α => pt) 
 
     # Use single-slice gradient cache to avoid tracking many lifted lines
-    GC = GradientCache(PWS, B[:,1 ])
+    GC = GradientCache(PWS, B[:,1])
 
     RoutingGradient(PWS, projection_vars, GC, e, c, B, ∇logqe, Hlogqe)
 end
@@ -124,7 +124,7 @@ function evaluate!(u, r::RoutingGradient, x, p = nothing)
         for (idx, J) in enumerate(JBF)
             evaluate!(view(JB, :, idx), CompiledSystem(J), v0)
         end
-
+        
         # Fill rhs in-place
         for col = 1:size(JP,2)
             rhs1[:, col] .= JP[:, col]
