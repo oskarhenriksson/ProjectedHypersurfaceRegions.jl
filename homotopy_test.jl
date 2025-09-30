@@ -1,11 +1,12 @@
-using Pkg
+using Pkg, Random
 Pkg.activate(".")
 
 using Plots, DifferentialEquations
 
 include("src/functions.jl");
 
-## TODO: Make this work for single slice method. Replace the function evaluate_and_jacobian!
+Random.seed!(0x8b868320)
+
 ########
 @var a b x
 F = System([x^2 + a * x + b; 2x + a], variables = [a, b, x])
@@ -47,7 +48,11 @@ unique_points = UniquePoints(
 
 trace = zeros(ComplexF64, length(x₀) + 1, 3)
 P = Vector{ComplexF64}
-options = MonodromyOptions()
+options = MonodromyOptions(
+    #parameter_sampler = p -> 10 .* [0; randn(ComplexF64, length(p) - 1)], # bigger lopps
+    parameter_sampler = p -> 10 .* randn(ComplexF64, length(p)), # bigger lopps
+    # max_loops_no_progress = 10 # change the stopping criterion
+) 
 MS = HomotopyContinuation.MonodromySolver(
     trackers,
     HomotopyContinuation.MonodromyLoop{P}[],
@@ -63,7 +68,7 @@ MS = HomotopyContinuation.MonodromySolver(
 s0 = randn(ComplexF64, 2)
 p0 = evaluate(r, s0)
 
-evaluate(r, s0, p0)
+evaluate(r, s0, p0) #should give zero
 
 HomotopyContinuation.check_start_solutions(MS, [s0], p0)
 
@@ -108,17 +113,17 @@ pts = real_solutions(result)
 
 
 ##### Plotting 
-g(x, param, t) = real(evaluate(r, x))
-u0 = randn(2)
+g(x, param, t) = real(evaluate(r, x)) # gradient flow
+u0 = [-10,-7.5]
 tspan = (0.0, 1e4)
 prob = ODEProblem(g, u0, tspan)
-sol = DE.solve(prob, reltol = 1e-6, abstol = 1e-6)
+sol = DE.solve(prob, reltol = 1e-6, abstol = 1e-6) #starting from some random point, *hopefully* we converge to a routing point
 
 M = maximum(abs, vcat(pts...)) + 2
 M_x = maximum(p -> abs(p[1]), pts) + 2
 M_y = maximum(p -> abs(p[2]), pts) + 2
 
-R(x, y) = log(abs((x^2 - 4 * y) / (1 + (x-c[1])^2 + (y-c[2])^2)^e))
+R(x, y) = log(abs((x^2 - 4 * y) / (1 + (x-c[1])^2 + (y-c[2])^2)^e)) #This is our routing function
 contour(
     (-M_x):0.1:M_x,
     (-M_y):0.1:M_y,
@@ -130,7 +135,7 @@ contour(
     lw = 1,
     fill = true,
 )
-A = [[b; b^2 / 4] for b = (-M_x):M_x]
+A = [[b; b^2 / 4] for b = (-M_x):M_x] #discriminant of the quadratic
 plot!(
     Tuple.(A),
     xlims = (-M_x, M_x),
@@ -142,6 +147,5 @@ plot!(
 
 scatter!(Tuple.(pts), markercolor = :green, markersize = 8, label = "critical points")
 plot!(Tuple.(sol.u), linecolor = :steelblue, linewidth = 4, label = "gradient flow")
-#scatter!([Tuple(u0)], markercolor=:blue, markersize=8, label="gradient flow start")
+scatter!([Tuple(u0)], markercolor=:blue, markersize=8, label="gradient flow start")
 
-plot!(; legend = false)

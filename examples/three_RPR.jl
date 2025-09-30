@@ -1,6 +1,8 @@
-using Pkg
+using Pkg, Random
 Pkg.activate(".")
 include("../src/functions.jl");
+
+Random.seed!(0x8b868320)
 
 #example 5.2 in the overleaf file
 
@@ -63,10 +65,11 @@ MS = HomotopyContinuation.MonodromySolver(
 s0 = randn(ComplexF64, k)
 p0 = evaluate(r, s0)
 
+evaluate_and_jacobian(r,p0)
 
 ### Monodromy 
 seed = rand(UInt32)
-mon_result = monodromy_solve(
+@profview mon_result = monodromy_solve(
     MS,
     s0,
     p0,
