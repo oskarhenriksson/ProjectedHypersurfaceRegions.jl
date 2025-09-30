@@ -51,7 +51,7 @@ P = Vector{ComplexF64}
 options = MonodromyOptions(
     #parameter_sampler = p -> 10 .* [0; randn(ComplexF64, length(p) - 1)], # bigger lopps
     parameter_sampler = p -> 10 .* randn(ComplexF64, length(p)), # bigger lopps
-    # max_loops_no_progress = 10 # change the stopping criterion
+    max_loops_no_progress = 20 # change the stopping criterion
 ) 
 MS = HomotopyContinuation.MonodromySolver(
     trackers,
@@ -70,7 +70,7 @@ p0 = evaluate(r, s0)
 
 evaluate(r, s0, p0) #should give zero
 
-HomotopyContinuation.check_start_solutions(MS, [s0], p0)
+# HomotopyContinuation.check_start_solutions(MS, [s0], p0)
 
 ### Monodromy 
 seed = rand(UInt32)
@@ -86,22 +86,22 @@ parameters!(tracker, p0, p0)
 X = [s0]
 track(tracker, s0) # terminated, invalid start value
 
-function check_start_solutions(MS::MonodromySolver, X, p)
-    tracker = MS.trackers[1]
-    parameters!(tracker, p, p)
-    results = PathResult[]
-    for x in X
-        res = track(tracker, x)
-        if is_success(res)
-            _, added = add!(MS, res, length(results) + 1)
-            if added
-                push!(results, res)
-            end
-        end
-    end
+# function check_start_solutions(MS::MonodromySolver, X, p)
+#     tracker = MS.trackers[1]
+#     parameters!(tracker, p, p)
+#     results = PathResult[]
+#     for x in X
+#         res = track(tracker, x)
+#         if is_success(res)
+#             _, added = add!(MS, res, length(results) + 1)
+#             if added
+#                 push!(results, res)
+#             end
+#         end
+#     end
 
-    results
-end
+#     results
+# end
 
 ### parameter homotopy
 start_parameters!(egtracker, p0)
@@ -148,4 +148,6 @@ plot!(
 scatter!(Tuple.(pts), markercolor = :green, markersize = 8, label = "critical points")
 plot!(Tuple.(sol.u), linecolor = :steelblue, linewidth = 4, label = "gradient flow")
 scatter!([Tuple(u0)], markercolor=:blue, markersize=8, label="gradient flow start")
+
+savefig("quadratic_example.png")
 
