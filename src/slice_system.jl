@@ -129,8 +129,8 @@ function evaluate!(u, r::RoutingGradient, x, p = nothing)
         for col = 1:size(JP,2)
             rhs1[:, col] .= JP[:, col]
         end
-        for col = 1:size(JB,1)
-            rhs1[:, size(JP,2)+col] .= JB[col, :]
+        for idx = 1:size(JB,1)
+            rhs1[:, size(JP,2)+idx] .= JB[idx, :]
         end
 
         # In-place negation
@@ -216,12 +216,12 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
     for i = 1:length(S)
 
         v0 =  vcat(S[i], Uvals[:, i], x)
-
+       
         Jsu = GC.Jsu_temp
         for (idx, J) in enumerate(JsuF)
             evaluate!(view(Jsu, :, idx), CompiledSystem(J), v0)
         end
-
+        @assert all(!isnan, Jsu)
         JP = GC.JP_temp
         for (idx, J) in enumerate(JPF)
             evaluate!(view(JP, :, idx), CompiledSystem(J), v0)
@@ -236,8 +236,8 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
         for col = 1:size(JP,2)
             rhs1[:, col] .= JP[:, col]
         end
-        for col = 1:size(JB,1)
-            rhs1[:, size(JP,2)+col] .= JB[col, :]
+        for idx = 1:size(JB,1)
+            rhs1[:, size(JP,2)+idx] .= JB[idx, :]
         end
 
         # In-place negation
