@@ -1,7 +1,5 @@
-using Pkg
+using Pkg, Random, Plots, DifferentialEquations
 Pkg.activate(".")
-
-using Plots, DifferentialEquations
 
 include("src/functions.jl");
 
@@ -19,7 +17,6 @@ p1 = zeros(2)
 q1 = randn(2)
 H = RoutingPointsHomotopy(r, p1, q1)
 
-
 ### Test evaluation
 u = randn(ComplexF64, 2)
 x0 = randn(2)
@@ -31,7 +28,6 @@ t1 = 0.0
 evaluate!(u1, H, x0, t1)
 
 ### Test monodromy
-
 egtracker = EndgameTracker(H) # we want to add options later 
 trackers = [egtracker]
 x₀ = zeros(ComplexF64, size(H, 2))
@@ -59,6 +55,8 @@ MS = HomotopyContinuation.MonodromySolver(
 s0 = randn(ComplexF64, 2)
 p0 = evaluate(r, s0)
 
+evaluate(r, s0, p0) #should give zero
+
 ### Monodromy 
 seed = rand(UInt32)
 mon_result = monodromy_solve(
@@ -74,16 +72,7 @@ target_parameters!(egtracker, zeros(2))
 result = HomotopyContinuation.solve(H, solutions(mon_result))
 pts = real_solutions(result)
 
-
-
-
 ##### Plotting 
-g(x, param, t) = real(evaluate(r, x))
-u0 = randn(2)
-tspan = (0.0, 1e4)
-prob = ODEProblem(g, u0, tspan)
-sol = DE.solve(prob, reltol = 1e-6, abstol = 1e-6)
-
 M = maximum(abs, vcat(pts...)) + 2
 M_x = maximum(p -> abs(p[1]), pts) + 2
 M_y = maximum(p -> abs(p[2]), pts) + 2
@@ -100,7 +89,8 @@ contour(
     lw = 1,
     fill = true,
 )
-A = [[b; b^2 / 4] for b = (-M_x):M_x]
+
+A = [[b; b^2 / 4] for b = (-M_x):M_x] #discriminant of the quadratic
 plot!(
     Tuple.(A),
     xlims = (-M_x, M_x),
@@ -110,8 +100,40 @@ plot!(
     label = "discriminant",
 )
 
-scatter!(Tuple.(pts), markercolor = :green, markersize = 8, label = "critical points")
-plot!(Tuple.(sol.u), linecolor = :steelblue, linewidth = 4, label = "gradient flow")
-#scatter!([Tuple(u0)], markercolor=:blue, markersize=8, label="gradient flow start")
+# Gradient flow for routing points of positive index
+g(x, param, t) = real(evaluate(r, x))
+tspan = (0.0, 1e4)
+for (i, u0) in enumerate(pts)
+    println()
+    println(i)
+    jac = real(evaluate_and_jacobian(r, u0)[2])
+    eigen_data = eigen(jac)
+    eigenvalues = eigen_data.values
+    eigenvectors = eigen_data.vectors
+    positive_directions = [i for (i, λ) in enumerate(eigenvalues) if real(λ) > 0]
+    println("Index: $(length(positive_directions))")
+    if !isempty(positive_directions)
+        idx = first(positive_directions)
+        v = eigenvectors[:, idx]
+        prob = ODEProblem(g, u0 + 0.01*v, tspan)
+        sol = DE.solve(prob, reltol = 1e-6, abstol = 1e-6)
+        plot!(Tuple.(sol.u), linecolor = :steelblue, linewidth = 4, label="")
+        prob = ODEProblem(g, u0 - 0.01*v, tspan)
+        sol = DE.solve(prob, reltol = 1e-6, abstol = 1e-6)
+        plot!(Tuple.(sol.u), linecolor = :steelblue, linewidth = 4, label="")
+        scatter!(Tuple(u0), markercolor = :magenta, markersize = 8, label = "")
+    else
+        scatter!(Tuple(u0), markercolor = :green, markersize = 8, label = "")
+    end
 
-plot!(; legend = false)
+end
+
+# Legend
+plot!([], [], color = :steelblue, linewidth = 4, label = "gradient flow")
+scatter!(Tuple(NaN), markercolor = :green, markersize = 8, label = "routing pts (index 0)")
+scatter!(Tuple(NaN), markercolor = :magenta, markersize = 8, label = "routing pts (index > 0)")
+
+plot!(; legend = true, dpi=400)
+
+savefig("example_quadratic.png")
+
