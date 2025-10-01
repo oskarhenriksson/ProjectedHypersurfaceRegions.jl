@@ -3,6 +3,8 @@ Pkg.activate(".")
 
 include("src/functions.jl");
 
+Random.seed!(0x8b868320)
+
 ########
 @var a b x
 F = System([x^2 + a * x + b; 2x + a], variables = [a, b, x])
@@ -39,7 +41,10 @@ unique_points = UniquePoints(
 
 trace = zeros(ComplexF64, length(x₀) + 1, 3)
 P = Vector{ComplexF64}
-options = MonodromyOptions()
+options = MonodromyOptions(
+    parameter_sampler = p -> 10 .* randn(ComplexF64, length(p)), # bigger lopps
+    max_loops_no_progress = 20 # change the stopping criterion
+)
 MS = HomotopyContinuation.MonodromySolver(
     trackers,
     HomotopyContinuation.MonodromyLoop{P}[],
@@ -77,7 +82,7 @@ M = maximum(abs, vcat(pts...)) + 2
 M_x = maximum(p -> abs(p[1]), pts) + 2
 M_y = maximum(p -> abs(p[2]), pts) + 2
 
-R(x, y) = log(abs((x^2 - 4 * y) / (1 + (x-c[1])^2 + (y-c[2])^2)^e))
+R(x, y) = log(abs((x^2 - 4 * y) / (1 + (x-c[1])^2 + (y-c[2])^2)^e)) #This is our routing function
 contour(
     (-M_x):0.1:M_x,
     (-M_y):0.1:M_y,
@@ -136,4 +141,3 @@ scatter!(Tuple(NaN), markercolor = :magenta, markersize = 8, label = "routing pt
 plot!(; legend = true, dpi=400)
 
 savefig("example_quadratic.png")
-
