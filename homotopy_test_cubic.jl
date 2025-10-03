@@ -91,8 +91,8 @@ result = HomotopyContinuation.solve(H, solutions(intermediate_result))
 pts = real_solutions(result)
 
 ##### Plotting 
-M_x = maximum(p -> abs(p[1]), pts) + 2
-M_y = maximum(p -> abs(p[2]), pts) + 2
+M_x = maximum(p -> abs(p[1]), pts) + 6
+M_y = maximum(p -> abs(p[2]), pts) + 6
 
 
 # Discriminant
@@ -155,6 +155,7 @@ plot!([], [], color = :steelblue, linewidth = 4, label = "gradient flow")
 scatter!(Tuple(NaN), markercolor = :green, markersize = 8, label = "routing pts (index 0)")
 scatter!(Tuple(NaN), markercolor = :magenta, markersize = 8, label = "routing pts (index > 0)")
 
-plot!(; legend = true, dpi=400)
+plot!(; legend = :bottomright, dpi=400, legendfontsize=6)
 
-savefig("example_cubic.png")
+savefig("figures/example_cubic.svg")
+savefig("figures/example_cubic.png")

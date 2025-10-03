@@ -78,9 +78,8 @@ result = HomotopyContinuation.solve(H, solutions(mon_result))
 pts = real_solutions(result)
 
 ##### Plotting 
-M = maximum(abs, vcat(pts...)) + 2
-M_x = maximum(p -> abs(p[1]), pts) + 2
-M_y = maximum(p -> abs(p[2]), pts) + 2
+M_x = maximum(p -> abs(p[1]), pts) + 4
+M_y = maximum(p -> abs(p[2]), pts) + 3
 
 R(x, y) = log(abs((x^2 - 4 * y) / (1 + (x-c[1])^2 + (y-c[2])^2)^e)) #This is our routing function
 contour(
@@ -138,6 +137,7 @@ plot!([], [], color = :steelblue, linewidth = 4, label = "gradient flow")
 scatter!(Tuple(NaN), markercolor = :green, markersize = 8, label = "routing pts (index 0)")
 scatter!(Tuple(NaN), markercolor = :magenta, markersize = 8, label = "routing pts (index > 0)")
 
-plot!(; legend = true, dpi=400)
+plot!(; legend = :bottomright, dpi=400, legendfontsize=6)
 
-savefig("example_quadratic.png")
+savefig("figures/example_quadratic.png")
+savefig("figures/example_quadratic.svg")
