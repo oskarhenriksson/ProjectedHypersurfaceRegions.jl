@@ -1,7 +1,9 @@
-using Pkg, Random, Plots, DifferentialEquations
+using Pkg, Random, Plots, DifferentialEquations, Random, Plots, DifferentialEquations
 Pkg.activate(".")
 
 include("src/functions.jl");
+
+Random.seed!(0x8b868320)
 
 Random.seed!(0x8b868320)
 
@@ -45,6 +47,10 @@ unique_points = UniquePoints(
 trace = zeros(ComplexF64, length(x₀) + 1, 3)
 P = Vector{ComplexF64}
 options = MonodromyOptions(
+    parameter_sampler = p -> 10 .* randn(ComplexF64, length(p)), # bigger lopps
+    max_loops_no_progress = 20 # change the stopping criterion
+)
+options = MonodromyOptions(
     #parameter_sampler = p -> 10 .* [0; randn(ComplexF64, length(p) - 1)], # bigger lopps
     parameter_sampler = p -> 10 .* randn(ComplexF64, length(p)), # bigger lopps
     max_loops_no_progress = 20 # change the stopping criterion
@@ -63,6 +69,8 @@ MS = HomotopyContinuation.MonodromySolver(
 #### set up start pair
 s0 = randn(ComplexF64, 2)
 p0 = evaluate(r, s0)
+
+evaluate(r, s0, p0) #should give zero
 
 evaluate(r, s0, p0) #should give zero
 
@@ -87,9 +95,8 @@ result = HomotopyContinuation.solve(H, solutions(mon_result))
 pts = real_solutions(result)
 
 ##### Plotting 
-M = maximum(abs, vcat(pts...)) + 2
-M_x = maximum(p -> abs(p[1]), pts) + 2
-M_y = maximum(p -> abs(p[2]), pts) + 2
+M_x = maximum(p -> abs(p[1]), pts) + 4
+M_y = maximum(p -> abs(p[2]), pts) + 3
 
 R(x, y) = log(abs((x^2 - 4 * y) / (1 + (x-c[1])^2 + (y-c[2])^2)^e)) #This is our routing function
 contour(
@@ -104,7 +111,8 @@ contour(
     fill = true,
 )
 
-A = [[b; b^2 / 4] for b = (-M_x):M_x] #discriminant of the quadratic
+
+A = [[b; b^2 / 4] for b = (-M_x):M_x] #discriminant of the quadratic #discriminant of the quadratic
 plot!(
     Tuple.(A),
     xlims = (-M_x, M_x),
@@ -147,7 +155,7 @@ plot!([], [], color = :steelblue, linewidth = 4, label = "gradient flow")
 scatter!(Tuple(NaN), markercolor = :green, markersize = 8, label = "routing pts (index 0)")
 scatter!(Tuple(NaN), markercolor = :magenta, markersize = 8, label = "routing pts (index > 0)")
 
-plot!(; legend = true, dpi=400)
+plot!(; legend = :bottomright, dpi=400, legendfontsize=6)
 
-savefig("example_quadratic.png")
-
+savefig("figures/example_quadratic.png")
+savefig("figures/example_quadratic.svg")

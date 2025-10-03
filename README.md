@@ -1,4 +1,4 @@
 
 # Computing complements of real hypersurfaces using pseudowitness sets
 
-<p style="text-align:center;"><img src="example_quadratic.png" height="200px"/><img src="example_cubic.png" height="200px"/></p>
+<p style="text-align:center;"><img src="figures/example_quadratic_quadratic.svg" height="200px"/><img src="figures/example_cubic.svg" height="200px"/></p>
