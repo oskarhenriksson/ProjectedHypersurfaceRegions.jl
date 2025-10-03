@@ -112,17 +112,17 @@ function evaluate!(u, r::RoutingGradient, x, p = nothing)
 
         Jsu = GC.Jsu_temp
         for (idx, J) in enumerate(JsuF)
-            evaluate!(view(Jsu, :, idx), CompiledSystem(J), v0)
+            evaluate!(view(Jsu, :, idx), J, v0)
         end
 
         JP = GC.JP_temp
         for (idx, J) in enumerate(JPF)
-            evaluate!(view(JP, :, idx), CompiledSystem(J), v0)
+            evaluate!(view(JP, :, idx), J, v0)
         end
 
         JB = GC.JB_temp
         for (idx, J) in enumerate(JBF)
-            evaluate!(view(JB, :, idx), CompiledSystem(J), v0)
+            evaluate!(view(JB, :, idx), J, v0)
         end
         
         # Fill rhs in-place
@@ -219,17 +219,17 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
        
         Jsu = GC.Jsu_temp
         for (idx, J) in enumerate(JsuF)
-            evaluate!(view(Jsu, :, idx), CompiledSystem(J), v0)
+            evaluate!(view(Jsu, :, idx), J, v0)
         end
         @assert all(!isnan, Jsu)
         JP = GC.JP_temp
         for (idx, J) in enumerate(JPF)
-            evaluate!(view(JP, :, idx), CompiledSystem(J), v0)
+            evaluate!(view(JP, :, idx), J, v0)
         end
 
         JB = GC.JB_temp
         for (idx, J) in enumerate(JBF)
-            evaluate!(view(JB, :, idx), CompiledSystem(J), v0)
+            evaluate!(view(JB, :, idx), J, v0)
         end
         
         # Fill rhs in-place
@@ -282,21 +282,21 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
         Jxb = GC.Jxb_temp
         for (col_idx, col) in enumerate(eachcol(JxB))
             for (row_idx, h) in enumerate(col)
-                evaluate!(view(Jxb,:, row_idx,col_idx), CompiledSystem(h), v0)
+                evaluate!(view(Jxb,:, row_idx,col_idx), h, v0)
             end
         end
 
         Jxp = GC.Jxp_temp
         for (col_idx, col) in enumerate(eachcol(JxP))
             for (row_idx, h) in enumerate(col)
-                evaluate!(view(Jxp,:, row_idx,col_idx), CompiledSystem(h), v0)
+                evaluate!(view(Jxp,:, row_idx,col_idx), h, v0)
             end
         end
 
         Jpb = GC.Jpb_temp
         for (col_idx, col) in enumerate(eachcol(JPB))
             for (row_idx, h) in enumerate(col)
-                evaluate!(view(Jpb,:, row_idx,col_idx), CompiledSystem(h), v0)
+                evaluate!(view(Jpb,:, row_idx,col_idx), h, v0)
             end
         end
        
@@ -325,7 +325,7 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
     for j = 1:length(S)
         Jtu = GC.Jtu_temp
         for (idx, J) in enumerate(JsuF)
-            evaluate!(view(Jtu, :, idx), CompiledSystem(J), vcat(S[j], Uvals[:, j], x))
+            evaluate!(view(Jtu, :, idx), J, vcat(S[j], Uvals[:, j], x))
         end
         Jtu0 = lu!(Jtu)
         for a in 1:k, b in 1:k
