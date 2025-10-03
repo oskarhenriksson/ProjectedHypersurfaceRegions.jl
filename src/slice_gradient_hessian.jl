@@ -2,13 +2,13 @@ mutable struct GradientCache
     Ks::Vector{LinearSubspace}
     line_hypersurface_intersections::Vector
     tracker::EndgameTracker
-    JsuF::Vector{HC.System}
-    JPF::Vector{HC.System}
-    JBF::Vector{HC.System}
-    HF::Matrix{HC.System}
-    JxB::Matrix{HC.System}
-    JxP::Matrix{HC.System}
-    JPB::Matrix{HC.System}
+    JsuF::Vector{HC.CompiledSystem}
+    JPF::Vector{HC.CompiledSystem}
+    JBF::Vector{HC.CompiledSystem}
+    HF::Matrix{HC.CompiledSystem}
+    JxB::Matrix{HC.CompiledSystem}
+    JxP::Matrix{HC.CompiledSystem}
+    JPB::Matrix{HC.CompiledSystem}
     S::Vector{ComplexF64}
     X::Vector{ComplexF64}
     Uvals::Matrix{ComplexF64}
@@ -68,7 +68,7 @@ function compute_systems(F, n, k, B)
             hess_ij = evaluate(HC.ModelKit.differentiate(∇αi, βj), β => B)
             System(hess_ij, variables = vars) 
         end
-    return JsuF, JPF, JBF, HF, JxB, JxP, JPB
+    return CompiledSystem.(JsuF), CompiledSystem.(JPF), CompiledSystem.(JBF), CompiledSystem.(HF), CompiledSystem.(JxB), CompiledSystem.(JxP), CompiledSystem.(JPB)
 
 end
 
