@@ -70,8 +70,9 @@ import HomotopyContinuation.taylor!
 
 function evaluate!(u, r::RoutingGradient, x, p = nothing)
     PWS, GC, B, ∇logqe  = r.PWS, r.GC, r.B, r.∇logqe
-    
 
+    fill!(u, 0.0 + 0.0im)
+    
     # Use cached symbolic objects and arrays
     JsuF = GC.JsuF
     JPF = GC.JPF
@@ -89,6 +90,8 @@ function evaluate!(u, r::RoutingGradient, x, p = nothing)
     track_pws_to_line!(GC, x, B[:,1], PWS)
   
     for (j, sol) in enumerate(GC.line_hypersurface_intersections[1])
+        !GC.track_report[j] && continue # skip j-th track failed
+        @assert all(!isnan, sol) "NaN entries in intersection points: $sol"
         for idx in 1:k
             X[idx] = sol[idx]
         end
@@ -100,6 +103,7 @@ function evaluate!(u, r::RoutingGradient, x, p = nothing)
 
     #Obtain gradients of S and U with respect to p and β
     for i = 1:length(S)
+        !GC.track_report[i] && continue # skip i-th track failed
 
         v0 =  vcat(S[i], Uvals[:, i], x)
 
@@ -132,10 +136,11 @@ function evaluate!(u, r::RoutingGradient, x, p = nothing)
         LinearAlgebra.ldiv!(Jsu0, rhs1)
         
         SB[i,:] = rhs1[1, k+1:end]
+        u .-= SB[i,:]
     end
 
 
-    u .= -sum(eachrow(SB)) - ∇logqe(x)
+    u .-= ∇logqe(x)
     if !isnothing(p)
         u .-= p
     end
@@ -159,7 +164,8 @@ end
 function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
 
     PWS, GC, B, ∇logqe, Hlogqe = r.PWS, r.GC, r.B, r.∇logqe, r.Hlogqe
-    
+
+    u = fill!(u, 0.0 + 0.0im)
 
     # Use cached symbolic objects and arrays
     JsuF = GC.JsuF
@@ -190,6 +196,7 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
 
 
     for (j, sol) in enumerate(GC.line_hypersurface_intersections[1])
+        !GC.track_report[j] && continue # skip j-th track failed
         for i in 1:k
             X[i] = sol[i]
         end
@@ -203,7 +210,10 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
     #Obtain gradients of S and U with respect to p and β
     for i = 1:length(S)
 
+        !GC.track_report[i] && continue # skip i-th track failed
+
         v0 =  vcat(S[i], Uvals[:, i], x)
+        @assert all(!isnan, v0) "NaN entries in v0: $v0"
        
         JsuF_temp = GC.JsuF_temp
         for (idx, J) in enumerate(JsuF)
@@ -214,6 +224,8 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
         for (idx, J) in enumerate(JPF)
             evaluate!(view(JPF_temp, :, idx), J, v0)
         end
+
+
 
         JBF_temp = GC.JBF_temp
         for (idx, J) in enumerate(JBF)
@@ -238,15 +250,21 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
 
         UP[i,:,:] = rhs1[2:end, 1:k]
         UB[i,:,:] = rhs1[2:end, k+1:end]
+
+        u .-= SB[i,:]
+
     end
 
-    u .= -sum(eachrow(SB)) - ∇logqe(x)
+
+    u .-= ∇logqe(x)
     if !isnothing(p)
         u .-= p
     end
 
     # Computation outlined in the abstract description Jon gave in Overleaf file
     for j = 1:length(S)
+
+        !GC.track_report[j] && continue # skip j-th track failed
 
         v0 =  vcat(S[j], Uvals[:, j], x)
 
@@ -298,6 +316,7 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
     #Compute Hessian
     fill!(hess, 0.0 + 0.0im)
     for j = 1:length(S)
+        !GC.track_report[j] && continue # skip j-th track failed
         Jtu = GC.Jtu_temp
         for (idx, J) in enumerate(JsuF)
             evaluate!(view(Jtu, :, idx), J, vcat(S[j], Uvals[:, j], x))
