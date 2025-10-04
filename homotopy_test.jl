@@ -5,12 +5,9 @@ include("src/functions.jl");
 
 Random.seed!(0x8b868320)
 
-Random.seed!(0x8b868320)
-
 ########
 @var a b x
 F = System([x^2 + a * x + b; 2x + a], variables = [a, b, x])
-
 
 B = qr(rand(2, 2)).Q |> Matrix
 c = 10 .* randn(2)
@@ -50,11 +47,6 @@ options = MonodromyOptions(
     parameter_sampler = p -> 10 .* randn(ComplexF64, length(p)), # bigger lopps
     max_loops_no_progress = 20 # change the stopping criterion
 )
-options = MonodromyOptions(
-    #parameter_sampler = p -> 10 .* [0; randn(ComplexF64, length(p) - 1)], # bigger lopps
-    parameter_sampler = p -> 10 .* randn(ComplexF64, length(p)), # bigger lopps
-    max_loops_no_progress = 20 # change the stopping criterion
-) 
 MS = HomotopyContinuation.MonodromySolver(
     trackers,
     HomotopyContinuation.MonodromyLoop{P}[],
@@ -69,8 +61,6 @@ MS = HomotopyContinuation.MonodromySolver(
 #### set up start pair
 s0 = randn(ComplexF64, 2)
 p0 = evaluate(r, s0)
-
-evaluate(r, s0, p0) #should give zero
 
 evaluate(r, s0, p0) #should give zero
 
