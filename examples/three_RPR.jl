@@ -49,7 +49,10 @@ unique_points = UniquePoints(
 
 trace = zeros(ComplexF64, length(x₀) + 1, 3)
 P = Vector{ComplexF64}
-options = MonodromyOptions() 
+options = MonodromyOptions(
+    parameter_sampler = p -> 10 .* randn(ComplexF64, length(p)), # bigger loops
+    max_loops_no_progress = 20 # change the stopping criterion
+)
 MS = HomotopyContinuation.MonodromySolver(
     trackers,
     HomotopyContinuation.MonodromyLoop{P}[],
