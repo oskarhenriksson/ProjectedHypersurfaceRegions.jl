@@ -156,34 +156,6 @@ plot!([], [], color = :steelblue, linewidth = 4, label = "gradient flow")
 scatter!(Tuple(NaN), markercolor = :green, markersize = 8, label = "routing pts (index 0)")
 scatter!(Tuple(NaN), markercolor = :magenta, markersize = 8, label = "routing pts (index > 0)")
 
-plot!(; legend = true, dpi=400)
-    jac = real(evaluate_and_jacobian(r, u0)[2])
-    eigen_data = eigen(jac)
-    eigenvalues = eigen_data.values
-    eigenvectors = eigen_data.vectors
-    positive_directions = [i for (i, λ) in enumerate(eigenvalues) if real(λ) > 0]
-    println("Index: $(length(positive_directions))")
-    if !isempty(positive_directions)
-        idx = first(positive_directions)
-        v = eigenvectors[:, idx]
-        prob = ODEProblem(g, u0 + 0.01*v, tspan)
-        sol = DE.solve(prob, reltol = 1e-6, abstol = 1e-6)
-        plot!(Tuple.(sol.u), linecolor = :steelblue, linewidth = 4, label="")
-        prob = ODEProblem(g, u0 - 0.01*v, tspan)
-        sol = DE.solve(prob, reltol = 1e-6, abstol = 1e-6)
-        plot!(Tuple.(sol.u), linecolor = :steelblue, linewidth = 4, label="")
-        scatter!(Tuple(u0), markercolor = :magenta, markersize = 8, label = "")
-    else
-        scatter!(Tuple(u0), markercolor = :green, markersize = 8, label = "")
-    end
-
-end
-
-# Legend
-plot!([], [], color = :steelblue, linewidth = 4, label = "gradient flow")
-scatter!(Tuple(NaN), markercolor = :green, markersize = 8, label = "routing pts (index 0)")
-scatter!(Tuple(NaN), markercolor = :magenta, markersize = 8, label = "routing pts (index > 0)")
-
 plot!(; legend = :bottomright, dpi=400, legendfontsize=6)
 
 savefig("figures/example_cubic.svg")
