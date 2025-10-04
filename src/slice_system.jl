@@ -165,7 +165,7 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
 
     PWS, GC, B, ∇logqe, Hlogqe = r.PWS, r.GC, r.B, r.∇logqe, r.Hlogqe
 
-    u = fill!(u, 0.0 + 0.0im)
+    fill!(u, 0.0 + 0.0im)
 
     # Use cached symbolic objects and arrays
     JsuF = GC.JsuF
