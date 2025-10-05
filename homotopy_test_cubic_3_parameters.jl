@@ -9,10 +9,11 @@ Random.seed!(0x8b868320)
 
 ########
 
-# The discriminant of x^3 + a * x^2 + b*x + 1 is
-# 4*a^3 - a^2*b^2 - 18*a*b + 4*b^3 + 27
+# The discriminant of x^3 + a * x^2 + b*x + γ is
+# 4*a^3*γ - a^2*b^2 - 18*a*b*γ + 4*b^3 + 27*γ^2
 @var a b γ x
-F = System([x^3 + a * x^2 + b*x + γ; 3*x^2 + 2*a*x + b], variables = [a, b, γ, x])
+f = x^3 + a * x^2 + b*x + γ 
+F = System([f; differentiate(f, x)], variables = [a, b, γ, x])
 
 projection_variables = [a; b; γ]
 k = length(projection_variables)
@@ -59,6 +60,7 @@ s0 = randn(ComplexF64, k)
 p0 = evaluate(r, s0)
 
 ### Monodromy 
+seed = rand(UInt32)
 mon_result = monodromy_solve(
     MS,
     s0,
@@ -66,76 +68,56 @@ mon_result = monodromy_solve(
     seed;
 )
 
-### Use a parameter homotopy to trace the solutions of ∇r = p0 to solutions of ∇r = 0
-
-# Direct parameter homotopy
-# start_parameters!(egtracker, p0)
-# target_parameters!(egtracker, zeros(2))
-# result = HomotopyContinuation.solve(H, solutions(mon_result))
-# #pv = @profview result = HomotopyContinuation.solve(H, solutions(mon_result))
-# pts = real_solutions(result)
-
-
-# Parameter homotopy using the "detour trick"
+### Use a parameter homotopy (via the "detour trick") to trace the solutions of ∇r = p0 to solutions of ∇r = 0
 start_parameters!(egtracker, p0)
-p_intermediate = randn(ComplexF64, 2)
+p_intermediate = randn(ComplexF64, length(p0))
 target_parameters!(egtracker, p_intermediate)
 intermediate_result = HomotopyContinuation.solve(H, solutions(mon_result))
 
-
 start_parameters!(egtracker, p_intermediate)
-target_parameters!(egtracker, zeros(2))
+target_parameters!(egtracker, zeros(length(p0)))
 result = HomotopyContinuation.solve(H, solutions(intermediate_result))
+
 
 pts = real_solutions(result)
 
-##### Plotting 
-M_x = maximum(p -> abs(p[1]), pts) + 2
-M_y = maximum(p -> abs(p[2]), pts) + 2
-
-
-# Discriminant
-h(x, y) = 4*x^3 - x^2*y^2 - 18*x*y + 4*y^3 + 27
-
-R(x, y) = log(abs(h(x,y) / (1 + (x-c[1])^2 + (y-c[2])^2)^e))
-contour(
-    (-M_x):0.1:M_x,
-    (-M_y):0.1:M_y,
-    R,
-    levels = 50,
-    color = :plasma,
-    clabels = false,
-    cbar = false,
-    lw = 1,
-    fill = true,
-)
-
-
-
-implicit_plot!(
-    h; 
-    xlims = (-M_x, M_x),
-    ylims = (-M_y, M_y),
-    linecolor = :black,
-    linewidth = 6,
-    label = "discriminant"
-)
-
-
-scatter!(Tuple.(pts), markercolor = :green, markersize = 7, label = "critical points")
-
-
-# Gradient flow
 g(x, param, t) = real(evaluate(r, x))
 tspan = (0.0, 1e4)
 for (i, u0) in enumerate(pts)
-    println(i)
-    tspan = (0.0, 1e4)
-    prob = ODEProblem(g, u0, tspan)
-    sol = DE.solve(prob, reltol = 1e-6, abstol = 1e-6)
-    plot!(Tuple.(sol.u), linecolor = :steelblue, linewidth = 4, label = "gradient flow")
+    println()
+    println("Point number: $i")
+    println("Point: $u0")
+    jac = real(evaluate_and_jacobian(r, u0)[2])
+    eigen_data = eigen(jac)
+    eigenvalues = eigen_data.values
+    eigenvectors = eigen_data.vectors
+    positive_directions = [i for (i, λ) in enumerate(eigenvalues) if real(λ) > 0]
+    println("Index: $(length(positive_directions))")
+    if  !isempty(positive_directions)
+        idx = first(positive_directions)
+        v = 1e-4*eigenvectors[:, idx]
+        prob1 = ODEProblem(g, u0 + v, tspan)
+        sol1 = DE.solve(prob1, reltol = 1e-6, abstol = 1e-6)
+        limit1 = last(sol1.u) 
+        closest_distance1, closest_point_idx1 = findmin(i->norm(pts[i] .- limit1), 1:length(pts))
+        if closest_distance1 > 1e-6
+            @warn "Missing critical point identified by gradient flow! Added to the list of points"
+            append!(pts, limit1)
+            closest_point_idx1 = length(pts)
+        end
+        prob2 = ODEProblem(g, u0 - v, tspan)
+        sol2 = DE.solve(prob2, reltol = 1e-6, abstol = 1e-6)
+        limit2 = last(sol2.u)
+        closest_distance2, closest_point_idx2 = findmin(i->norm(pts[i] .- limit2), 1:length(pts))
+        if closest_distance2 > 1e-6
+            @warn "Missing critical point identified by gradient flow! Added to the list of points"
+            append!(pts, limit2)
+            closest_point_idx2 = length(pts)
+        end
+        println("Connects the critical points: $closest_point_idx1 and $closest_point_idx2")
+    else
+        specialized_polynomial = subs(f, projection_variables=>u0)
+        res = HomotopyContinuation.solve([specialized_polynomial])
+        println("Number of real roots: $(length(real_solutions(res)))")
+    end
 end
-
-plot!(; legend = false, dpi=400)
-
-savefig("example_cubic.png")
