@@ -67,17 +67,7 @@ mon_result = monodromy_solve(
     seed;
 )
 
-### Use a parameter homotopy to trace the solutions of ∇r = p0 to solutions of ∇r = 0
-
-# Direct parameter homotopy
-# start_parameters!(egtracker, p0)
-# target_parameters!(egtracker, zeros(2))
-# result = HomotopyContinuation.solve(H, solutions(mon_result))
-# #pv = @profview result = HomotopyContinuation.solve(H, solutions(mon_result))
-# pts = real_solutions(result)
-
-
-# Parameter homotopy using the "detour trick"
+### Use a parameter homotopy (using the "detour trick") to trace the solutions of ∇r = p0 to solutions of ∇r = 0
 start_parameters!(egtracker, p0)
 p_intermediate = randn(ComplexF64, 2)
 target_parameters!(egtracker, p_intermediate)
@@ -123,12 +113,11 @@ implicit_plot!(
 )
 
 # Gradient flow for routing points of positive index
-# Gradient flow for routing points of positive index
 g(x, param, t) = real(evaluate(r, x))
 tspan = (0.0, 1e4)
 for (i, u0) in enumerate(pts)
     println()
-    println(i)
+    println("Critical point #$i")
     jac = real(evaluate_and_jacobian(r, u0)[2])
     eigen_data = eigen(jac)
     eigenvalues = eigen_data.values
