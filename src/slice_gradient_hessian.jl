@@ -111,16 +111,6 @@ function GradientCache(PWS, B)
     Jxp_temp = zeros(ComplexF64, N, size(JxP)...)
     Jpb_temp = zeros(ComplexF64, N, size(JPB)...)
 
-    # Jsu_temp = zeros(ComplexF64, size(JsuF[1])...)
-    # JP_temp = zeros(ComplexF64, size(JPF[1])...)
-    # JB_temp = zeros(ComplexF64, N, k)
-    # JB_temp = zeros(ComplexF64, size(JBF[1])...)
-    # Jtu_temp = zeros(ComplexF64, size(JsuF[1])...) # TODO: Maybe can reuse Jsu_temp....
-    # Jxb_temp = zeros(ComplexF64, N, size(JxB)...) # size(JxB)
-    # Jxp_temp = zeros(ComplexF64, N, size(JxP)...)
-    # Jpb_temp = zeros(ComplexF64, N, size(JPB)...)
-
-
     GradientCache(Ks, line_hypersurface_intersections, tracker,
                     JsuF,
                     JPF,
