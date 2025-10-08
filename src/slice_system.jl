@@ -90,7 +90,7 @@ function evaluate!(u, r::RoutingGradient, x, p = nothing)
     track_pws_to_line!(GC, x, B[:,1], PWS)
   
     for (j, sol) in enumerate(GC.line_hypersurface_intersections[1])
-        !GC.track_report[j] && continue # skip j-th track failed
+        !GC.track_report[j] && continue # skip if j-th track failed
         @assert all(!isnan, sol) "NaN entries in intersection points: $sol"
         for idx in 1:k
             X[idx] = sol[idx]
@@ -103,7 +103,7 @@ function evaluate!(u, r::RoutingGradient, x, p = nothing)
 
     #Obtain gradients of S and U with respect to p and β
     for i = 1:length(S)
-        !GC.track_report[i] && continue # skip i-th track failed
+        !GC.track_report[i] && continue # skip if i-th track failed
 
         v0 =  vcat(S[i], Uvals[:, i], x)
 
@@ -196,7 +196,7 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
 
 
     for (j, sol) in enumerate(GC.line_hypersurface_intersections[1])
-        !GC.track_report[j] && continue # skip j-th track failed
+        !GC.track_report[j] && continue # skip if j-th track failed
         for i in 1:k
             X[i] = sol[i]
         end
@@ -210,7 +210,7 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
     #Obtain gradients of S and U with respect to p and β
     for i = 1:length(S)
 
-        !GC.track_report[i] && continue # skip i-th track failed
+        !GC.track_report[i] && continue # skip if i-th track failed
 
         v0 =  vcat(S[i], Uvals[:, i], x)
         @assert all(!isnan, v0) "NaN entries in v0: $v0"
@@ -264,7 +264,7 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
     # Computation outlined in the abstract description Jon gave in Overleaf file
     for j = 1:length(S)
 
-        !GC.track_report[j] && continue # skip j-th track failed
+        !GC.track_report[j] && continue # skip if j-th track failed
 
         v0 =  vcat(S[j], Uvals[:, j], x)
 
@@ -316,7 +316,7 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
     #Compute Hessian
     fill!(hess, 0.0 + 0.0im)
     for j = 1:length(S)
-        !GC.track_report[j] && continue # skip j-th track failed
+        !GC.track_report[j] && continue # skip if j-th track failed
         Jtu = GC.Jtu_temp
         for (idx, J) in enumerate(JsuF)
             evaluate!(view(Jtu, :, idx), J, vcat(S[j], Uvals[:, j], x))
