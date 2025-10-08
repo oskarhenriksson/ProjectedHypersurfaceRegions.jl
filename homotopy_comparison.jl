@@ -1,6 +1,8 @@
 # Quick comparison test between system.jl and slice_system.jl
 import Pkg; Pkg.activate(".")
-using HomotopyContinuation;
+using HomotopyContinuation, Random;
+
+Random.seed!(0x8b868320)
 
 # load the two routing gradient implementations under different module names by
 # using `include` into local modules to avoid name clashes
@@ -66,31 +68,28 @@ println("max |u1-u2| = ", maximum(abs.(u1-u2)))
 
 ###################
 
-p1 = zeros(2) # starting point 
-q1 = randn(2) # target point
+p1 = zeros(k) # starting point 
+q1 = randn(k) # target point
 H_sys = SysImpl.RoutingPointsHomotopy(r_sys, p1, q1)
 H_slice = SliceImpl.RoutingPointsHomotopy(r_slice, p1, q1)
 # These are homotopies grad(r(x)) - t*p_1 - (1-t)*q_1
+
 # pick a random x
-u = randn(ComplexF64, 2)
-x0 = randn(2)
+u = randn(ComplexF64, k)
+x0 = randn(k)
 t0 = 1.0
 SysImpl.evaluate!(u, H_sys, x0, t0)
 u
 SliceImpl.evaluate!(u, H_slice, x0, t0)
 u
 
-u1 = randn(ComplexF64, 2)
+u1 = randn(ComplexF64, k)
 t1 = 0.0
 SysImpl.evaluate!(u1, H_sys, x0, t1)
 u1
 SliceImpl.evaluate!(u1, H_slice, x0, t1)
 u1
-# So evaluate works.
 
-
-
-# So jacobian works.
 
 ### Test monodromy
 
@@ -130,7 +129,7 @@ MS_slice = HomotopyContinuation.MonodromySolver(
 )
 
 #### set up start pair
-s0 = randn(ComplexF64, 2)
+s0 = randn(ComplexF64, k)
 p0_sys = evaluate(r_sys, s0)
 p0_slice = evaluate(r_slice, s0)
 # so p0_sys == p0_slice!
@@ -138,32 +137,18 @@ p0_slice = evaluate(r_slice, s0)
 evaluate(r_slice, s0, p0_slice) # equals zero
 evaluate(r_sys, s0, p0_sys) # equals zero
 
-### Monodromy 
+### Monodromy (note: this takes a while to run!)
 seed = rand(UInt32)
-# mon_result_sys = monodromy_solve(
-#     MS_sys,
-#     s0,
-#     p0_sys,
-#     seed;
-# )
-# mon_result_slice = monodromy_solve(
-#     MS_slice,
-#     s0,
-#     p0_slice,
-#     seed;
-# )
+mon_result_sys = monodromy_solve(
+    MS_sys,
+    s0,
+    p0_sys,
+    seed;
+)
 
-# mon_result_slice gives a warning that none of the solutions is a valid start solution.
-# This happens because check_start_solutions returns an empty PathResult[]:
-HomotopyContinuation.check_start_solutions(MS_slice, [s0], p0_slice)
-
-# Digging in further, check_start_solutions fails when it runs the following:
-tracker = MS.trackers[1]
-parameters!(tracker, p0, p0)
-track(tracker, s0) # terminated, invalid start value
-
-
-
-
-
-
+mon_result_slice = monodromy_solve(
+    MS_slice,
+    s0,
+    p0_slice,
+    seed;
+)
