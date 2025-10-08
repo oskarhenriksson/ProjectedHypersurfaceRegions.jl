@@ -23,24 +23,34 @@ end
 using LinearAlgebra, Random
 
 # Build a small test system similar to homotopy_test.jl
-@var a b x
-F = System([x^2 + a * x + b; 2x + a], variables = [a, b, x])
-projection_vars = [a, b]
+# @var a b x
+# F = System([x^2 + a * x + b; 2x + a], variables = [a, b, x])
+# projection_variables = [a, b]
+
+@var a b γ x
+f = x^3 + a * x^2 + b*x + γ 
+F = System([f; differentiate(f, x)], variables = [a, b, γ, x])
+
+projection_variables = [a; b; γ]
+k = length(projection_variables)
 
 
-B = qr(rand(2, 2)).Q |> Matrix
-c = 10 .* randn(2)
-e=2
+B = qr(rand(k, k)).Q |> Matrix
+c = 10 .* randn(k)
+
 # Construct both RoutingGradient objects
-r_sys = SysImpl.RoutingGradient(F, projection_vars; B = B, c = c)
-r_slice = SliceImpl.RoutingGradient(F, projection_vars; B = B, c = c, e = e)
+r_sys = SysImpl.RoutingGradient(F, projection_variables; B = B, c = c)
+r_slice = SliceImpl.RoutingGradient(F, projection_variables; B = B, c = c)
+
+
 
 # compute jacobians
-u1 = randn(ComplexF64, 2)
-J1 = randn(ComplexF64, 2, 2)
-u2 = randn(ComplexF64, 2)
-J2 = randn(ComplexF64, 2, 2)
-x0 = randn(ComplexF64, 2)
+u1 = randn(ComplexF64, k)
+J1 = randn(ComplexF64, k, k)
+u2 = randn(ComplexF64, k)
+J2 = randn(ComplexF64, k, k)
+x0 = randn(ComplexF64, k)
+
 @time SysImpl.evaluate_and_jacobian!(u1, J1, r_sys, x0)
 @time SliceImpl.evaluate_and_jacobian!(u2, J2, r_slice, x0)
 println("max |u1-u2| = ", maximum(abs.(u1-u2)))
