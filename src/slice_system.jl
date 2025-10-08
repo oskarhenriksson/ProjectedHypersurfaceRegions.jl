@@ -103,31 +103,31 @@ function evaluate!(u, r::RoutingGradient, x, p = nothing)
 
         v0 =  vcat(S[i], Uvals[:, i], x)
 
-        Jsu = GC.Jsu_temp
+        Jsu_temp = GC.Jsu_temp
         for (idx, J) in enumerate(JsuF)
-            evaluate!(view(Jsu, :, idx), J, v0)
+            evaluate!(view(Jsu_temp, :, idx), J, v0)
         end
 
-        JP = GC.JP_temp
+        JP_temp = GC.JP_temp
         for (idx, J) in enumerate(JPF)
-            evaluate!(view(JP, :, idx), J, v0)
+            evaluate!(view(JP_temp, :, idx), J, v0)
         end
 
-        JB = GC.JB_temp
+        JB_temp = GC.JB_temp
         for (idx, J) in enumerate(JBF)
-            evaluate!(view(JB, :, idx), J, v0)
+            evaluate!(view(JB_temp, :, idx), J, v0)
         end
         
         # Fill rhs in-place
-        for col = 1:size(JP,2)
-            rhs1[:, col] .= JP[:, col]
+        for col = 1:size(JP_temp,2)
+            rhs1[:, col] .= JP_temp[:, col]
         end
-        for idx = 1:size(JB,1)
-            rhs1[:, size(JP,2)+idx] .= JB[idx, :]
+        for idx = 1:size(JB_temp,1)
+            rhs1[:, size(JP_temp,2)+idx] .= JB_temp[idx, :]
         end
 
         rhs1 .*= -1
-        Jsu0 = lu!(Jsu) 
+        Jsu0 = lu!(Jsu_temp) 
         LinearAlgebra.ldiv!(Jsu0, rhs1)
         
         SB[i,:] = rhs1[1, k+1:end]
@@ -204,31 +204,31 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
 
         v0 =  vcat(S[i], Uvals[:, i], x)
        
-        Jsu = GC.Jsu_temp
+        Jsu_temp = GC.Jsu_temp
         for (idx, J) in enumerate(JsuF)
-            evaluate!(view(Jsu, :, idx), J, v0)
+            evaluate!(view(Jsu_temp, :, idx), J, v0)
         end
-        @assert all(!isnan, Jsu)
-        JP = GC.JP_temp
+        @assert all(!isnan, Jsu_temp)
+        JP_temp = GC.JP_temp
         for (idx, J) in enumerate(JPF)
-            evaluate!(view(JP, :, idx), J, v0)
+            evaluate!(view(JP_temp, :, idx), J, v0)
         end
 
-        JB = GC.JB_temp
+        JB_temp = GC.JB_temp
         for (idx, J) in enumerate(JBF)
-            evaluate!(view(JB, :, idx), J, v0)
+            evaluate!(view(JB_temp, :, idx), J, v0)
         end
         
         # Fill rhs in-place
-        for col = 1:size(JP,2)
-            rhs1[:, col] .= JP[:, col]
+        for col = 1:size(JP_temp,2)
+            rhs1[:, col] .= JP_temp[:, col]
         end
-        for idx = 1:size(JB,1)
-            rhs1[:, size(JP,2)+idx] .= JB[idx, :]
+        for idx = 1:size(JB_temp,1)
+            rhs1[:, size(JP_temp,2)+idx] .= JB_temp[idx, :]
         end
 
         rhs1 .*= -1
-        Jsu0 = lu!(Jsu) 
+        Jsu0 = lu!(Jsu_temp) 
         LinearAlgebra.ldiv!(Jsu0, rhs1) # solves the system Jsu*A = -[JP JB]
 
         SP[i,:] = rhs1[1, 1:k]
@@ -248,41 +248,41 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
 
         v0 =  vcat(S[j], Uvals[:, j], x)
 
-        H = GC.HF_temp
+        HF_temp = GC.HF_temp
         for (col_idx, col) in enumerate(eachcol(HF))
             for (row_idx, h) in enumerate(col)
-                evaluate!(view(H,:, row_idx,col_idx), h, v0)
+                evaluate!(view(HF_temp,:, row_idx,col_idx), h, v0)
             end
         end
         
-        Jxb = GC.Jxb_temp
+        Jxb_temp = GC.Jxb_temp
         for (col_idx, col) in enumerate(eachcol(JxB))
             for (row_idx, h) in enumerate(col)
-                evaluate!(view(Jxb,:, row_idx,col_idx), h, v0)
+                evaluate!(view(Jxb_temp,:, row_idx,col_idx), h, v0)
             end
         end
 
-        Jxp = GC.Jxp_temp
+        Jxp_temp = GC.Jxp_temp
         for (col_idx, col) in enumerate(eachcol(JxP))
             for (row_idx, h) in enumerate(col)
-                evaluate!(view(Jxp,:, row_idx,col_idx), h, v0)
+                evaluate!(view(Jxp_temp,:, row_idx,col_idx), h, v0)
             end
         end
 
-        Jpb = GC.Jpb_temp
+        Jpb_temp = GC.Jpb_temp
         for (col_idx, col) in enumerate(eachcol(JPB))
             for (row_idx, h) in enumerate(col)
-                evaluate!(view(Jpb,:, row_idx,col_idx), h, v0)
+                evaluate!(view(Jpb_temp,:, row_idx,col_idx), h, v0)
             end
         end
        
 
         for i = 1:N
 
-            Hi = view(H, i, :, :)
-            Jxpi = view(Jxp, i, :, :)
-            Jxbi = view(Jxb, i, :, :) 
-            Jpbi = view(Jpb, i, :, :)
+            Hi = view(HF_temp, i, :, :)
+            Jxpi = view(Jxp_temp, i, :, :)
+            Jxbi = view(Jxb_temp, i, :, :) 
+            Jpbi = view(Jpb_temp, i, :, :)
 
             A[j, i, :, :] = ([SP[j, :] transpose(UP[j, :, :])] * Hi * transpose([SB[j, :] transpose(UB[j, :, :])])
                             + Jpbi + [SP[j, :] transpose(UP[j, :, :])] * Jxbi
