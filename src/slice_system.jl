@@ -265,9 +265,6 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
     for j = 1:length(S)
 
         v0 =  vcat(S[j], Uvals[:, j], x)
-        H = map(HF) do h
-            evaluate(h, v0)
-        end
         #Jxb = map(JxB) do h
         #    evaluate(h, v0)
         #end
@@ -277,6 +274,13 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
         #Jpb = map(JPB) do h
         #    evaluate(h, v0)
         #end
+
+        H = GC.HF_temp
+        for (col_idx, col) in enumerate(eachcol(HF))
+            for (row_idx, h) in enumerate(col)
+                evaluate!(view(H,:, row_idx,col_idx), h, v0)
+            end
+        end
         
         # Evaluate JxB using evaluate! instead of map with evaluate
         Jxb = GC.Jxb_temp
@@ -303,11 +307,7 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
 
         for i = 1:N
 
-            # BAD!
-            Hi = [h[i] for h in H] #Hi .= H[1:N]
-            #Jxpi = [h[i] for h in Jxp]
-            #Jxbi = [h[i] for h in Jxb]
-            #Jpbi = [h[i] for h in Jpb]
+            Hi = view(H, i, :, :)
             Jxpi = view(Jxp, i, :, :)
             Jxbi = view(Jxb, i, :, :) 
             Jpbi = view(Jpb, i, :, :)
