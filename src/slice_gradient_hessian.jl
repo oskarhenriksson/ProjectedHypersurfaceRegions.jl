@@ -20,14 +20,14 @@ mutable struct GradientCache
     hess::Matrix{ComplexF64}
     rhs1::Matrix{ComplexF64}
     rhs2::Vector{ComplexF64}
-    Jsu_temp::Matrix{ComplexF64}
-    JP_temp::Matrix{ComplexF64}
-    JB_temp::Matrix{ComplexF64}
+    JsuF_temp::Matrix{ComplexF64}
+    JPF_temp::Matrix{ComplexF64}
+    JBF_temp::Matrix{ComplexF64}
     Jtu_temp::Matrix{ComplexF64} # Temporary storage for evaluating JsuF
     HF_temp::Array{ComplexF64, 3} # Temporary storage for evaluating HF
-    Jxb_temp::Array{ComplexF64, 3} # Temporary storage for evaluating JxB
-    Jxp_temp::Array{ComplexF64, 3} # Temporary storage for evaluating JxP
-    Jpb_temp::Array{ComplexF64, 3} # Temporary storage for evaluating JPB
+    JxB_temp::Array{ComplexF64, 3} # Temporary storage for evaluating JxB
+    JxP_temp::Array{ComplexF64, 3} # Temporary storage for evaluating JxP
+    JPB_temp::Array{ComplexF64, 3} # Temporary storage for evaluating JPB
 end
 function compute_systems(F, n, k, B)
     @var uval[1:n-k] α[1:k] β[1:k] t
@@ -102,14 +102,14 @@ function GradientCache(PWS, B)
     rhs1 = zeros(ComplexF64, N, 2*k)  
     rhs2 = zeros(ComplexF64, N)  
 
-    Jsu_temp = zeros(ComplexF64,N, 1+n-k)
-    JP_temp = zeros(ComplexF64, N, k)
-    JB_temp = transpose(zeros(ComplexF64, N, k))
+    JsuF_temp = zeros(ComplexF64,N, 1+n-k)
+    JPF_temp = zeros(ComplexF64, N, k)
+    JBF_temp = transpose(zeros(ComplexF64, N, k))
     Jtu_temp = zeros(ComplexF64, N, 1+n-k) # TODO: Maybe can reuse Jsu_temp....
     HF_temp = zeros(ComplexF64, N, size(HF)...)
-    Jxb_temp = zeros(ComplexF64, N, size(JxB)...) # size(JxB)
-    Jxp_temp = zeros(ComplexF64, N, size(JxP)...)
-    Jpb_temp = zeros(ComplexF64, N, size(JPB)...)
+    JxB_temp = zeros(ComplexF64, N, size(JxB)...) # size(JxB)
+    JxP_temp = zeros(ComplexF64, N, size(JxP)...)
+    JPB_temp = zeros(ComplexF64, N, size(JPB)...)
 
     GradientCache(Ks, line_hypersurface_intersections, tracker,
                     JsuF,
@@ -119,7 +119,7 @@ function GradientCache(PWS, B)
                     JxB,
                     JxP,
                     JPB,
-                    S, X, Uvals, SP, SB, UP, UB, A, hess, rhs1, rhs2, Jsu_temp, JP_temp, JB_temp, Jtu_temp, HF_temp, Jxb_temp, Jxp_temp, Jpb_temp)
+                    S, X, Uvals, SP, SB, UP, UB, A, hess, rhs1, rhs2, JsuF_temp, JPF_temp, JBF_temp, Jtu_temp, HF_temp, JxB_temp, JxP_temp, JPB_temp)
 end
 
 
