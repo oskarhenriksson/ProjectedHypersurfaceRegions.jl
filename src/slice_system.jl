@@ -163,6 +163,10 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
     hess = GC.hess
     rhs1 = GC.rhs1
     rhs2 = GC.rhs2
+    
+    M = GC.M
+    M1 = GC.M1
+    M2 = GC.M2
 
     k = n_projection_variables(PWS)
     d = degree(PWS)
@@ -271,8 +275,25 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
             Jpbi = view(JPB_temp, i, :, :)
             Aji = view(A, j, i, :, :)
 
-            M1 = [SP[j, :] transpose(UP[j, :, :])] 
-            M2 = transpose([SB[j, :] transpose(UB[j, :, :])])  
+            # the following defines 
+            # M1 = [SP[j, :] transpose(UP[j, :, :])] 
+            # M2 = transpose([SB[j, :] transpose(UB[j, :, :])])  
+            for a in 1:k
+                M1[a, 1] = SP[j, a]
+            end
+            for b in 2:k
+                for a in 1:k
+                    M1[a, b] = UP[j, b-1, a]
+                end
+            end
+            for a in 1:k
+                M2[1, a] = SB[j, a]
+            end
+            for b in 2:k
+                for a in 1:k
+                    M2[b, a] = UB[j, b-1, a]
+                end
+            end
 
             Aji .= (M1 * Hi * M2
                             + Jpbi 
