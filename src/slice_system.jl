@@ -273,7 +273,7 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
             Jxpi = view(JxP_temp, i, :, :)
             Jxbi = view(JxB_temp, i, :, :) 
             Jpbi = view(JPB_temp, i, :, :)
-            Aji = view(A, j, i, :, :)
+  
 
             # the following defines 
             # M1 = [SP[j, :] transpose(UP[j, :, :])] 
@@ -297,25 +297,25 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
 
             # now step by step in-place matrix multiplications. 
             # The goal is: 
-            # Aji .= (M1 * Hi * M2
+            # A[j, i, :, :] .= (M1 * Hi * M2
             #                + Jpbi 
             #                + M1 * Jxbi
             #                + Jxpi * M2) |> transpose |> Matrix
             for a in 1:k, b in 1:k
-                Aji[a, b] = Jpbi[b, a] # note the transpose here
+                A[j, i, a, b] = Jpbi[b, a] # note the transpose here
             end
             mul!(M, Jxpi, M2)
             for a in 1:k, b in 1:k
-                Aji[a, b] += M[b, a] # note the transpose here
+                A[j, i, a, b]  += M[b, a] # note the transpose here
             end
             mul!(M, M1, Jxbi)
             for a in 1:k, b in 1:k
-                Aji[a, b] += M[b, a] # note the transpose here
+                A[j, i, a, b]  += M[b, a] # note the transpose here
             end
             mul!(M, M1, Hi)
             mul!(M1, M, M2)
             for a in 1:k, b in 1:k
-                Aji[a, b] += M1[b, a] # note the transpose here
+                A[j, i, a, b]  += M1[b, a] # note the transpose here
             end
 
         end
