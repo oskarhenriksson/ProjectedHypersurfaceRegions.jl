@@ -9,10 +9,7 @@ Random.seed!(0x8b868320)
 @var a b x
 F = System([x^2 + a * x + b; 2x + a], variables = [a, b, x])
 
-B = qr(rand(2, 2)).Q |> Matrix
-c = 10 .* randn(2)
-r = RoutingGradient(F, [a, b]; c = c, B = B)
-e = denominator_exponent(r)
+r = RoutingGradient(F, [a, b])
 
 p1 = zeros(2)
 q1 = randn(2)
@@ -20,16 +17,18 @@ H = RoutingPointsHomotopy(r, p1, q1)
 
 ### Test evaluation
 u = randn(ComplexF64, 2)
+U = randn(ComplexF64, 2, 2)
 x0 = randn(2)
 t0 = 1.0
-@time evaluate!(u, H, x0, t0)
+@time evaluate_and_jacobian!(u, U, H, x0, t0)
 
-u1 = randn(ComplexF64, 2)
-t1 = 0.0
-evaluate!(u1, H, x0, t1)
 
-evaluate(r, x0, q1) - u1
-evaluate(r, x0, p1) - u
+
+
+
+
+
+
 
 ### Test monodromy
 egtracker = EndgameTracker(H) # we want to add options later 

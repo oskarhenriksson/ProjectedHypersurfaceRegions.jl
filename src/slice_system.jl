@@ -4,13 +4,12 @@ struct RoutingGradient <: HC.AbstractSystem
     GC::GradientCache
     e::Int
     c::Vector
-    B::Matrix
+    B::Vector
     ∇logqe
-    Hlogqe
 end
 function RoutingGradient(F, projection_vars; 
                                 e::Union{Int, Nothing} = nothing, 
-                                B::Union{Matrix, Nothing} = nothing, 
+                                B::Union{Vector, Nothing} = nothing, 
                                 c::Union{Vector, Nothing} = nothing)
 
     all_vars = variables(F)
@@ -26,36 +25,21 @@ function RoutingGradient(F, projection_vars;
         c = randn(k)
     end
     if isnothing(B)
-        B = Matrix(qr(randn(k, k)).Q)
+        B = normalize(randn(k)) 
     end
 
     @var α[1:k]
     q = 1 + sum((α - c) .* (α - c))
-    ∇logqe(pt) = evaluate(differentiate(log(q^e), α), α => pt)
-    Hlogqe(pt) = evaluate(differentiate(differentiate(log(q^e), α), α), α => pt) 
+    ∇logqe = System(differentiate(-e*log(q), α), variables = α) |> fixed
 
     # Use single-slice gradient cache to avoid tracking many lifted lines
-    GC = GradientCache(PWS, B[:,1])
+    GC = GradientCache(PWS, B)
 
-    RoutingGradient(PWS, projection_vars, GC, e, c, B, ∇logqe, Hlogqe)
+    RoutingGradient(PWS, projection_vars, GC, e, c, B, ∇logqe)
 end
 
 denominator_exponent(r::RoutingGradient) = r.e
 
-
-# Base.size(F::AbstractSystem)
-# ModelKit.variables(F::AbstractSystem)::Vector{Variable}
-# ModelKit.parameters(F::AbstractSystem) = Variable[]
-# ModelKit.variable_groups(::AbstractSystem)::Union{Nothing,Vector{Vector{Variable}}} = nothing
-#  # this has to work with x::Vector{Variable}
-# (F::AbstractSystem)(x, p = nothing)
-#  # this has to work with x::Vector{ComplexF64} and x::Vector{ComplexDF64}
-# evaluate!(u, F::AbstractSystem, x, p = nothing)
-# # this has only to work with x::Vector{ComplexF64}
-# evaluate_and_jacobian!(u, U, F::AbstractSystem, x, p = nothing)
-# If the system should be used in context of a parameter homotopy it is also necessary to implement
-
-# taylor!(u, ::Val{1}, F::AbstractSystem, x, p::TaylorVector{2})
 import Base.size
 function Base.size(r::RoutingGradient) 
     k = length(r.projection_vars)
@@ -70,7 +54,6 @@ import HomotopyContinuation.taylor!
 
 function evaluate!(u, r::RoutingGradient, x, p = nothing)
     PWS, GC, B, ∇logqe  = r.PWS, r.GC, r.B, r.∇logqe
-    
 
     # Use cached symbolic objects and arrays
     JsuF = GC.JsuF
@@ -86,7 +69,7 @@ function evaluate!(u, r::RoutingGradient, x, p = nothing)
     k = n_projection_variables(PWS)
 
     # TODO: perhaps we should always pass in a single column as B to routing gradient in the first place...
-    track_pws_to_line!(GC, x, B[:,1], PWS)
+    track_pws_to_line!(GC, x, B, PWS)
   
     for (j, sol) in enumerate(GC.line_hypersurface_intersections[1])
         for idx in 1:k
@@ -128,14 +111,14 @@ function evaluate!(u, r::RoutingGradient, x, p = nothing)
 
         rhs1 .*= -1
         # In-place linear solving
-    Jsu0 = lu!(JsuF_temp) 
-        LinearAlgebra.ldiv!(Jsu0, rhs1)
-        
-        SB[i,:] = rhs1[1, k+1:end]
-    end
+        Jsu0 = lu!(JsuF_temp) 
+            LinearAlgebra.ldiv!(Jsu0, rhs1)
+            
+            SB[i,:] = rhs1[1, k+1:end]
+        end
 
-
-    u .= -sum(eachrow(SB)) - ∇logqe(x)
+    evaluate!(u, ∇logqe, x)
+    u .-= sum(eachrow(SB))
     if !isnothing(p)
         u .-= p
     end
@@ -158,9 +141,8 @@ end
 (r::RoutingGradient)(x) = evaluate(r, x)
 function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
 
-    PWS, GC, B, ∇logqe, Hlogqe = r.PWS, r.GC, r.B, r.∇logqe, r.Hlogqe
+    PWS, GC, B, ∇logqe = r.PWS, r.GC, r.B, r.∇logqe
     
-
     # Use cached symbolic objects and arrays
     JsuF = GC.JsuF
     JPF = GC.JPF
@@ -186,7 +168,7 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
     d = degree(PWS)
     N, n = size(PWS.F)
 
-    track_pws_to_line!(GC, x, B[:,1], PWS)
+    track_pws_to_line!(GC, x, B, PWS)
 
 
     for (j, sol) in enumerate(GC.line_hypersurface_intersections[1])
@@ -230,7 +212,7 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
 
         rhs1 .*= -1
         # In-place linear solving
-    Jsu0 = lu!(JsuF_temp) 
+        Jsu0 = lu!(JsuF_temp) 
         LinearAlgebra.ldiv!(Jsu0, rhs1) # solves the system Jsu*A = -[JP JB]
 
         SP[i,:] = rhs1[1, 1:k]
@@ -240,7 +222,8 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
         UB[i,:,:] = rhs1[2:end, k+1:end]
     end
 
-    u .= -sum(eachrow(SB)) - ∇logqe(x)
+    evaluate_and_jacobian!(u, U, ∇logqe, x)
+    u .-= sum(eachrow(SB)) 
     if !isnothing(p)
         u .-= p
     end
@@ -312,7 +295,10 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
         end
     end
 
-    U .= hess - Hlogqe(x)
+
+    for a in 1:k, b in 1:k
+        U[a, b] += hess[a, b]
+    end
 
     nothing
 end

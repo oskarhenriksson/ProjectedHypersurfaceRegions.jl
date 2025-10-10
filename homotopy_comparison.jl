@@ -41,8 +41,8 @@ B = qr(rand(k, k)).Q |> Matrix
 c = 10 .* randn(k)
 
 # Construct both RoutingGradient objects
-r_sys = SysImpl.RoutingGradient(F, projection_variables; B = B, c = c)
-r_slice = SliceImpl.RoutingGradient(F, projection_variables; B = B, c = c)
+r_sys = SysImpl.RoutingGradient(F, projection_variables)
+r_slice = SliceImpl.RoutingGradient(F, projection_variables)
 
 
 

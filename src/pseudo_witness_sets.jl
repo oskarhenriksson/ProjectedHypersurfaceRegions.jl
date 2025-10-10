@@ -75,8 +75,8 @@ end
 
 function track_pws_to_lines!(
     GC,
-    point::AbstractVector,
-    directions::AbstractArray{Float64},
+    point,
+    directions,
     PWS::PseudoWitnessSet,
 )
     n = ambient_dim(PWS)
@@ -100,8 +100,8 @@ Tracks the pseudo-witness set `PWS` to a single lifted line defined by
 """
 function track_pws_to_line!(
     GC,
-    point::AbstractVector,
-    direction::AbstractVector{Float64},
+    point,
+    direction,
     PWS::PseudoWitnessSet,
 )
     n = ambient_dim(PWS)
