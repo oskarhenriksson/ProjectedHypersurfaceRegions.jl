@@ -9,7 +9,7 @@ Random.seed!(0x8b868320)
 module SysImpl
 using ..HomotopyContinuation
 const HC = HomotopyContinuation
-include("src/pseudo_witness_sets.jl")
+include("old/pseudo_witness_sets.jl")
 include("old/gradient_hessian.jl")
 include("old/system.jl")
 include("src/homotopy.jl")
@@ -25,15 +25,16 @@ end
 using LinearAlgebra, Random
 
 # Build a small test system similar to homotopy_test.jl
-# @var a b x
-# F = System([x^2 + a * x + b; 2x + a], variables = [a, b, x])
-# projection_variables = [a, b]
+@var a b x
+F = System([x^2 + a * x + b; 2x + a], variables = [a, b, x])
+projection_variables = [a, b]
 
-@var a b γ x
-f = x^3 + a * x^2 + b*x + γ 
-F = System([f; differentiate(f, x)], variables = [a, b, γ, x])
+# @var a b γ x
+# f = x^3 + a * x^2 + b*x + γ 
+# F = System([f; differentiate(f, x)], variables = [a, b, γ, x])
+# projection_variables = [a; b; γ]
 
-projection_variables = [a; b; γ]
+
 k = length(projection_variables)
 
 c = 10 .* randn(k)
