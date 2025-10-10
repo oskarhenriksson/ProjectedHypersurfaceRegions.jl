@@ -236,7 +236,7 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
         HF_temp = GC.HF_temp
         for (col_idx, col) in enumerate(eachcol(HF))
             for (row_idx, h) in enumerate(col)
-                evaluate!(view(HF_temp,:, row_idx,col_idx), h, v0)
+                evaluate!(view(HF_temp, : , row_idx,col_idx), h, v0)
             end
         end
         
@@ -251,7 +251,7 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
         JxP_temp = GC.JxP_temp
         for (col_idx, col) in enumerate(eachcol(JxP))
             for (row_idx, h) in enumerate(col)
-                evaluate!(view(JxP_temp,:, row_idx,col_idx), h, v0)
+                evaluate!(view(JxP_temp, :, col_idx, row_idx), h, v0) # swap col_idx and row_idx, since we have to transpose later
             end
         end
 
@@ -269,10 +269,15 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
             Jxpi = view(JxP_temp, i, :, :)
             Jxbi = view(JxB_temp, i, :, :) 
             Jpbi = view(JPB_temp, i, :, :)
+            Aji = view(A, j, i, :, :)
 
-            A[j, i, :, :] = ([SP[j, :] transpose(UP[j, :, :])] * Hi * transpose([SB[j, :] transpose(UB[j, :, :])])
-                            + Jpbi + [SP[j, :] transpose(UP[j, :, :])] * Jxbi
-                            + transpose(Jxpi) * transpose([SB[j, :] transpose(UB[j, :, :])])) |> transpose |> Matrix
+            M1 = [SP[j, :] transpose(UP[j, :, :])] 
+            M2 = transpose([SB[j, :] transpose(UB[j, :, :])])  
+
+            Aji .= (M1 * Hi * M2
+                            + Jpbi 
+                            + M1 * Jxbi
+                            + Jxpi * M2) |> transpose |> Matrix
 
         end
     end
