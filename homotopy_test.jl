@@ -9,7 +9,8 @@ Random.seed!(0x8b868320)
 @var a b x
 F = System([x^2 + a * x + b; 2x + a], variables = [a, b, x])
 
-r = RoutingGradient(F, [a, b])
+c = randn(2)
+r = RoutingGradient(F, [a, b]; c = c)
 
 p1 = zeros(2)
 q1 = randn(2)
@@ -18,9 +19,10 @@ H = RoutingPointsHomotopy(r, p1, q1)
 ### Test evaluation
 u = randn(ComplexF64, 2)
 U = randn(ComplexF64, 2, 2)
-x0 = randn(2)
+x0 = randn(ComplexF64, 2)
 t0 = 1.0
 @time evaluate_and_jacobian!(u, U, H, x0, t0)
+evaluate_and_jacobian!(u, U, H, x0, t0)
 
 
 
@@ -72,10 +74,7 @@ mon_result = monodromy_solve(
     seed;
 )
 
-tracker = MS.trackers[1]
-parameters!(tracker, p0, p0)
-X = [s0]
-track(tracker, s0) 
+
 
 ### parameter homotopy
 start_parameters!(egtracker, p0)
@@ -87,7 +86,9 @@ pts = real_solutions(result)
 M_x = maximum(p -> abs(p[1]), pts) + 4
 M_y = maximum(p -> abs(p[2]), pts) + 3
 
-R(x, y) = log(abs((x^2 - 4 * y) / (1 + (x-c[1])^2 + (y-c[2])^2)^e)) #This is our routing function
+#c = 2 .* randn(2)
+
+R(x, y) = log(abs((x^2 - 4 * y) / (1 + (x-c[1])^2 + (y-c[2])^2)^2)) #This is our routing function
 contour(
     (-M_x):0.1:M_x,
     (-M_y):0.1:M_y,
