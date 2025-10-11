@@ -90,6 +90,7 @@ function GradientCache(PWS, B)
   
     Hom = linear_subspace_homotopy(PWS.F, PWS.L, PWS.L; intrinsic = true)
     tracker = EndgameTracker(Hom)
+    track_report = zeros(Bool, d) # for keeping track of which paths are successful
 
     S = zeros(ComplexF64, d)
     X = zeros(ComplexF64, k)
@@ -117,10 +118,12 @@ function GradientCache(PWS, B)
     JPB_temp = zeros(ComplexF64, N, size(JPB)...)
 
     M = zeros(ComplexF64, k, k)
-    M1 = zeros(ComplexF64, k, k)
-    M2 = zeros(ComplexF64, k, k)
+    M1 = zeros(ComplexF64, k, n-k+1)
+    M2 = zeros(ComplexF64, n-k+1, k)
+    M3 = zeros(ComplexF64, k, n-k+1)
 
-    GradientCache(Ks, line_hypersurface_intersections, tracker,
+    GradientCache(Ks, line_hypersurface_intersections, tracker,      
+                    track_report,
                     JsuF,
                     JPF,
                     JBF,
