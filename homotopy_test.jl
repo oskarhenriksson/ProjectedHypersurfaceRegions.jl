@@ -9,6 +9,7 @@ Random.seed!(0x8b868320)
 @var a b x
 F = System([x^2 + a * x + b; 2x + a], variables = [a, b, x])
 
+B = qr(rand(2, 2)).Q |> Matrix # not needed anymore (but kept for reproducibility)
 c = randn(2)
 r = RoutingGradient(F, [a, b]; c = c)
 

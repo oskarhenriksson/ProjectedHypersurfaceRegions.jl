@@ -17,9 +17,9 @@ F = System([x^3 + a * x^2 + b*x + 1; 3*x^2 + 2*a*x + b], variables = [a, b, x])
 projection_variables = [a; b]
 k = length(projection_variables)
 
-B = qr(rand(k, k)).Q |> Matrix
+B = qr(rand(k, k)).Q |> Matrix # not needed anymore (but kept for reproducibility)
 c = 10 .* randn(k)
-r = RoutingGradient(F, projection_variables; c = c, B = B)
+r = RoutingGradient(F, projection_variables; c = c)
 e = denominator_exponent(r)
 
 p1 = zeros(2)
@@ -100,7 +100,6 @@ contour(
     lw = 1,
     fill = true,
 )
-
 
 
 implicit_plot!(

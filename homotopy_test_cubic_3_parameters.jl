@@ -18,6 +18,7 @@ F = System([f; differentiate(f, x)], variables = [a, b, γ, x])
 projection_variables = [a; b; γ]
 k = length(projection_variables)
 
+B = qr(rand(k, k)).Q |> Matrix # not needed anymore (but kept for reproducibility)
 c = 10 .* randn(k)
 r = RoutingGradient(F, projection_variables; c = c)
 e = denominator_exponent(r)
