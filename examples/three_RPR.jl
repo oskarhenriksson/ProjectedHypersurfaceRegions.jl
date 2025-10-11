@@ -28,9 +28,8 @@ projection_variables = c
 
 k = length(projection_variables)
 
-B = qr(rand(k, k)).Q |> Matrix
 γ = 10 .* randn(k)
-r = RoutingGradient(F, projection_variables; c = γ, B = B)
+r = RoutingGradient(F, projection_variables; c = γ)
 e = denominator_exponent(r)
 
 p1 = zeros(k)
@@ -94,7 +93,7 @@ g(x, param, t) = real(evaluate(r, x))
 tspan = (0.0, 1e4)
 for (i, u0) in enumerate(pts)
     println()
-    println("Point number: $i")
+    println("Routing point #$i")
     jac = real(evaluate_and_jacobian(r, u0)[2])
     eigen_data = eigen(jac)
     eigenvalues = eigen_data.values
