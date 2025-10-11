@@ -18,9 +18,8 @@ F = System([f; differentiate(f, x)], variables = [a, b, γ, x])
 projection_variables = [a; b; γ]
 k = length(projection_variables)
 
-B = qr(rand(k, k)).Q |> Matrix
 c = 10 .* randn(k)
-r = RoutingGradient(F, projection_variables; c = c, B = B)
+r = RoutingGradient(F, projection_variables; c = c)
 e = denominator_exponent(r)
 
 p1 = zeros(k)
@@ -58,6 +57,9 @@ MS = HomotopyContinuation.MonodromySolver(
 #### set up start pair
 s0 = randn(ComplexF64, k)
 p0 = evaluate(r, s0)
+
+# Make sure Jacobians work
+evaluate_and_jacobian(r, s0, p0)
 
 ### Monodromy 
 seed = rand(UInt32)

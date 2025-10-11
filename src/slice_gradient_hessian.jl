@@ -2,6 +2,7 @@ mutable struct GradientCache
     Ks::Vector{LinearSubspace}
     line_hypersurface_intersections::Vector
     tracker::EndgameTracker
+    track_report::Vector{Bool}
     JsuF::Vector{HC.CompiledSystem}
     JPF::Vector{HC.CompiledSystem}
     JBF::Vector{HC.CompiledSystem}
@@ -116,9 +117,8 @@ function GradientCache(PWS, B)
     JPB_temp = zeros(ComplexF64, N, size(JPB)...)
 
     M = zeros(ComplexF64, k, k)
-    M1 = zeros(ComplexF64, k, n-k+1)
-    M2 = zeros(ComplexF64, n-k+1, k)
-    M3 = zeros(ComplexF64, k, n-k+1)
+    M1 = zeros(ComplexF64, k, k)
+    M2 = zeros(ComplexF64, k, k)
 
     GradientCache(Ks, line_hypersurface_intersections, tracker,
                     JsuF,
