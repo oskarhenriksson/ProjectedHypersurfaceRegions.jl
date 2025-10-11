@@ -17,7 +17,6 @@ mutable struct GradientCache
     UP::Array{ComplexF64,3}
     UB::Array{ComplexF64,3}
     A::Array{ComplexF64,4}
-    hess::Matrix{ComplexF64}
     rhs1::Matrix{ComplexF64}
     rhs2::Vector{ComplexF64}
     JsuF_temp::Matrix{ComplexF64}
@@ -31,6 +30,7 @@ mutable struct GradientCache
     M::Matrix
     M1::Matrix
     M2::Matrix
+    M3::Matrix
 end
 function compute_systems(F, n, k, B)
     @var uval[1:n-k] α[1:k] β[1:k] t
@@ -82,6 +82,8 @@ function GradientCache(PWS, B)
     F = PWS.F
     N, n = size(F)
 
+    @assert N == n-k+1 "Unexpected length of system"
+
     Ks = Vector{LinearSubspace}(undef, 1)
     line_hypersurface_intersections = [[zeros(ComplexF64, n) for _ in 1:d]]
   
@@ -95,8 +97,7 @@ function GradientCache(PWS, B)
     SB = zeros(ComplexF64, d, k)
     UP = zeros(ComplexF64, d, n - k, k)
     UB = zeros(ComplexF64, d, n - k, k)
-    A = zeros(ComplexF64, d, size(PWS.F, 1), k, k) 
-    hess = zeros(ComplexF64, k, k)
+    A = zeros(ComplexF64, d, N, k, k) 
 
     JsuF, JPF, JBF, HF, JxB, JxP, JPB = compute_systems(F, n, k, B)
 
@@ -115,8 +116,9 @@ function GradientCache(PWS, B)
     JPB_temp = zeros(ComplexF64, N, size(JPB)...)
 
     M = zeros(ComplexF64, k, k)
-    M1 = zeros(ComplexF64, k, k)
-    M2 = zeros(ComplexF64, k, k)
+    M1 = zeros(ComplexF64, k, n-k+1)
+    M2 = zeros(ComplexF64, n-k+1, k)
+    M3 = zeros(ComplexF64, k, n-k+1)
 
     GradientCache(Ks, line_hypersurface_intersections, tracker,
                     JsuF,
@@ -126,7 +128,7 @@ function GradientCache(PWS, B)
                     JxB,
                     JxP,
                     JPB,
-                    S, X, Uvals, SP, SB, UP, UB, A, hess, rhs1, rhs2, JsuF_temp, JPF_temp, JBF_temp, Jtu_temp, HF_temp, JxB_temp, JxP_temp, JPB_temp, M, M1, M2)
+                    S, X, Uvals, SP, SB, UP, UB, A, rhs1, rhs2, JsuF_temp, JPF_temp, JBF_temp, Jtu_temp, HF_temp, JxB_temp, JxP_temp, JPB_temp, M, M1, M2, M3)
 end
 
 

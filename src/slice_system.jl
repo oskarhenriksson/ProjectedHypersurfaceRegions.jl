@@ -160,13 +160,9 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
     UP = GC.UP
     UB = GC.UB
     A = GC.A
-    hess = GC.hess
-    rhs1 = GC.rhs1
-    rhs2 = GC.rhs2
+    rhs1, rhs2 = GC.rhs1, GC.rhs2
     
-    M = GC.M
-    M1 = GC.M1
-    M2 = GC.M2
+    M, M1, M2, M3 = GC.M, GC.M1, GC.M2, GC.M3
 
     k = n_projection_variables(PWS)
     d = degree(PWS)
@@ -248,14 +244,14 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
         JxB_temp = GC.JxB_temp
         for (col_idx, col) in enumerate(eachcol(JxB))
             for (row_idx, h) in enumerate(col)
-                evaluate!(view(JxB_temp,:, row_idx,col_idx), h, v0)
+                evaluate!(view(JxB_temp,:, row_idx, col_idx), h, v0)
             end
         end
 
         JxP_temp = GC.JxP_temp
         for (col_idx, col) in enumerate(eachcol(JxP))
             for (row_idx, h) in enumerate(col)
-                evaluate!(view(JxP_temp, :, col_idx, row_idx), h, v0) # swap col_idx and row_idx, since we have to transpose later
+                evaluate!(view(JxP_temp, :, row_idx, col_idx), h, v0) 
             end
         end
 
@@ -269,42 +265,41 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
 
         for i = 1:N
 
+            # the following defines 
+            #M1 = [SP[j, :] transpose(UP[j, :, :])] 
+            #M2 = transpose([SB[j, :] transpose(UB[j, :, :])]) 
+            for a in 1:k
+                M1[a, 1] = SP[j, a]
+            end
+            for a in 1:k
+                for b in 2:N
+                    M1[a, b] = UP[j, b-1, a]
+                end
+            end
+            for b in 1:k
+                M2[1, b] = SB[j, b]
+            end
+            for b in 1:k
+                for a in 2:N
+                    M2[a, b] = UB[j, a-1, b]
+                end
+            end
+
             Hi = view(HF_temp, i, :, :)
             Jxpi = view(JxP_temp, i, :, :)
             Jxbi = view(JxB_temp, i, :, :) 
             Jpbi = view(JPB_temp, i, :, :)
-  
-
-            # the following defines 
-            # M1 = [SP[j, :] transpose(UP[j, :, :])] 
-            # M2 = transpose([SB[j, :] transpose(UB[j, :, :])])  
-            for a in 1:k
-                M1[a, 1] = SP[j, a]
-            end
-            for b in 2:k
-                for a in 1:k
-                    M1[a, b] = UP[j, b-1, a]
-                end
-            end
-            for a in 1:k
-                M2[1, a] = SB[j, a]
-            end
-            for b in 2:k
-                for a in 1:k
-                    M2[b, a] = UB[j, b-1, a]
-                end
-            end
 
             # now step by step in-place matrix multiplications. 
             # The goal is: 
             # A[j, i, :, :] .= (M1 * Hi * M2
             #                + Jpbi 
             #                + M1 * Jxbi
-            #                + Jxpi * M2) |> transpose |> Matrix
+            #                + transpose(Jxpi) * M2) |> transpose |> Matrix
             for a in 1:k, b in 1:k
                 A[j, i, a, b] = Jpbi[b, a] # note the transpose here
             end
-            mul!(M, Jxpi, M2)
+            mul!(M, transpose(Jxpi), M2)
             for a in 1:k, b in 1:k
                 A[j, i, a, b]  += M[b, a] # note the transpose here
             end
@@ -312,10 +307,10 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
             for a in 1:k, b in 1:k
                 A[j, i, a, b]  += M[b, a] # note the transpose here
             end
-            mul!(M, M1, Hi)
-            mul!(M1, M, M2)
+            mul!(M3, M1, Hi)
+            mul!(M, M3, M2)
             for a in 1:k, b in 1:k
-                A[j, i, a, b]  += M1[b, a] # note the transpose here
+                A[j, i, a, b]  += M[b, a] # note the transpose here
             end
 
         end
@@ -323,7 +318,7 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
     
     
     #Compute Hessian
-    fill!(hess, 0.0 + 0.0im)
+    fill!(M, 0.0 + 0.0im) # here M will get assigned the Hessian of log r
     for j = 1:length(S)
         Jtu = GC.Jtu_temp
         for (idx, J) in enumerate(JsuF)
@@ -335,13 +330,13 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
                 rhs2[i] = A[j, i, a, b]
             end
             LinearAlgebra.ldiv!(Jtu0, rhs2) # in-place linear algebra
-            hess[a, b] += rhs2[1]
+            M[a, b] += rhs2[1]
         end
     end
 
 
     for a in 1:k, b in 1:k
-        U[a, b] += hess[a, b]
+        U[a, b] += M[a, b]
     end
 
     nothing
