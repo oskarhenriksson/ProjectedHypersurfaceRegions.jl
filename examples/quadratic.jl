@@ -1,7 +1,7 @@
 using Pkg, Random, Plots, DifferentialEquations, Random, Plots, DifferentialEquations
 Pkg.activate(".")
 
-include("src/functions.jl");
+include("../src/functions.jl");
 
 Random.seed!(0x8b868320)
 
@@ -10,7 +10,7 @@ Random.seed!(0x8b868320)
 F = System([x^2 + a * x + b; 2x + a], variables = [a, b, x])
 
 B = qr(rand(2, 2)).Q |> Matrix # not needed anymore (but kept for reproducibility)
-c = randn(2)
+c = 10*randn(2)
 r = RoutingGradient(F, [a, b]; c = c)
 
 p1 = zeros(2)
@@ -24,13 +24,6 @@ x0 = randn(ComplexF64, 2)
 t0 = 1.0
 @time evaluate_and_jacobian!(u, U, H, x0, t0)
 evaluate_and_jacobian!(u, U, H, x0, t0)
-
-
-
-
-
-
-
 
 
 ### Test monodromy
@@ -75,8 +68,6 @@ mon_result = monodromy_solve(
     seed;
 )
 
-
-
 ### parameter homotopy
 start_parameters!(egtracker, p0)
 target_parameters!(egtracker, zeros(2))
@@ -87,7 +78,6 @@ pts = real_solutions(result)
 M_x = maximum(p -> abs(p[1]), pts) + 4
 M_y = maximum(p -> abs(p[2]), pts) + 3
 
-#c = 2 .* randn(2)
 
 R(x, y) = log(abs((x^2 - 4 * y) / (1 + (x-c[1])^2 + (y-c[2])^2)^2)) #This is our routing function
 contour(
@@ -101,7 +91,6 @@ contour(
     lw = 1,
     fill = true,
 )
-
 
 A = [[b; b^2 / 4] for b = (-M_x):M_x] #discriminant of the quadratic #discriminant of the quadratic
 plot!(
@@ -148,5 +137,5 @@ scatter!(Tuple(NaN), markercolor = :magenta, markersize = 8, label = "routing pt
 
 plot!(; legend = :bottomright, dpi=400, legendfontsize=6)
 
-savefig("figures/example_quadratic.png")
-savefig("figures/example_quadratic.svg")
+savefig("./figures/example_quadratic.png")
+savefig("./figures/example_quadratic.svg")
