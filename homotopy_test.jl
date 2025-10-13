@@ -1,4 +1,4 @@
-using Pkg, Random, Plots, DifferentialEquations
+using Pkg, Random, Plots, DifferentialEquations, Random, Plots, DifferentialEquations
 Pkg.activate(".")
 
 include("src/functions.jl");
@@ -9,11 +9,9 @@ Random.seed!(0x8b868320)
 @var a b x
 F = System([x^2 + a * x + b; 2x + a], variables = [a, b, x])
 
-
-B = qr(rand(2, 2)).Q |> Matrix
-c = 10 .* randn(2)
-r = RoutingGradient(F, [a; b]; c = c, B = B)
-e = denominator_exponent(r)
+B = qr(rand(2, 2)).Q |> Matrix # not needed anymore (but kept for reproducibility)
+c = randn(2)
+r = RoutingGradient(F, [a, b]; c = c)
 
 p1 = zeros(2)
 q1 = randn(2)
@@ -21,13 +19,19 @@ H = RoutingPointsHomotopy(r, p1, q1)
 
 ### Test evaluation
 u = randn(ComplexF64, 2)
-x0 = randn(2)
+U = randn(ComplexF64, 2, 2)
+x0 = randn(ComplexF64, 2)
 t0 = 1.0
-evaluate!(u, H, x0, t0)
+@time evaluate_and_jacobian!(u, U, H, x0, t0)
+evaluate_and_jacobian!(u, U, H, x0, t0)
 
-u1 = randn(ComplexF64, 2)
-t1 = 0.0
-evaluate!(u1, H, x0, t1)
+
+
+
+
+
+
+
 
 ### Test monodromy
 egtracker = EndgameTracker(H) # we want to add options later 
@@ -71,6 +75,8 @@ mon_result = monodromy_solve(
     seed;
 )
 
+
+
 ### parameter homotopy
 start_parameters!(egtracker, p0)
 target_parameters!(egtracker, zeros(2))
@@ -81,7 +87,9 @@ pts = real_solutions(result)
 M_x = maximum(p -> abs(p[1]), pts) + 4
 M_y = maximum(p -> abs(p[2]), pts) + 3
 
-R(x, y) = log(abs((x^2 - 4 * y) / (1 + (x-c[1])^2 + (y-c[2])^2)^e)) #This is our routing function
+#c = 2 .* randn(2)
+
+R(x, y) = log(abs((x^2 - 4 * y) / (1 + (x-c[1])^2 + (y-c[2])^2)^2)) #This is our routing function
 contour(
     (-M_x):0.1:M_x,
     (-M_y):0.1:M_y,
@@ -94,7 +102,8 @@ contour(
     fill = true,
 )
 
-A = [[b; b^2 / 4] for b = (-M_x):M_x] #discriminant of the quadratic
+
+A = [[b; b^2 / 4] for b = (-M_x):M_x] #discriminant of the quadratic #discriminant of the quadratic
 plot!(
     Tuple.(A),
     xlims = (-M_x, M_x),

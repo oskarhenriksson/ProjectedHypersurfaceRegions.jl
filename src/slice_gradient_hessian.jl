@@ -2,31 +2,136 @@ mutable struct GradientCache
     Ks::Vector{LinearSubspace}
     line_hypersurface_intersections::Vector
     tracker::EndgameTracker
-    v::Vector
-    H::Matrix
+    track_report::Vector{Bool}
+    JsuF::Vector{HC.CompiledSystem}
+    JPF::Vector{HC.CompiledSystem}
+    JBF::Vector{HC.CompiledSystem}
+    HF::Matrix{HC.CompiledSystem}
+    JxB::Matrix{HC.CompiledSystem}
+    JxP::Matrix{HC.CompiledSystem}
+    JPB::Matrix{HC.CompiledSystem}
+    S::Vector{ComplexF64}
+    X::Vector{ComplexF64}
+    Uvals::Matrix{ComplexF64}
+    SP::Matrix{ComplexF64}
+    SB::Matrix{ComplexF64}
+    UP::Array{ComplexF64,3}
+    UB::Array{ComplexF64,3}
+    A::Array{ComplexF64,4}
+    rhs1::Matrix{ComplexF64}
+    rhs2::Vector{ComplexF64}
+    JsuF_temp::Matrix{ComplexF64}
+    JPF_temp::Matrix{ComplexF64}
+    JBF_temp::Matrix{ComplexF64}
+    Jtu_temp::Matrix{ComplexF64} # Temporary storage for evaluating JsuF
+    HF_temp::Array{ComplexF64, 3} # Temporary storage for evaluating HF
+    JxB_temp::Array{ComplexF64, 3} # Temporary storage for evaluating JxB
+    JxP_temp::Array{ComplexF64, 3} # Temporary storage for evaluating JxP
+    JPB_temp::Array{ComplexF64, 3} # Temporary storage for evaluating JPB
+    M::Matrix
+    M1::Matrix
+    M2::Matrix
+    M3::Matrix
+end
+function compute_systems(F, n, k, B)
+    @var uval[1:n-k] α[1:k] β[1:k] t
+    F_on_line = F([α + (1 / t) * β; uval])
+    v = vcat(t, uval)
+    vars = vcat(t, uval, α)
+
+    ∇v = map(v) do vi
+        HC.ModelKit.differentiate(F_on_line, vi) 
+    end
+    ∇α = map(α) do αi
+        HC.ModelKit.differentiate(F_on_line, αi)
+    end
+
+    JsuF = map(∇v) do ∇vi
+        g = evaluate(∇vi, β => B)
+        System(g, variables = vars)
+    end
+    JPF = map(∇α) do ∇vi
+        g = evaluate(∇vi, β => B)
+        System(g, variables = vars)
+    end
+    JBF = map(F_on_line) do f
+        g = evaluate(HC.ModelKit.differentiate(f, β), β => B)
+        System(g, variables = vars)
+    end
+
+    function J(x) 
+        map(Iterators.product(∇v, x)) do (∇vi, xj)
+            hess_ij = evaluate(HC.ModelKit.differentiate(∇vi, xj), β => B)
+            System(hess_ij, variables = vars) 
+        end
+    end
+
+    HF = J(v)
+    JxB = J(β)
+    JxP = J(α)
+    JPB = map(Iterators.product(∇α, β)) do (∇αi, βj)
+            hess_ij = evaluate(HC.ModelKit.differentiate(∇αi, βj), β => B)
+            System(hess_ij, variables = vars) 
+        end
+    return CompiledSystem.(JsuF), CompiledSystem.(JPF), CompiledSystem.(JBF), CompiledSystem.(HF), CompiledSystem.(JxB), CompiledSystem.(JxP), CompiledSystem.(JPB)
 
 end
 
-function GradientCache(PWS; single_slice = false)
-    n = ambient_dim(PWS)
+function GradientCache(PWS, B)
     d = degree(PWS)
     k = n_projection_variables(PWS)
+    F = PWS.F
+    N, n = size(F)
 
-    if single_slice
-        Ks = Vector{LinearSubspace}(undef, 1)
-        line_hypersurface_intersections = [[zeros(ComplexF64, n) for _ in 1:d]]
-    else
-        Ks = Vector{LinearSubspace}(undef, k)
-        line_hypersurface_intersections = [[zeros(ComplexF64, n) for _ = 1:d] for _ = 1:k]
-    end
+    @assert N == n-k+1 "Unexpected length of system"
 
+    Ks = Vector{LinearSubspace}(undef, 1)
+    line_hypersurface_intersections = [[zeros(ComplexF64, n) for _ in 1:d]]
+  
     Hom = linear_subspace_homotopy(PWS.F, PWS.L, PWS.L; intrinsic = true)
     tracker = EndgameTracker(Hom)
+    track_report = zeros(Bool, d) # for keeping track of which paths are successful
 
-    grad = zeros(ComplexF64, k)
-    H = zeros(ComplexF64, k, k)
+    S = zeros(ComplexF64, d)
+    X = zeros(ComplexF64, k)
+    Uvals = zeros(ComplexF64, n - k, d)
+    SP = zeros(ComplexF64, d, k)
+    SB = zeros(ComplexF64, d, k)
+    UP = zeros(ComplexF64, d, n - k, k)
+    UB = zeros(ComplexF64, d, n - k, k)
+    A = zeros(ComplexF64, d, N, k, k) 
 
-    GradientCache(Ks, line_hypersurface_intersections, tracker, grad, H)
+    JsuF, JPF, JBF, HF, JxB, JxP, JPB = compute_systems(F, n, k, B)
+
+
+    # 
+    rhs1 = zeros(ComplexF64, N, 2*k)  
+    rhs2 = zeros(ComplexF64, N)  
+
+    JsuF_temp = zeros(ComplexF64,N, 1+n-k)
+    JPF_temp = zeros(ComplexF64, N, k)
+    JBF_temp = transpose(zeros(ComplexF64, N, k))
+    Jtu_temp = zeros(ComplexF64, N, 1+n-k) # TODO: Maybe can reuse Jsu_temp....
+    HF_temp = zeros(ComplexF64, N, size(HF)...)
+    JxB_temp = zeros(ComplexF64, N, size(JxB)...) # size(JxB)
+    JxP_temp = zeros(ComplexF64, N, size(JxP)...)
+    JPB_temp = zeros(ComplexF64, N, size(JPB)...)
+
+    M = zeros(ComplexF64, k, k)
+    M1 = zeros(ComplexF64, k, n-k+1)
+    M2 = zeros(ComplexF64, n-k+1, k)
+    M3 = zeros(ComplexF64, k, n-k+1)
+
+    GradientCache(Ks, line_hypersurface_intersections, tracker,      
+                    track_report,
+                    JsuF,
+                    JPF,
+                    JBF,
+                    HF,
+                    JxB,
+                    JxP,
+                    JPB,
+                    S, X, Uvals, SP, SB, UP, UB, A, rhs1, rhs2, JsuF_temp, JPF_temp, JBF_temp, Jtu_temp, HF_temp, JxB_temp, JxP_temp, JPB_temp, M, M1, M2, M3)
 end
 
 
@@ -186,7 +291,7 @@ function hess_log_r(
     PWS = PseudoWitnessSet(F_ordered, k; linear_subspace_codim = k - 1)
 
     if method == :off_diag
-        hess = _off_diag(PWS, e, c, B)
+        hess = _off_diag(PWS, e, c, B) 
     elseif method == :many_slices
         hess = _many_slices(PWS, e, c, B)
     elseif method == :single_slice
@@ -330,7 +435,11 @@ function _many_slices(
 end
 
 
-
+# TODO: Fix function below to compute hessian AND the gradient (at the same time)
+# Most importantly, both should reuse the output of track_pws_to_line!
+# Some things don't need to be computed everytime, and some things we do. We should isolate those.
+# Cache everything below into GC.
+# TODO: Put f(P) in evaluate_and_jacobian!
 function _single_slice(
     PWS::PseudoWitnessSet,
     e,
@@ -365,6 +474,7 @@ function _single_slice(
     
     d= degree(PWS) 
     #Initializing several variables for use in the function
+    # TODO: Consider not initializing these, or caching them for later.
     S = zeros(ComplexF64, d)
     U = zeros(ComplexF64, n - k, d)
 
@@ -375,8 +485,7 @@ function _single_slice(
 
     A = zeros(ComplexF64, length(S), size(F_on_line, 1), k, k)
 
-    hess1 = zeros(ComplexF64, k, k)
-    hess2 = zeros(ComplexF64, k, k)
+    hess = zeros(ComplexF64, k, k)
 
     # Set up function for hess(q)
     q = 1 + sum((p - c) .* (p - c))
@@ -384,27 +493,29 @@ function _single_slice(
 
     function f(P) 
 
-        fill!(hess1, 0)
-        fill!(hess2, 0)
+        fill!(hess, 0)
 
         # Compute the intersection points through a pseudowitness set
-        track_pws_to_line!(GC, P, B, PWS) # TODO: Replace track_pws_to_lines with track_pws_to_line. That is, track less lines. We only need one.
+        track_pws_to_line!(GC, P, B, PWS) 
         #Obtain U and the projection S
+
         for (j, sol) in enumerate(GC.line_hypersurface_intersections[1])
-            X = sol[1:k]
-            U[:, j] = sol[k+1:end]
+            X = view(sol, 1:k)  # TODO: This creates new memory :( Workaround: Write for loop to copy values into X, which is cached. The main point is to avoid new allocations! This is why it is slow.
+            # TODO: view creates a pointer rather than a copy. Might be bugged, try it. Same thing for U below.
+            U[:, j] = sol[k+1:end] # This creates a new vector in memory. should do a for loop.
             _, nonzero_coordinate = findmax(abs, X - P)
-            S[j] = B[nonzero_coordinate] / (X[nonzero_coordinate] - P[nonzero_coordinate]) 
+            S[j] = B[nonzero_coordinate] / (X[nonzero_coordinate] - P[nonzero_coordinate]) # We solving for t inside of this: p + (1 / t) * β = X
         end
 
         #Obtain gradients of S and U with respect to p and β
         for i = 1:length(S)
 
-            Jsu = evaluate(JsuF, vcat(t, u, p) => vcat(S[i], U[:, i], P)) 
+            Jsu = evaluate(JsuF, vcat(t, u, p) => vcat(S[i], U[:, i], P)) # TODO: Evaluate also creates memory... JsuF should be a vector of Systems, not expressions. This has evaluate!, which overwrites memory. Need to change this for ALL evaluates.
             JP = evaluate(JPF, vcat(t, u, p) => vcat(S[i], U[:, i], P))
             JB = evaluate(JBF, vcat(t, u, p) => vcat(S[i], U[:, i], P))
 
             PBsols = -Jsu \ [JP JB] # solves the system Jsu*A = -[JP JB]
+            # TODO: This should be an "in-place" operation to avoid memory allocation.
 
             SP[i,:] = PBsols[1, 1:k]
             SB[i,:] = PBsols[1, k+1:end]
@@ -436,11 +547,10 @@ function _single_slice(
                 rhs = vcat([A[j, i, a, b] for i = 1:length(F_on_line)]...)
                 sols[a, b] = -(Jtu\rhs)[1]
             end
-           # hess1 = hess1 - 2 * S[j]^(-3) * SP[j, :] * transpose(SB[j, :])
-            hess2 = hess2 - sols
+            hess = hess - sols
         end
 
-        GC.H = hess2 - Hlogqe(P) 
+        GC.H = hess - Hlogqe(P) 
         real(GC.H)
     end
     f
