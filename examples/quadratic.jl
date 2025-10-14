@@ -51,7 +51,7 @@ contour(
 	(-M_x):0.1:M_x,
 	(-M_y):0.1:M_y,
 	RR,
-	levels = 40,
+	levels = 50,
 	color = :plasma,
 	clabels = false,
 	cbar = false,
@@ -100,12 +100,15 @@ for u0 in pts1
 end
 
 ## plot critical points
-palette = collect(range(colorant"darkgreen", stop=colorant"lightgreen", length=length(G)))
+palette = collect(range(colorant"green", stop=colorant"lightgreen", length=length(G)))
 for (i, component) in enumerate(G)
     scatter!(Tuple.(pts[component]), markercolor = palette[i], markersize = 8, label = "Critical points in region $i")
 end
 
 plot!(; legend = :bottomright, dpi=400, legendfontsize=6)
+
+savefig("./figures/example_quadratic.png")
+savefig("./figures/example_quadratic.svg")
 
 # # Gradient flow for routing points of positive index
 # g(x, param, t) = real(evaluate(r, x))
