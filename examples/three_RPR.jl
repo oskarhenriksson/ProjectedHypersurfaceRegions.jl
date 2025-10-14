@@ -31,33 +31,14 @@ k = length(projection_variables)
 γ = 10 .* randn(k)
 r = RoutingGradient(F, projection_variables; c = γ)
 
-
 # critical points
-res = critical_points(r)
+options = MonodromyOptions(
+    parameter_sampler = p -> 10 .* randn(ComplexF64, length(p)), # bigger loops
+    max_loops_no_progress = 10 # change the stopping criterion
+)
+res = critical_points(r, options = options)
 pts = real_solutions(res)
 
-g(x, param, t) = real(evaluate(r, x))
-tspan = (0.0, 1e4)
-for (i, u0) in enumerate(pts)
-    println()
-    println("Routing point #$i")
-    jac = real(evaluate_and_jacobian(r, u0)[2])
-    eigen_data = eigen(jac)
-    eigenvalues = eigen_data.values
-    eigenvectors = eigen_data.vectors
-    positive_directions = [i for (i, λ) in enumerate(eigenvalues) if real(λ) > 0]
-    println("Index: $(length(positive_directions))")
-    if  !isempty(positive_directions)
-        idx = first(positive_directions)
-        v = 1e-4*eigenvectors[:, idx]
-        prob1 = ODEProblem(g, u0 + v, tspan)
-        sol1 = DE.solve(prob1, reltol = 1e-6, abstol = 1e-6)
-        limit1 = last(sol1.u) 
-        closest_point1 = argmin(i->norm(pts[i] .- limit1), 1:length(pts))
-        prob2 = ODEProblem(g, u0 - v, tspan)
-        sol2 = DE.solve(prob2, reltol = 1e-6, abstol = 1e-6)
-        limit2 = last(sol2.u)
-        closest_point2 = argmin(i->norm(pts[i] .- limit2), 1:length(pts))
-        println("Connected to the points: $closest_point1 and $closest_point2")
-    end
-end
+# connecting 
+G, idx, failed_info = partition_of_critical_points(r, pts)
+G
