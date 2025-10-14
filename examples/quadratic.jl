@@ -67,6 +67,7 @@ plot!(
 ## plot flow
 pts1 = pts[idx .!= 0]
 g(x, param, t) = real(evaluate(r, x))
+tspan = (0.0, 1e4)
 for u0 in pts1
     jac = real(evaluate_and_jacobian(r, u0)[2])
     eigen_data = LinearAlgebra.eigen(jac)
@@ -80,14 +81,14 @@ for u0 in pts1
     sol = DE.solve(prob, reltol = 1e-6, abstol = 1e-6)
     flow = Tuple.(sol.u)
     l = length(flow)
-    k = Int(l/3)
+    k = div(l,3)
     plot!(flow[1:k], linecolor = :steelblue, linewidth = 3, label=false, arrow = true)
     plot!(flow[k:end], linecolor = :steelblue, linewidth = 3, label=false)
     prob = ODEProblem(g, u0 - 0.01*v, tspan)
     sol = DE.solve(prob, reltol = 1e-6, abstol = 1e-6)
     flow = Tuple.(sol.u)
     l = length(flow)
-    k = Int(l/3)
+    k = div(l,3)
     plot!(flow[1:k], linecolor = :steelblue, linewidth = 3, label=false, arrow = true)
     plot!(flow[k:end], linecolor = :steelblue, linewidth = 3, label=false)   
 end
