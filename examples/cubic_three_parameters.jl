@@ -1,4 +1,4 @@
-using Pkg, ImplicitPlots, Plots, Random
+using Pkg, Random
 Pkg.activate(".")
 
 include("../src/functions.jl");
@@ -27,6 +27,17 @@ pts = real_solutions(res)
 ### connecting 
 G, idx, failed_info = partition_of_critical_points(r, pts)
 G
+
+# Analyze possible real root counts
+for (i, comp) in enumerate(G)
+    println("Component #$i")
+    u0 = pts[first(comp)]
+    println("Sample point: $u0")
+    specialized_polynomial = subs(f, projection_variables => u0)
+    res = HomotopyContinuation.solve([specialized_polynomial])
+    real_pts = real_solutions(res)
+    println("Number of real roots: $(length(real_pts))")
+end
 
 # g(x, param, t) = real(evaluate(r, x))
 # tspan = (0.0, 1e4)
