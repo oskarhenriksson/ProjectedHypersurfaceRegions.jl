@@ -21,68 +21,10 @@ k = length(projection_variables)
 B = qr(rand(k, k)).Q |> Matrix # not needed anymore (but kept for reproducibility)
 c = 10 .* randn(k)
 r = RoutingGradient(F, projection_variables; c = c)
-e = denominator_exponent(r)
 
-p1 = zeros(k)
-q1 = randn(k)
-H = RoutingPointsHomotopy(r, p1, q1)
-
-### Use monodromy to the system ∇r = p0 where we view the right-hand side are the parameters of the system
-egtracker = EndgameTracker(H) # we want to add options later 
-trackers = [egtracker]
-x₀ = zeros(ComplexF64, size(H, k))
-
-unique_points = UniquePoints(
-    x₀,
-    1;
-)
-
-trace = zeros(ComplexF64, length(x₀) + 1, 3)
-P = Vector{ComplexF64}
-options = MonodromyOptions(
-    #parameter_sampler = p -> 10 .* [0; randn(ComplexF64, length(p) - 1)], # bigger lopps
-    parameter_sampler = p -> 10 .* randn(ComplexF64, length(p)), # bigger lopps
-    # max_loops_no_progress = 10 # change the stopping criterion
-) 
-MS = HomotopyContinuation.MonodromySolver(
-    trackers,
-    HomotopyContinuation.MonodromyLoop{P}[],
-    unique_points,
-    ReentrantLock(),
-    options,
-    HomotopyContinuation.MonodromyStatistics(),
-    trace,
-    ReentrantLock(),
-)
-
-#### set up start pair
-s0 = randn(ComplexF64, k)
-p0 = evaluate(r, s0)
-
-# Make sure Jacobians work
-evaluate_and_jacobian(r, s0, p0)
-
-### Monodromy 
-seed = rand(UInt32)
-mon_result = monodromy_solve(
-    MS,
-    s0,
-    p0,
-    seed;
-)
-
-### Use a parameter homotopy (via the "detour trick") to trace the solutions of ∇r = p0 to solutions of ∇r = 0
-start_parameters!(egtracker, p0)
-p_intermediate = randn(ComplexF64, length(p0))
-target_parameters!(egtracker, p_intermediate)
-intermediate_result = HomotopyContinuation.solve(H, solutions(mon_result))
-
-start_parameters!(egtracker, p_intermediate)
-target_parameters!(egtracker, zeros(length(p0)))
-result = HomotopyContinuation.solve(H, solutions(intermediate_result))
-
-
-pts = real_solutions(result)
+# critical points
+res = critical_points(r)
+pts = real_solutions(res)
 
 g(x, param, t) = real(evaluate(r, x))
 tspan = (0.0, 1e4)

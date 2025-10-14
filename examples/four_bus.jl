@@ -69,45 +69,6 @@ hess_off_diag_eval' - hess_off_diag_eval
 #Testing the RoutingGradient and RoutingPointsHomotopy on this example:
 
 r = RoutingGradient(F, projection_vars; c = c, B = B)
-e = denominator_exponent(r)
-
-p1 = zeros(k)
-q1 = randn(k)
-H = RoutingPointsHomotopy(r, p1, q1)
-
-### Test evaluation
-u = randn(ComplexF64, k)
-x0 = randn(k)
-t0 = 1.0
-evaluate!(u, H, x0, t0)
-
-u1 = randn(ComplexF64, k)
-t1 = 0.0
-evaluate!(u1, H, x0, t1)
-
-### Use monodromy to the system ∇r = p0 where we view the right-hand side are the parameters of the system
-egtracker = EndgameTracker(H) # we want to add options later 
-trackers = [egtracker]
-x₀ = zeros(ComplexF64, size(H, k))
-
-unique_points = UniquePoints(
-    x₀,
-    1;
-)
-
-trace = zeros(ComplexF64, length(x₀) + 1, 3)
-P = Vector{ComplexF64}
-options = MonodromyOptions() 
-MS = HomotopyContinuation.MonodromySolver(
-    trackers,
-    HomotopyContinuation.MonodromyLoop{P}[],
-    unique_points,
-    ReentrantLock(),
-    options,
-    HomotopyContinuation.MonodromyStatistics(),
-    trace,
-    ReentrantLock(),
-)
 
 
 #### set up start pair
@@ -117,10 +78,5 @@ p0 = evaluate(r, s0) #This returns a vector of NaNs. Upon further inspection,
                      #Note that this is still happening after making the change of restricting to non-singular solutions in the witness set.
 
 ### Monodromy 
-seed = rand(UInt32)
-mon_result = monodromy_solve(
-    MS,
-    s0,
-    p0,
-    seed;
-)
+res = critical_points(r)
+pts = real_solutions(res)

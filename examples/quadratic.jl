@@ -1,9 +1,8 @@
-using Pkg, Random, Plots, DifferentialEquations, Random, Plots, DifferentialEquations
+using Pkg, Random, Plots, DifferentialEquations, Random, Plots, DifferentialEquations, SciMLBase
 Pkg.activate(".")
 
 include("../src/functions.jl");
 
-Random.seed!(0x8b868320)
 
 ########
 @var a b x
@@ -27,63 +26,25 @@ evaluate_and_jacobian!(u, U, H, x0, t0)
 
 
 ### Test monodromy
-egtracker = EndgameTracker(H) # we want to add options later 
-trackers = [egtracker]
-x₀ = zeros(ComplexF64, size(H, 2))
+res0 = critical_points(r)
+pts = real_solutions(res0)
 
-unique_points = UniquePoints(
-    x₀,
-    1;
-)
 
-trace = zeros(ComplexF64, length(x₀) + 1, 3)
-P = Vector{ComplexF64}
-options = MonodromyOptions(
-    parameter_sampler = p -> 10 .* randn(ComplexF64, length(p)), # bigger lopps
-    max_loops_no_progress = 20 # change the stopping criterion
-)
-MS = HomotopyContinuation.MonodromySolver(
-    trackers,
-    HomotopyContinuation.MonodromyLoop{P}[],
-    unique_points,
-    ReentrantLock(),
-    options,
-    HomotopyContinuation.MonodromyStatistics(),
-    trace,
-    ReentrantLock(),
-)
+### connecting 
+G = partition_of_critical_points(r, pts)
 
-#### set up start pair
-s0 = randn(ComplexF64, 2)
-p0 = evaluate(r, s0)
 
-evaluate(r, s0, p0) #should give zero
-
-### Monodromy 
-seed = rand(UInt32)
-mon_result = monodromy_solve(
-    MS,
-    s0,
-    p0,
-    seed;
-)
-
-### parameter homotopy
-start_parameters!(egtracker, p0)
-target_parameters!(egtracker, zeros(2))
-result = HomotopyContinuation.solve(H, solutions(mon_result))
-pts = real_solutions(result)
 
 ##### Plotting 
 M_x = maximum(p -> abs(p[1]), pts) + 4
 M_y = maximum(p -> abs(p[2]), pts) + 3
 
 
-R(x, y) = log(abs((x^2 - 4 * y) / (1 + (x-c[1])^2 + (y-c[2])^2)^2)) #This is our routing function
+RR(x, y) = log(abs((x^2 - 4 * y) / (1 + (x-c[1])^2 + (y-c[2])^2)^2)) #This is our routing function
 contour(
     (-M_x):0.1:M_x,
     (-M_y):0.1:M_y,
-    R,
+    RR,
     levels = 50,
     color = :plasma,
     clabels = false,
