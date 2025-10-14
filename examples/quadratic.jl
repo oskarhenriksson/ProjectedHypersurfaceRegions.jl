@@ -45,7 +45,7 @@ contour(
     (-M_x):0.1:M_x,
     (-M_y):0.1:M_y,
     RR,
-    levels = 50,
+    levels = 40,
     color = :plasma,
     clabels = false,
     cbar = false,
@@ -63,12 +63,38 @@ plot!(
     label = "discriminant",
 )
 
-scatter!(Tuple.(pts[G[1]]), markercolor = :green, markersize = 8, label = "region 1")
-scatter!(Tuple.(pts[G[2]]), markercolor = :steelblue, markersize = 8, label = "region 2")
 
+## plot flow
+pts1 = pts[idx .!= 0]
+g(x, param, t) = real(evaluate(r, x))
+for u0 in pts1
+    jac = real(evaluate_and_jacobian(r, u0)[2])
+    eigen_data = LinearAlgebra.eigen(jac)
+    eigenvalues = eigen_data.values
+    eigenvectors = eigen_data.vectors
+    positive_directions = [i for (i, λ) in enumerate(eigenvalues) if real(λ) > 0]
+    j = first(positive_directions)
+    v = eigenvectors[:, j]
 
+    prob = ODEProblem(g, u0 + 0.01*v, tspan)
+    sol = DE.solve(prob, reltol = 1e-6, abstol = 1e-6)
+    flow = Tuple.(sol.u)
+    l = length(flow)
+    k = Int(l/3)
+    plot!(flow[1:k], linecolor = :steelblue, linewidth = 3, label=false, arrow = true)
+    plot!(flow[k:end], linecolor = :steelblue, linewidth = 3, label=false)
+    prob = ODEProblem(g, u0 - 0.01*v, tspan)
+    sol = DE.solve(prob, reltol = 1e-6, abstol = 1e-6)
+    flow = Tuple.(sol.u)
+    l = length(flow)
+    k = Int(l/3)
+    plot!(flow[1:k], linecolor = :steelblue, linewidth = 3, label=false, arrow = true)
+    plot!(flow[k:end], linecolor = :steelblue, linewidth = 3, label=false)   
+end
 
-
+## plot critical points
+scatter!(Tuple.(pts[G[1]]), markercolor = :gold, markersize = 8, label = "crit. pts. region 1")
+scatter!(Tuple.(pts[G[2]]), markercolor = :green, markersize = 8, label = "crit. pts. region 2")
 
 # # Gradient flow for routing points of positive index
 # g(x, param, t) = real(evaluate(r, x))
