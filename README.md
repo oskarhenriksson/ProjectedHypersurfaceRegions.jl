@@ -31,19 +31,23 @@ You're now good to go! 🚀
 
 ## Example
 
-Suppose that we want to study the complement of the discriminant for the quadratic polynomial $x^2+ax+b$ with parameters $a$ and $b$.
+Suppose that we want to study the complement of the discriminant for the quadratic polynomial 
+```math
+f_{a,b}(x)=x^2+ax+b
+``` 
+with parameters $a$ and $b$.
 
-We start by setting up the incidence variety of the discriminant:
+We start by setting up the incidence variety $`\{(a,b,x)\in ℂ^3\mid f_{a,b}(x)=f′_{a,b}(x)=0\}`$ of the discriminant:
 
-```julia
-@var a b x
-F = System([x^2 + a * x + b; 2x + a], variables = [a, b, x])
+```julia-repl
+julia> @var a b x;
+julia> F = System([x^2 + a * x + b, 2x + a], variables = [a, b, x]);
 ```
 
 We form the gradient of the routing function by writing:
 
-```julia
-∇r = RoutingGradient(F, [a; b])
+```julia-repl
+julia> ∇r = RoutingGradient(F, [a, b]);
 ```
 
 We find the critical points via the `critical_points` function (the exact output depends on the randomized choice of center point `c` that happens when the routing function is created):
@@ -59,11 +63,11 @@ julia> pts = critical_points(∇r) |> real_solutions
 
 Finally, we connect the critical points that belong to the same component of the complement:
 
-```julia
-G, idx, failed_info  = partition_of_critical_points(∇r, pts)
+```julia-repl
+julia> G, idx, failed_info = partition_of_critical_points(∇r, pts);
 ```
 
-The first output `G` describes the connected components. We see that the the first, third and fourth critical points belong to the same connected component, and that the second one belongs to its own component:
+The first output `G` describes the connected components. We see that the first, third and fourth critical points belong to the same connected component, and that the second one belongs to its own component:
 
 ```julia-repl
 julia> G
@@ -76,7 +80,7 @@ julia> G
 
 The following pictures are created via the files `quadratic.jl` and `cubic_two_parameters.jl` in the `examples` directory.
 
-<p style="text-align:center;"><img src="figures/example_quadratic.svg" height="200px"/><img src="figures/example_cubic.svg" height="200px"/></p>
+<p align="center"><img src="figures/example_quadratic.svg" height="200px"/><img src="figures/example_cubic.svg" height="200px"/></p>
 
 ## Dependencies
 The code relies on the following Julia packages:
