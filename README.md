@@ -5,7 +5,7 @@ This repository contains code for the for the project _Computing complements of 
 
 ## Example
 
-Suppose that we want to study the complement of the discriminant for the quadratic polynomial `x^2 + a * x + b` with parameters `a` and `b`.
+Suppose that we want to study the complement of the discriminant for the quadratic polynomial `x^2+a*x+b` with parameters `a` and `b`.
 
 The first step is to get access to the functions of the package by running:
 
@@ -22,13 +22,13 @@ F = System([x^2 + a * x + b; 2x + a], variables = [a, b, x])
 We form the gradient of the routing function by writing:
 
 ```julia
-r = RoutingGradient(F, [a; b])
+∇r = RoutingGradient(F, [a; b])
 ```
 
-We find the critical points (the exact output depends on a randomized choice of center for the routing function):
+We find the critical points via the `critical_points` function (the exact output depends on a randomized choice of center for the routing function):
 
 ```julia-repl   
-julia> pts = critical_points(r, options = options) |> real_solutions
+julia> pts = critical_points(∇r) |> real_solutions
 4-element Vector{Vector{Float64}}:
  [-5.175022390506237, -7.4163002433454395]
  [2.7890571286291124, 7.76755857260763]
@@ -39,10 +39,10 @@ julia> pts = critical_points(r, options = options) |> real_solutions
 Finally, we connect the critical poitns that belong to the same component of the complement:
 
 ```julia
-G, idx, failed_info  = partition_of_critical_points(r, pts)
+G, idx, failed_info  = partition_of_critical_points(∇r, pts)
 ```
 
-From the first output, we see that the the three first points belong to the same connected component, and that the fourth one belongs to its own component (the exact output depends on randomized choices):
+The first output `G` describes the connected components. We see that the the first, thrid and fourth critical points belong to the same connected component, and that the second one belongs to its own component:
 
 ```julia-repl
 julia> G
