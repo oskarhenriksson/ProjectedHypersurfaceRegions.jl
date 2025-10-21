@@ -1,18 +1,39 @@
 
 # Computing complements of real hypersurfaces using pseudowitness sets
 
-This repository contains code for the for the project _Computing complements of real hypersurfaces using pseudowitness sets_ by Paul Breiding, John Cobb, Aviva Englander, Nayda Farnsworth, Jon Hauenstein, Oskar Henriksson, David Johnson, Jordy Garcia, and Deepak Mundayur.
+This repository contains code for the project _Computing complements of real hypersurfaces using pseudowitness sets_ by Paul Breiding, John Cobb, Aviva Englander, Nayda Farnsworth, Jon Hauenstein, Oskar Henriksson, David Johnson, Jordy Garcia, and Deepak Mundayur.
+
+## Running the code 
+
+If you're using Git, you can clone the repository by running the following command in your terminal:
+
+```bash
+gh repo clone oskarhenriksson/parametric_gradients
+```
+
+Alternatively, you can download the repository manually by clicking the green `Code` button at the top of the GitHub page and selecting `Download ZIP`.
+
+Once you have the repository, the easiest way to run the code is to open Julia in the root folder, activate the environment, and (if this is your first time running the code) instantiate the dependencies:
+
+```julia
+using Pkg
+Pkg.activate(".")  
+Pkg.instantiate()
+```
+
+Once the environment is ready, load the functions of the package by including the main source file:
+
+```julia
+include("src/functions.jl")
+```
+
+You're now good to go! 🚀
 
 ## Example
 
-Suppose that we want to study the complement of the discriminant for the quadratic polynomial `x^2+a*x+b` with parameters `a` and `b`.
+Suppose that we want to study the complement of the discriminant for the quadratic polynomial $x^2+ax+b$ with parameters $a$ and $b$.
 
-The first step is to get access to the functions of the package by running:
-
-```julia
-include("src/functions.jl");
-```
-We then set up the incidence variety of the discriminant:
+We start by setting up the incidence variety of the discriminant:
 
 ```julia
 @var a b x
@@ -25,7 +46,7 @@ We form the gradient of the routing function by writing:
 ∇r = RoutingGradient(F, [a; b])
 ```
 
-We find the critical points via the `critical_points` function (the exact output depends on a randomized choice of center for the routing function):
+We find the critical points via the `critical_points` function (the exact output depends on the randomized choice of center point `c` that happens when the routing function is created):
 
 ```julia-repl   
 julia> pts = critical_points(∇r) |> real_solutions
@@ -36,13 +57,13 @@ julia> pts = critical_points(∇r) |> real_solutions
  [-11.409227831219235, -4.510747011398911]
 ```
 
-Finally, we connect the critical poitns that belong to the same component of the complement:
+Finally, we connect the critical points that belong to the same component of the complement:
 
 ```julia
 G, idx, failed_info  = partition_of_critical_points(∇r, pts)
 ```
 
-The first output `G` describes the connected components. We see that the the first, thrid and fourth critical points belong to the same connected component, and that the second one belongs to its own component:
+The first output `G` describes the connected components. We see that the the first, third and fourth critical points belong to the same connected component, and that the second one belongs to its own component:
 
 ```julia-repl
 julia> G
@@ -56,3 +77,9 @@ julia> G
 The following pictures are created via the files `quadratic.jl` and `cubic_two_parameters.jl` in the `examples` directory.
 
 <p style="text-align:center;"><img src="figures/example_quadratic.svg" height="200px"/><img src="figures/example_cubic.svg" height="200px"/></p>
+
+## Dependencies
+The code relies on the following Julia packages:
+- `HomotopyContinuation.jl` (for numerical algebraic geometry)
+- `DifferentialEquations.jl` (for gradient flow)
+- `LightGraphs.jl` (for building the connectivity graph).
