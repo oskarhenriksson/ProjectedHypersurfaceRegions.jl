@@ -87,3 +87,59 @@ function ModelKit.taylor!(u, v::Val, H::RoutingPointsHomotopy, tx, t)
     taylor!(u, v, H.r, tx, tp!(H, t))
     u
 end
+
+import HomotopyContinuation: MonodromyOptions, UniquePoints, EndgameTracker
+function critical_points(r::RoutingGradient; 
+                            options = MonodromyOptions(parameter_sampler = p -> 10 .* randn(ComplexF64, length(p))),  
+                            seed = rand(UInt32))
+    k = size(r, 2) # number of variables
+    p1 = zeros(k)
+    q1 = randn(k)
+    H = RoutingPointsHomotopy(r, p1, q1)
+
+    ### Use monodromy to the system ∇r = p0 where we view the right-hand side are the parameters of the system
+    egtracker = EndgameTracker(H) # we want to add options later 
+    trackers = [egtracker]
+    x₀ = zeros(ComplexF64, size(H, k))
+
+    unique_points = UniquePoints(
+        x₀,
+        1;
+    )
+
+    trace = zeros(ComplexF64, length(x₀) + 1, 3)
+    P = Vector{ComplexF64}
+    MS = HomotopyContinuation.MonodromySolver(
+        trackers,
+        HomotopyContinuation.MonodromyLoop{P}[],
+        unique_points,
+        ReentrantLock(),
+        options,
+        HomotopyContinuation.MonodromyStatistics(),
+        trace,
+        ReentrantLock(),
+    )
+
+    #### set up start pair
+    s0 = randn(ComplexF64, k)
+    p0 = evaluate(r, s0)
+
+    ### Monodromy 
+    mon_result = monodromy_solve(
+        MS,
+        s0,
+        p0,
+        seed;
+    )
+
+    ### move to parameter = 0
+    intermediate_p = randn(ComplexF64, length(p0))
+    start_parameters!(H, p0)
+    target_parameters!(H, intermediate_p)
+    result_intermediate = HomotopyContinuation.solve(H, solutions(mon_result))
+    start_parameters!(H, intermediate_p)
+    target_parameters!(H, zeros(ComplexF64, length(p0)))
+    result = HomotopyContinuation.solve(H, result_intermediate)
+
+    result
+end

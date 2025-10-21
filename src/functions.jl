@@ -1,4 +1,4 @@
-using HomotopyContinuation, LinearAlgebra, DifferentialEquations
+using HomotopyContinuation, LinearAlgebra, DifferentialEquations, LightGraphs
 
 const HC = HomotopyContinuation
 const DE = DifferentialEquations
@@ -9,3 +9,5 @@ include("slice_gradient_hessian.jl")
 #include("routing_points.jl")
 include("slice_system.jl") 
 include("homotopy.jl")
+include("ode_solving.jl")
+include("graph.jl")

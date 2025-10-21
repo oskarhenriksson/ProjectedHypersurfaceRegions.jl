@@ -1,0 +1,219 @@
+
+### This is from https://github.com/JuliaAlgebra/HypersurfaceRegions.jl/blob/main/src/partition.jl
+
+
+# return index and unstable eigenvectors of the hessian 
+function index_unstable_eigenvector!(u, U, 
+    r,
+    a,
+) 
+    evaluate_and_jacobian!(u, U, r, a)
+    if is_almost_singular(U)
+        flag = true
+        println("The Hessian is almost singular for", a)
+        return nothing, nothing, flag
+    else
+        flag = false
+    end
+    eigvals, eigvecs = LinearAlgebra.eigen!(real(U))
+    eigvals = eigvals
+    index = sum(eigvals .> 0)
+    unstable_eigenvectors = eigvecs[:, eigvals.>0]
+    return index, unstable_eigenvectors, flag
+end
+
+function is_almost_singular(matrix::Matrix; threshold = 1e10)
+    condition_number = LinearAlgebra.cond(matrix)
+    return condition_number > threshold
+end
+
+## calculate the index and unstable eigenvectors of the critical points
+function _index_list(
+    r,
+    crit_pts,
+)
+    index_list::Vector{Int} = []
+    unstable_vector_list::Vector{Matrix{Float64}} = []
+    flag_prime = false
+    k = size(r, 1)
+    u = randn(ComplexF64, k)
+    U = zeros(ComplexF64, k, k)
+
+    for a in crit_pts
+        index, unstable_eigenvectors, flag =
+            index_unstable_eigenvector!(u, U, r, a)
+        if flag == true
+            flag_prime = true
+            return nothing, nothing, nothing, flag_prime
+        end
+
+        push!(index_list, index)
+        push!(unstable_vector_list, unstable_eigenvectors)
+    end
+
+    return index_list, unstable_vector_list, flag_prime
+end
+
+
+# input a list, output a list of indices that have the same value in the list
+function partition_indices(lst)
+    partitions = Dict()
+    for (index, element) in enumerate(lst)
+        if haskey(partitions, element)
+            push!(partitions[element], index)
+        else
+            partitions[element] = [index]
+        end
+    end
+    return partitions
+end
+
+
+
+
+function partition_of_critical_points(
+    r,
+    crit_pts::Vector{Vector{Float64}},
+    epsilon::Float64 = 1e-6,
+    reltol::Float64 = 1e-6,
+    abstol::Float64 = 1e-9,
+)
+
+    index_list, unstable_eigenvector_list, flag_prime =
+        _index_list(r, crit_pts)
+    if flag_prime == true
+        @warn "The Hessian is almost singular for some critical points"
+        return nothing
+    end
+
+
+    ode_log! = set_up_ode(r)
+
+    graph = LightGraphs.SimpleGraph(length(crit_pts))
+    connectivity_status = zeros(Int, length(crit_pts))
+    critical_points_indices = collect(1:length(crit_pts))
+
+    # count the number of index 0 critical points
+    count_index_0 = sum([index == 0 for index in index_list])
+
+    if count_index_0 == 1
+        # we do not need to do any path tracking in this case
+        return [critical_points_indices], []
+    end
+
+
+    failed_info_list = []
+    for i = 1:length(index_list)
+        if connectivity_status[i] == 0 && index_list[i] == 1
+            # need to do path tracking in two directions
+            critical_point_index = critical_points_indices[i]
+            unstable_eigenvector = unstable_eigenvector_list[critical_point_index]
+            pair_pos, failed_info_pos = limit_critical_point_from_critical_point(
+                ode_log!,
+                crit_pts,
+                i,
+                index_list,
+                unstable_eigenvector,
+                epsilon,
+                reltol,
+                abstol,
+            )
+            if isempty(failed_info_pos)
+                LightGraphs.add_edge!(graph, pair_pos[1], pair_pos[2])
+            else
+                push!(
+                    failed_info_list,
+                    [critical_point_index, epsilon, unstable_eigenvector, failed_info_pos],
+                )
+            end
+
+            pair_neg, failed_info_neg = limit_critical_point_from_critical_point(
+                ode_log!,
+                crit_pts,
+                i,
+                index_list,
+                unstable_eigenvector,
+                -epsilon,
+                reltol,
+                abstol,
+            )
+
+            if isempty(failed_info_neg)
+                LightGraphs.add_edge!(graph, pair_neg[1], pair_neg[2])
+            else
+                push!(
+                    failed_info_list,
+                    [critical_point_index, -epsilon, unstable_eigenvector, failed_info_neg],
+                )
+            end
+            connectivity_status[i] = 1
+        end
+    end
+
+
+    for i = 1:length(index_list)
+        if connectivity_status[i] == 0 && index_list[i] > 1
+            # track paths and stop whenever one path converges
+            critical_point_index = critical_points_indices[i]
+            sub_failed_info_list = []
+            for v in eachcol(unstable_eigenvector_list[critical_point_index])
+                pair, failed_info = limit_critical_point_from_critical_point(
+                    ode_log!,
+                    crit_pts,
+                    i,
+                    index_list,
+                    v,
+                    epsilon,
+                    reltol,
+                    abstol,
+                )
+                if isempty(failed_info)
+                    LightGraphs.add_edge!(graph, pair[1], pair[2])
+                    connectivity_status[i] = 1
+                    sub_failed_info_list = []
+                    break
+                else
+                    push!(
+                        sub_failed_info_list,
+                        [critical_point_index, epsilon, v, failed_info],
+                    )
+                end
+
+                pair, failed_info = limit_critical_point_from_critical_point(
+                    ode_log!,
+                    crit_pts,
+                    i,
+                    index_list,
+                    v,
+                    -epsilon,
+                    reltol,
+                    abstol,
+                )
+                if isempty(failed_info)
+                    LightGraphs.add_edge!(graph, pair[1], pair[2])
+                    connectivity_status[i] = 1
+                    sub_failed_info_list = []
+                    break
+                else
+                    push!(
+                        sub_failed_info_list,
+                        [critical_point_index, epsilon, v, failed_info],
+                    )
+                end
+            end
+
+            if !isempty(sub_failed_info_list)
+                push!(failed_info_list, sub_failed_info_list)
+            end
+        end
+    end
+
+
+    partition = LightGraphs.connected_components(graph)
+    partition_critical_point_indices = []
+    for par in partition
+        push!(partition_critical_point_indices, @view(critical_points_indices[par]))
+    end
+    return partition_critical_point_indices, index_list, failed_info_list
+end
+
