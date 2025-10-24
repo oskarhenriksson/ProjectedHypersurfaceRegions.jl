@@ -98,7 +98,7 @@ function partition_of_critical_points(
 
     if count_index_0 == 1
         # we do not need to do any path tracking in this case
-        return [critical_points_indices], []
+        return [critical_points_indices], [], []
     end
 
 
