@@ -6,19 +6,19 @@ Random.seed!(0x8b868320)
 
 #example 5.2 in the overleaf file
 
-a2 = 14; a3 = 7; b3 = 10; A2 = 16; A3 = 9; B3 = 6;
+a2 = 1.4; a3 = 0.7; b3 = 1.0; A2 = 1.6; A3 = 0.9; B3 = 0.6;
 
-@var p[1:2] φ[1:2] c[1:3]
+@var p[1:2] φ[1:2] c[1:2]
 
 f = [ φ[1]^2 + φ[2]^2 - 1,
       p[1]^2 + p[2]^2 - 2*(a3*p[1] +b3*p[2])*φ[1] + 2*(b3*p[1] - a3*p[2])*φ[2] + a3^2 + b3^2 - c[1],
       p[1]^2 + p[2]^2 - 2*A2*p[1] + 2*((a2-a3)*p[1] - b3*p[2] + A2*a3 -A2*a2)*φ[1] + 2*(b3*p[1] + (a2-a3)*p[2] - A2*b3)*φ[2]
-        + (a2-a3)^2 + b3^ + A2^2 -c[2],
-      p[1]^2 + p[2]^2 -2*(A3*p[1] + B3*p[2]) + A3^2 + B3^2 -c[3]
+        + (a2-a3)^2 + b3^2 + A2^2 -c[2],
+      p[1]^2 + p[2]^2 -2*(A3*p[1] + B3*p[2]) + A3^2 + B3^2 - 1.0
     ]
 
 J = differentiate(f, vcat(p,φ))
-D= det(J)
+D = det(J)
 
 #Since we want the numerator of the routing function to have D(c)*c, 
 #we add D*c to the system before we project down. Not sure about this. 

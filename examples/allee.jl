@@ -15,7 +15,7 @@ x[2]*(1 - x[2])*(x[2] - b) - 2*a*x[2] + a*x[1] + a*x[3],
 x[3]*(1 - x[3])*(x[3] - b) - 2*a*x[3] + a*x[1] + a*x[2]]
 Jac = differentiate.(steady_state, x')
 detJac = det(Jac)
-F = System([steady_state; detJac], variables = [a; b; x])
+F = System([steady_state; x[1]*x[2]*x[3]*detJac], variables = [a; b; x])
 
 ### Routing gradient
 r = RoutingGradient(F, [a,b]);
