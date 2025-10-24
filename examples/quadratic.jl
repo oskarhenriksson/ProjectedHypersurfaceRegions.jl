@@ -33,7 +33,7 @@ options = MonodromyOptions(
 )
 
 # Find the complex critical points 
-res0 = critical_points(r, options = options)
+res0, mon_res = critical_points(r, options = options)
 
 # Restrict to the real critical points
 pts = real_solutions(res0)

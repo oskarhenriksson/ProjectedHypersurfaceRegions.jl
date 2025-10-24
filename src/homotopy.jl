@@ -141,5 +141,5 @@ function critical_points(r::RoutingGradient;
     target_parameters!(H, zeros(ComplexF64, length(p0)))
     result = HomotopyContinuation.solve(H, result_intermediate)
 
-    result
+    result, mon_result
 end
