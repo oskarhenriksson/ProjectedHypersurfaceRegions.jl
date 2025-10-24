@@ -1,7 +1,7 @@
 
 # Computing complements of real hypersurfaces using pseudowitness sets
 
-This repository contains code for the project _Computing complements of real hypersurfaces using pseudowitness sets_ by Paul Breiding, John Cobb, Aviva Englander, Nayda Farnsworth, Jon Hauenstein, Oskar Henriksson, David Johnson, Jordy Garcia, and Deepak Mundayur.
+This repository contains code for the project _Computing complements of real hypersurfaces using pseudowitness sets_ by Paul Breiding, John Cobb, Aviva Englander, Nayda Farnsworth, Jon Hauenstein, Oskar Henriksson, David Johnson, Jordy Lopez Garcia, and Deepak Mundayur.
 
 ## Running the code 
 
