@@ -53,7 +53,8 @@ julia> ∇r = RoutingGradient(F, [a, b]);
 We find the critical points via the `critical_points` function (the exact output depends on the randomized choice of center point `c` that happens when the routing function is created):
 
 ```julia-repl   
-julia> pts = critical_points(∇r) |> real_solutions
+julia> res, mon_res = critical_points(∇r);
+julia> routing_points = real_solutions(res);
 4-element Vector{Vector{Float64}}:
  [-5.175022390506237, -7.4163002433454395]
  [2.7890571286291124, 7.76755857260763]
@@ -64,7 +65,7 @@ julia> pts = critical_points(∇r) |> real_solutions
 Finally, we connect the critical points that belong to the same component of the complement:
 
 ```julia-repl
-julia> G, idx, failed_info = partition_of_critical_points(∇r, pts);
+julia> G, idx, failed_info = partition_of_critical_points(∇r, routing_points);
 ```
 
 The first output `G` describes the connected components. We see that the first, third and fourth critical points belong to the same connected component, and that the second one belongs to its own component:

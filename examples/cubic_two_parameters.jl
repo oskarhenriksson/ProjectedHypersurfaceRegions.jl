@@ -26,7 +26,7 @@ options = MonodromyOptions(
     max_loops_no_progress = 10 # change the stopping criterion
 )
 
-res0 = critical_points(r, options = options)
+res0, mon_res = critical_points(r, options = options)
 pts = real_solutions(res0)
 
 # Connecting 
@@ -54,14 +54,16 @@ contour(
 )
 
 
-implicit_plot!(
+implicit_plot(
     h; 
     xlims = (-M_x, M_x),
     ylims = (-M_y, M_y),
     linecolor = :black,
     linewidth = 6,
-    label = "discriminant"
+    label = "discriminant",
+	legend = false
 )
+savefig("./figures/cubic_discriminant.png")
 
 
 ## plot flow
@@ -99,7 +101,7 @@ for (i, component) in enumerate(G)
     scatter!(Tuple.(pts[component]), markercolor = palette[i], markersize = 8, label = "Critical points in region $i")
 end
 
-plot!(; legend = :bottomright, dpi=400, legendfontsize=6)
+plot!(; legend = false, dpi=400, legendfontsize=6, yticks=false, xticks=false)
 
-savefig("./figures/example_cubic.svg")
+savefig("./figures/example_cubic_without_legend.svg")
 savefig("./figures/example_cubic.png")

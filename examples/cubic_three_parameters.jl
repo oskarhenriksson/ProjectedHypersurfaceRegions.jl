@@ -21,7 +21,7 @@ c = 10 .* randn(k)
 r = RoutingGradient(F, projection_variables; c=c)
 
 # critical points
-res = critical_points(r) # should be 22
+res, mon_res = critical_points(r) # should be 22
 pts = real_solutions(res)
 
 ### connecting 

@@ -89,7 +89,9 @@ function ModelKit.taylor!(u, v::Val, H::RoutingPointsHomotopy, tx, t)
 end
 
 import HomotopyContinuation: MonodromyOptions, UniquePoints, EndgameTracker
-function critical_points(r::RoutingGradient; 
+function critical_points(r::RoutingGradient,
+                            S0::Union{AbstractVector{<:AbstractVector{<:Number}}, Nothing} = nothing,
+                            p0::Union{AbstractVector{<:Number}, Nothing} = nothing;
                             options = MonodromyOptions(parameter_sampler = p -> 10 .* randn(ComplexF64, length(p))),  
                             seed = rand(UInt32))
     k = size(r, 2) # number of variables
@@ -121,15 +123,18 @@ function critical_points(r::RoutingGradient;
     )
 
     #### set up start pair
-    s0 = randn(ComplexF64, k)
-    p0 = evaluate(r, s0)
+    if isnothing(p0) || isnothing(S0)
+        s0 = randn(ComplexF64, k)
+        p0 = evaluate(r, s0)
+        S0 = [s0]
+    end
 
     ### Monodromy 
     mon_result = monodromy_solve(
         MS,
-        s0,
+        S0,
         p0,
-        seed;
+        rand(UInt32);
     )
 
     ### move to parameter = 0
@@ -141,5 +146,5 @@ function critical_points(r::RoutingGradient;
     target_parameters!(H, zeros(ComplexF64, length(p0)))
     result = HomotopyContinuation.solve(H, result_intermediate)
 
-    result
+    result, mon_result
 end

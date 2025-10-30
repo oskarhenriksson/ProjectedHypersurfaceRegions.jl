@@ -36,7 +36,8 @@ options = MonodromyOptions(
     parameter_sampler = p -> 10 .* randn(ComplexF64, length(p)), # bigger loops
     max_loops_no_progress = 10 # change the stopping criterion
 )
-res = critical_points(r, options = options)
+
+res, mon_res = critical_points(r, options = options)
 pts = real_solutions(res)
 
 # connecting 

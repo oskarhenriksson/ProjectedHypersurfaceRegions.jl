@@ -26,13 +26,34 @@ C = rand(2)
 d = degree(∇r.PWS)
 
 ### Critical points
-res = critical_points(∇r)
+
+# Find the complex critical points with monodromy
+options = MonodromyOptions(
+    parameter_sampler = p -> 10 .* randn(ComplexF64, length(p)), # bigger loops
+    max_loops_no_progress = 10 # change the stopping criterion
+)
+
+res, mon_res = critical_points(∇r, options = options)
+write_parameters("kuramoto_monodromy_parameters.txt", parameters(mon_res))
+write_solutions("kuramoto_monodromy_result.txt", solutions(mon_res)) 
+write_solutions("kuramoto_result.txt", solutions(res))
+
+# Try another round of monodromy (only if you think the first attempt missed solutions)
+res, mon_res = critical_points(∇r, solutions(mon_res), parameters(mon_res), options = options)
+write_parameters("kuramoto_monodromy_parameters.txt", parameters(mon_res))
+write_solutions("kuramoto_monodromy_result.txt", solutions(mon_res)) 
+write_solutions("kuramoto_result.txt", solutions(res))
+
+# Extract the real critical points
 pts = real_solutions(res)
+write_solutions("kuramoto_routing_points.txt", pts)
 
 ### Connected components
 G, idx, failed_info = partition_of_critical_points(∇r, pts)
+write_solutions("kuramoto_components.txt", G)
+write_parameters("kuramoto_components.txt", Int.(idx))
 
-### Plotting 
+### Plotting
 M_x = maximum(p -> abs(p[1]), pts) + 6
 M_y = maximum(p -> abs(p[2]), pts) + 6
 
