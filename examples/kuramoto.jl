@@ -39,7 +39,7 @@ write_solutions("kuramoto_monodromy_result.txt", solutions(mon_res))
 write_solutions("kuramoto_result.txt", solutions(res))
 
 # Try another round of monodromy (only if you think the first attempt missed solutions)
-res, mon_res = critical_points(∇r, solutions(mon_res), parameters(mon_res), options = options)
+res, mon_res = critical_points(r, solutions(mon_res), parameters(mon_res), options = options)
 write_parameters("kuramoto_monodromy_parameters.txt", parameters(mon_res))
 write_solutions("kuramoto_monodromy_result.txt", solutions(mon_res)) 
 write_solutions("kuramoto_result.txt", solutions(res))
@@ -50,15 +50,12 @@ write_solutions("kuramoto_routing_points.txt", pts)
 
 ### Connected components
 G, idx, failed_info = partition_of_critical_points(∇r, pts)
-write_solutions("kuramoto_components.txt", G)
+write_solutions("kuramoto_components.txt", map(g -> Int.(g), G))
 write_parameters("kuramoto_components.txt", Int.(idx))
 
 ### Plotting
-M_x = maximum(p -> abs(p[1]), pts) + 6
-M_y = maximum(p -> abs(p[2]), pts) + 6
-
-M_x = 1
-M_y = 1
+M_x = maximum(p -> abs(p[1]), pts)*1.05
+M_y = maximum(p -> abs(p[2]), pts)*1.05
 
 # Plot the discriminant
 h(x, y) = 314928*x^8*y^4 + 1259712*x^7*y^5 + 1889568*x^6*y^6 + 1259712*x^5*y^7 + 
@@ -114,24 +111,24 @@ for u0 in pts1
 	flow = Tuple.(sol.u)
 	l = length(flow)
 	k = div(l, 3)
-	plot!(flow[1:k], linecolor = :steelblue, linewidth = 3, label = false, arrow = true)
-	plot!(flow[k:end], linecolor = :steelblue, linewidth = 3, label = false)
+	plot!(flow[1:k], linecolor = :steelblue, linewidth = 2, label = false, arrow = true)
+	plot!(flow[k:end], linecolor = :steelblue, linewidth = 2, label = false)
 	prob = ODEProblem(g, u0 - 0.01*v, tspan)
 	sol = DE.solve(prob, reltol = 1e-6, abstol = 1e-6)
 	flow = Tuple.(sol.u)
 	l = length(flow)
 	k = div(l, 3)
-	plot!(flow[1:k], linecolor = :steelblue, linewidth = 3, label = false, arrow = true)
-	plot!(flow[k:end], linecolor = :steelblue, linewidth = 3, label = false)
+	plot!(flow[1:k], linecolor = :steelblue, linewidth = 2, label = false, arrow = true)
+	plot!(flow[k:end], linecolor = :steelblue, linewidth = 2, label = false)
 end
 
 # Plot the critical points
 palette = collect(range(colorant"darkgreen", stop=colorant"lightgreen", length=length(G)))
 for (i, component) in enumerate(G)
-    scatter!(Tuple.(pts[component]), markercolor = palette[i], markersize = 8, label = "Critical points in region $i")
+    scatter!(Tuple.(pts[component]), markercolor = palette[i], markersize = 3, label = "Critical points in region $i")
 end
 
 plot!(; legend = false, dpi=400, legendfontsize=6, yticks=false, xticks=false)
 
-# savefig("./figures/kuramoto.svg")
-# savefig("./figures/kuramoto.png")
+savefig("./figures/kuramoto.svg")
+savefig("./figures/kuramoto.png")
