@@ -1,12 +1,15 @@
-# Ecological system from https://www.worldscientific.com/doi/abs/10.1142/S0218127421502023
-# Unknown computation time
+# Algebraic formulation of the Kuramoto model with three oscillators
+# See, e.g., https://doi.org/10.1063/1.4919696
 
-using Pkg, Random, Plots, ImplicitPlots
+using Pkg
 Pkg.activate(".")
+using Random, Plots, ImplicitPlots
 
 include("../src/functions.jl");
 
-Random.seed!(0x8b868320)
+Random.seed!(12345)
+
+time_start = time()
 
 ### Set up incidence variety of discriminant
 @var s[1:2] c[1:2] w[1:2]
@@ -22,6 +25,7 @@ F = System([steady_state; detJac], variables = [s; c; w])
 
 ### Routing gradient
 C = rand(2)
+write_parameters("./results/kuramoto/center.txt", C)
 ∇r = RoutingGradient(F, w, c=C);
 d = degree(∇r.PWS)
 
@@ -29,29 +33,27 @@ d = degree(∇r.PWS)
 
 # Find the complex critical points with monodromy
 options = MonodromyOptions(
-    parameter_sampler = p -> 10 .* randn(ComplexF64, length(p)), # bigger loops
-    max_loops_no_progress = 10 # change the stopping criterion
+    parameter_sampler = p -> 20 .* randn(ComplexF64, length(p)), # bigger loops
+    max_loops_no_progress = 15 # change the stopping criterion
 )
 
 res, mon_res = critical_points(∇r, options = options)
-write_parameters("kuramoto_monodromy_parameters.txt", parameters(mon_res))
-write_solutions("kuramoto_monodromy_result.txt", solutions(mon_res)) 
-write_solutions("kuramoto_result.txt", solutions(res))
 
-# Try another round of monodromy (only if you think the first attempt missed solutions)
-res, mon_res = critical_points(r, solutions(mon_res), parameters(mon_res), options = options)
-write_parameters("kuramoto_monodromy_parameters.txt", parameters(mon_res))
-write_solutions("kuramoto_monodromy_result.txt", solutions(mon_res)) 
-write_solutions("kuramoto_result.txt", solutions(res))
+write_parameters("./results/kuramoto/monodromy_parameters.txt", parameters(mon_res))
+write_solutions("./results/kuramoto/monodromy_result.txt", solutions(mon_res)) 
+write_solutions("./results/kuramoto/result.txt", solutions(res))
 
 # Extract the real critical points
 pts = real_solutions(res)
-write_solutions("kuramoto_routing_points.txt", pts)
+write_solutions("./results/kuramoto/routing_points.txt", pts)
 
 ### Connected components
 G, idx, failed_info = partition_of_critical_points(∇r, pts)
-write_solutions("kuramoto_components.txt", map(g -> Int.(g), G))
-write_parameters("kuramoto_components.txt", Int.(idx))
+write_solutions("./results/kuramoto/components.txt", map(g -> Int.(g), G))
+write_parameters("./results/kuramoto/components.txt", Int.(idx))
+
+time_end = time()
+println("Computation time: $(time_end - time_start) seconds")
 
 ### Plotting
 M_x = maximum(p -> abs(p[1]), pts)*1.05
@@ -139,3 +141,22 @@ plot!(, xlims = (-1, 1), ylims = (-1, 1))
 
 savefig("./figures/kuramoto_zoomed_in.svg")
 savefig("./figures/kuramoto_zoomed_in.png")
+
+
+# Try another round of monodromy (only if you think the first attempt missed solutions)
+old_number_of_monodromy_solutions = length(solutions(mon_res))
+options = MonodromyOptions(
+    parameter_sampler = p -> 100 .* randn(ComplexF64, length(p)), # bigger loops
+    max_loops_no_progress = 15 # change the stopping criterion
+)
+res, mon_res = critical_points(∇r, solutions(mon_res), parameters(mon_res), options = options)
+if length(solutions(mon_res)) > old_number_of_monodromy_solutions
+    println("Found new solutions with additional monodromy round!")
+    write_parameters("./results/kuramoto/monodromy_parameters.txt", parameters(mon_res))
+    write_solutions("./results/kuramoto/monodromy_result.txt", solutions(mon_res)) 
+    write_solutions("./results/kuramoto/result.txt", solutions(res))
+else
+    println("No new solutions found in the additional monodromy round.")
+end
+
+# If new solutions were found, repeat the steps above manually!
