@@ -112,7 +112,7 @@ function track_pws_to_line!(
         GC.line_hypersurface_intersections[1][l] .= solution(GC.tracker)
         GC.track_report[l] = all(isfinite, GC.line_hypersurface_intersections[1][l]) # note if the track was successful or not
         if GC.track_report[l] == false
-            @warn "Track $l failed. This point will be ignored in gradient and Hessian computations."
+            #@warn "Track $l failed. This point will be ignored in gradient and Hessian computations."
         end
     end
 end
