@@ -57,7 +57,6 @@ write_parameters("kuramoto_components.txt", Int.(idx))
 M_x = maximum(p -> abs(p[1]), pts)*1.05
 M_y = maximum(p -> abs(p[2]), pts)*1.05
 
-# Plot the discriminant
 h(x, y) = 314928*x^8*y^4 + 1259712*x^7*y^5 + 1889568*x^6*y^6 + 1259712*x^5*y^7 + 
     314928*x^4*y^8 + 139968*x^10 + 699840*x^9*y + 1277208*x^8*y^2 + 
     909792*x^7*y^3 - 279936*x^6*y^4 - 1084752*x^5*y^5 - 279936*x^4*y^6 + 
@@ -68,18 +67,8 @@ h(x, y) = 314928*x^8*y^4 + 1259712*x^7*y^5 + 1889568*x^6*y^6 + 1259712*x^5*y^7 +
     68040*x*y^5 + 22680*y^6 - 2298*x^4 - 4596*x^3*y - 6894*x^2*y^2 - 4596*x*y^3 - 2298*y^4 + 
     96*x^2 + 96*x*y + 96*y^2 - 1;
 
-implicit_plot(
-    h; 
-    xlims = (-M_x, M_x),
-    ylims = (-M_y, M_y),
-    linecolor = :black,
-    linewidth = 6,
-    label = "discriminant",
-	legend = false
-)
-
 # Plot the routing function
-e = degree(∇r.PWS)
+e = ∇r.e
 R(x, y) = log(abs(h(x,y) / (1 + (x-C[1])^2 + (y-C[2])^2)^e))
 contour(
     (-M_x):0.01:M_x,
@@ -92,6 +81,18 @@ contour(
     lw = 1,
     fill = true,
 )
+
+# Plot the discriminant
+implicit_plot!(
+    h; 
+    xlims = (-M_x, M_x),
+    ylims = (-M_y, M_y),
+    linecolor = :black,
+    linewidth = 2,
+    label = "discriminant",
+	legend = false
+)
+
 
 # Plot gradient flow
 pts1 = pts[idx .!= 0]
@@ -111,14 +112,14 @@ for u0 in pts1
 	flow = Tuple.(sol.u)
 	l = length(flow)
 	k = div(l, 3)
-	plot!(flow[1:k], linecolor = :steelblue, linewidth = 2, label = false, arrow = true)
+	plot!(flow[1:k], linecolor = :steelblue, linewidth = 2, label = false, arrow = :closed)
 	plot!(flow[k:end], linecolor = :steelblue, linewidth = 2, label = false)
 	prob = ODEProblem(g, u0 - 0.01*v, tspan)
 	sol = DE.solve(prob, reltol = 1e-6, abstol = 1e-6)
 	flow = Tuple.(sol.u)
 	l = length(flow)
 	k = div(l, 3)
-	plot!(flow[1:k], linecolor = :steelblue, linewidth = 2, label = false, arrow = true)
+	plot!(flow[1:k], linecolor = :steelblue, linewidth = 2, label = false, arrow = :closed)
 	plot!(flow[k:end], linecolor = :steelblue, linewidth = 2, label = false)
 end
 
@@ -128,7 +129,13 @@ for (i, component) in enumerate(G)
     scatter!(Tuple.(pts[component]), markercolor = palette[i], markersize = 3, label = "Critical points in region $i")
 end
 
-plot!(; legend = false, dpi=400, legendfontsize=6, yticks=false, xticks=false)
+plot!(; legend = true, dpi=400, legendfontsize=6)
+#plot!(; legend = false, dpi=400, legendfontsize=6, yticks=false, xticks=false)
 
 savefig("./figures/kuramoto.svg")
 savefig("./figures/kuramoto.png")
+
+plot!(, xlims = (-1, 1), ylims = (-1, 1))
+
+savefig("./figures/kuramoto_zoomed_in.svg")
+savefig("./figures/kuramoto_zoomed_in.png")
