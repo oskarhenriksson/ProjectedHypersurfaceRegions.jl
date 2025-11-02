@@ -24,7 +24,7 @@ detJac = expand(det(Jac)/4)
 F = System([steady_state; detJac], variables = [s; c; w])
 
 ### Routing gradient
-C = rand(2)
+C = rand(2) / 2
 write_parameters("./results/kuramoto/center.txt", C)
 ∇r = RoutingGradient(F, w, c=C);
 d = degree(∇r.PWS)
@@ -33,7 +33,7 @@ d = degree(∇r.PWS)
 
 # Find the complex critical points with monodromy
 options = MonodromyOptions(
-    parameter_sampler = p -> 20 .* randn(ComplexF64, length(p)), # bigger loops
+    parameter_sampler = p -> 10 .* randn(ComplexF64, length(p)), # bigger loops
     max_loops_no_progress = 15 # change the stopping criterion
 )
 
@@ -49,8 +49,7 @@ write_solutions("./results/kuramoto/routing_points.txt", pts)
 
 ### Connected components
 G, idx, failed_info = partition_of_critical_points(∇r, pts)
-write_solutions("./results/kuramoto/components.txt", map(g -> Int.(g), G))
-write_parameters("./results/kuramoto/components.txt", Int.(idx))
+write("./results/kuramoto/connected_components.txt", string(G))
 
 time_end = time()
 println("Computation time: $(time_end - time_start) seconds")
@@ -144,6 +143,7 @@ savefig("./figures/kuramoto_zoomed_in.png")
 
 
 # Try another round of monodromy (only if you think the first attempt missed solutions)
+println("Running second round of monodromy...")
 old_number_of_monodromy_solutions = length(solutions(mon_res))
 options = MonodromyOptions(
     parameter_sampler = p -> 100 .* randn(ComplexF64, length(p)), # bigger loops
@@ -152,9 +152,6 @@ options = MonodromyOptions(
 res, mon_res = critical_points(∇r, solutions(mon_res), parameters(mon_res), options = options)
 if length(solutions(mon_res)) > old_number_of_monodromy_solutions
     println("Found new solutions with additional monodromy round!")
-    write_parameters("./results/kuramoto/monodromy_parameters.txt", parameters(mon_res))
-    write_solutions("./results/kuramoto/monodromy_result.txt", solutions(mon_res)) 
-    write_solutions("./results/kuramoto/result.txt", solutions(res))
 else
     println("No new solutions found in the additional monodromy round.")
 end
