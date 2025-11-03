@@ -55,6 +55,19 @@ write("./results/kuramoto/connected_components.txt", string(G))
 time_end = time()
 println("Computation time: $(time_end - time_start) seconds")
 
+### Analyze root counts
+S = System(steady_state, variables = [s; c], parameters = w)
+for (i, comp) in enumerate(G)
+    println("Connected component #$i")
+    root_counts = Int[]
+    for j in comp
+        real_steady_states = HC.solve(S, target_parameters=pts[j]) |> real_solutions
+        rc = length(real_steady_states)
+        push!(root_counts, rc)
+    end
+    println("Real root counts: $(root_counts)\n")
+end
+
 ### Plotting
 M_x = maximum(p -> abs(p[1]), pts)*1.05
 M_y = maximum(p -> abs(p[2]), pts)*1.05
@@ -137,7 +150,7 @@ plot!(; legend = true, dpi=400, legendfontsize=6)
 savefig("./figures/kuramoto.svg")
 savefig("./figures/kuramoto.png")
 
-plot!(, xlims = (-1, 1), ylims = (-1, 1))
+plot!(; xlims = (-1, 1), ylims = (-1, 1))
 
 savefig("./figures/kuramoto_zoomed_in.svg")
 savefig("./figures/kuramoto_zoomed_in.png")
