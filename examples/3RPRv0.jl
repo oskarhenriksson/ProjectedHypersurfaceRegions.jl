@@ -30,8 +30,7 @@ projection_variables = c
 
 # Set up routing function
 center = 5*rand(length(projection_variables))
-
-write_parameters("./results/3RPR/center.txt", center)
+write_parameters("./results/3RPRv0/center.txt", center)
 ∇r = RoutingGradient(F, projection_variables; c = center);
 
 # Degree of the discriminant
@@ -46,14 +45,14 @@ options = MonodromyOptions(
 res, mon_res = critical_points(∇r, options = options)
 pts = real_solutions(res)
 
-write_parameters("./results/3RPR/monodromy_parameters.txt", parameters(mon_res))
-write_solutions("./results/3RPR/monodromy_result.txt", solutions(mon_res)) 
-write_solutions("./results/3RPR/result.txt", solutions(res))
-write_solutions("./results/3RPR/routing_points.txt", pts)
+write_parameters("./results/3RPRv0/monodromy_parameters.txt", parameters(mon_res))
+write_solutions("./results/3RPRv0/monodromy_result.txt", solutions(mon_res)) 
+write_solutions("./results/3RPRv0/result.txt", solutions(res))
+write_solutions("./results/3RPRv0/routing_points.txt", pts)
 
 # Connected components 
 G, idx, failed_info = partition_of_critical_points(∇r, pts)
-write("./results/3RPR/connected_components.txt", string(G))
+write("./results/3RPRv0/connected_components.txt", string(G))
 
 t_end = time()
 println("Computation time: $(t_end - time_start) seconds")
