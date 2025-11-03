@@ -6,6 +6,7 @@ Pkg.activate(".")
 using Random, Plots, ImplicitPlots
 
 include("../src/functions.jl");
+mkpath("./results/kuramoto");
 
 Random.seed!(12345)
 
