@@ -39,7 +39,7 @@ M_y = maximum(p -> abs(p[2]), pts) + 6
 
 # Discriminant
 h(x, y) = 4*x^3 - x^2*y^2 - 18*x*y + 4*y^3 + 27
-e = degree(r.PWS)
+e = r.e
 R(x, y) = log(abs(h(x,y) / (1 + (x-c[1])^2 + (y-c[2])^2)^e))
 contour(
     (-M_x):0.1:M_x,
