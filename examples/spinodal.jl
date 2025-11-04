@@ -35,8 +35,7 @@ r = RoutingGradient(F, ε)
 d = degree(r.PWS) 
 
 # Routing points
-res, mon_res = critical_points(r)
-pts = real_solutions(res)
+pts, res, mon_res = critical_points(r)
 
 # Connected components
 G, idx, failed_info = partition_of_critical_points(r, pts)

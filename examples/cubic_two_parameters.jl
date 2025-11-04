@@ -26,8 +26,7 @@ options = MonodromyOptions(
     max_loops_no_progress = 10 # change the stopping criterion
 )
 
-res0, mon_res = critical_points(r, options = options)
-pts = real_solutions(res0)
+pts, res0, mon_res = critical_points(r, options = options)
 
 # Connecting 
 G, idx, failed_info = partition_of_critical_points(r, pts)

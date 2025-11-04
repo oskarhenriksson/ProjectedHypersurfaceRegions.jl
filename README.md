@@ -53,8 +53,8 @@ julia> ∇r = RoutingGradient(F, [a, b]);
 We find the critical points via the `critical_points` function (the exact output depends on the randomized choice of center point `c` that happens when the routing function is created):
 
 ```julia-repl   
-julia> res, mon_res = critical_points(∇r);
-julia> routing_points = real_solutions(res);
+julia> routing_points, res, mon_res = critical_points(∇r);
+julia> routing_points
 4-element Vector{Vector{Float64}}:
  [-5.175022390506237, -7.4163002433454395]
  [2.7890571286291124, 7.76755857260763]

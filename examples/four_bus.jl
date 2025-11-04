@@ -77,6 +77,5 @@ p0 = evaluate(r, s0) #This returns a vector of NaNs. Upon further inspection,
                      #track! is terminating with the code :terminated_invalid_startvalue_singular_jacobian
                      #Note that this is still happening after making the change of restricting to non-singular solutions in the witness set.
 
-### Monodromy 
-res, mon_res = critical_points(r)
-pts = real_solutions(res)
+### Routing points 
+pts, res, mon_res = critical_points(r)

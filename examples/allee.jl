@@ -32,8 +32,7 @@ options = MonodromyOptions(
     parameter_sampler = p -> 10 .* randn(ComplexF64, length(p)), # bigger loops
     max_loops_no_progress = 15 # change the stopping criterion
 )
-res, mon_res = critical_points(∇r, options = options)
-pts = real_solutions(res)
+pts, res, mon_res = critical_points(∇r, options = options)
 
 write_parameters("./results/allee/monodromy_parameters.txt", parameters(mon_res))
 write_solutions("./results/allee/monodromy_result.txt", solutions(mon_res)) 

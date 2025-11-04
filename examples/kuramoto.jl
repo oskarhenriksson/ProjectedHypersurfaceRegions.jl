@@ -31,21 +31,16 @@ write_parameters("./results/kuramoto/center.txt", C)
 d = degree(∇r.PWS)
 
 ### Critical points
-
-# Find the complex critical points with monodromy
 options = MonodromyOptions(
     parameter_sampler = p -> 10 .* randn(ComplexF64, length(p)), # bigger loops
     max_loops_no_progress = 15 # change the stopping criterion
 )
 
-res, mon_res = critical_points(∇r, options = options)
+pts, res, mon_res = critical_points(∇r, options = options)
 
 write_parameters("./results/kuramoto/monodromy_parameters.txt", parameters(mon_res))
 write_solutions("./results/kuramoto/monodromy_result.txt", solutions(mon_res)) 
 write_solutions("./results/kuramoto/result.txt", solutions(res))
-
-# Extract the real critical points
-pts = real_solutions(res)
 write_solutions("./results/kuramoto/routing_points.txt", pts)
 
 ### Connected components
