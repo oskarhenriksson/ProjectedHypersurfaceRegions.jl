@@ -53,7 +53,7 @@ contour(
 )
 
 
-implicit_plot(
+implicit_plot!(
     h; 
     xlims = (-M_x, M_x),
     ylims = (-M_y, M_y),
@@ -62,7 +62,6 @@ implicit_plot(
     label = "discriminant",
 	legend = false
 )
-savefig("./figures/cubic_discriminant.png")
 
 
 ## plot flow
