@@ -160,9 +160,10 @@ function critical_points(r::RoutingGradient,
         if !monodromy_at_zero
             start_parameters!(H, zeros(ComplexF64, length(rhs0)));
             target_parameters!(H, rhs0);
-            s0_new_sols = HC.solve(H, new_pts) |> solutions
-            S0 = HC.unique_points([S0; s0_new_sols])
-            verbose && println("Traced to $(length(S0)-1) additional start solutions for the monodromy.")
+            S0_new_sols = HC.solve(H, new_pts) |> solutions
+            number_of_old_sols = length(S0)
+            S0 = HC.unique_points([S0; S0_new_sols])
+            verbose && println("Traced to $(length(S0)-number_of_old_sols) additional start solutions for the monodromy.")
         else
             S0 = [S0; new_pts]
         end
