@@ -10,7 +10,7 @@ mkpath("./results/3RPRv0")
 
 Random.seed!(12345)
 
-time_start = time()
+time_start_round1 = time()
 
 # Set up incidence variety of the discriminant
 a2 = 14//10; a3 = 7//10; b3 = 1; A2 = 16//10; A3 = 9//10; B3 = 6//10; c3 = 1;
@@ -39,7 +39,7 @@ println("Degree of discriminant: $d")
 
 # Routing points
 options = MonodromyOptions(
-    parameter_sampler = p -> 10 .* randn(ComplexF64, length(p)), # bigger loops
+    parameter_sampler = p -> 100 .* randn(ComplexF64, length(p)), # bigger loops
     max_loops_no_progress = 15 # change the stopping criterion
 )
 pts, res, mon_res = critical_points(∇r, options = options)
@@ -53,8 +53,8 @@ write_solutions("./results/3RPRv0/routing_points.txt", pts)
 G, idx, failed_info = partition_of_critical_points(∇r, pts)
 write("./results/3RPRv0/connected_components.txt", string(G))
 
-t_end = time()
-println("Computation time: $(t_end - time_start) seconds")
+time_end_round1 = time()
+println("Computation time for round 1: $(time_end_round1 - time_start_round1) seconds")
 
 # Analyze root counts
 S = System(f, variables = vcat(p,φ), parameters = projection_variables)
@@ -156,17 +156,27 @@ savefig("./figures/3RPR_zoomed_in.png")
 
 # Try another round of monodromy (only if you think the first attempt missed solutions)
 println("Running second round of monodromy...")
+time_start_round2 = time()
 old_number_of_monodromy_solutions = length(solutions(mon_res))
 options = MonodromyOptions(
-    parameter_sampler = p -> 100 .* randn(ComplexF64, length(p)), # bigger loops
+    parameter_sampler = p -> 10 .* randn(ComplexF64, length(p)), # smaller loops
     max_loops_no_progress = 15 # change the stopping criterion
 )
-res, mon_res = critical_points(∇r, solutions(mon_res), parameters(mon_res), options = options)
+pts, res, mon_res = critical_points(∇r, solutions(mon_res), parameters(mon_res), options = options)
 if length(solutions(mon_res)) > old_number_of_monodromy_solutions
     println("Found new solutions with additional monodromy round!")
+    write_parameters("./results/3RPRv0/monodromy_parameters.txt", parameters(mon_res))
+    write_solutions("./results/3RPRv0/monodromy_result.txt", solutions(mon_res)) 
+    write_solutions("./results/3RPRv0/result.txt", solutions(res))
+    write_solutions("./results/3RPRv0/routing_points.txt", pts)
+    G, idx, failed_info = partition_of_critical_points(∇r, pts)
+    write("./results/3RPRv0/connected_components.txt", string(G))
 else
     println("No new solutions found in the additional monodromy round.")
 end
+
+time_round2 = time()
+println("Additional computation time for round 2: $(time_round2 - time_start_round2) seconds")
 
 # If new solutions were found, repeat the steps above manually!
 
