@@ -91,7 +91,10 @@ end
 import HomotopyContinuation: MonodromyOptions, UniquePoints, EndgameTracker
 function critical_points(r::RoutingGradient,
                             S0::Union{AbstractVector{<:AbstractVector{<:Number}}, Nothing} = nothing,
-                            p0::Union{AbstractVector{<:Number}, Nothing} = nothing;
+                            rhs0::Union{AbstractVector{<:Number}, Nothing} = nothing;
+                            verbose = true,
+                            num_gradient_flow_starts = 100,
+                            monodromy_at_zero = false,
                             options = MonodromyOptions(parameter_sampler = p -> 10 .* randn(ComplexF64, length(p))),  
                             seed = rand(UInt32))
     k = size(r, 2) # number of variables
@@ -99,8 +102,8 @@ function critical_points(r::RoutingGradient,
     q1 = randn(k)
     H = RoutingPointsHomotopy(r, p1, q1)
 
-    ### Use monodromy to the system ∇r = p0 where we view the right-hand side are the parameters of the system
-    egtracker = EndgameTracker(H) # we want to add options later 
+    ### Use monodromy to the system ∇r = rhs0 where we view the right-hand side are the parameters of the system
+    egtracker = EndgameTracker(H) # we want to add options later
     trackers = [egtracker]
     x₀ = zeros(ComplexF64, size(H, k))
 
@@ -123,28 +126,77 @@ function critical_points(r::RoutingGradient,
     )
 
     #### set up start pair
-    if isnothing(p0) || isnothing(S0)
-        s0 = randn(ComplexF64, k)
-        p0 = evaluate(r, s0)
-        S0 = [s0]
+    if !monodromy_at_zero
+        if isnothing(rhs0) || isnothing(S0)
+            s0 = randn(ComplexF64, k)
+            rhs0 = evaluate(r, s0)
+            S0 = [s0]
+        end
+    else
+        rhs0 = zeros(k)
+        if isnothing(S0)
+            S0 = Vector{ComplexF64}[]
+        end
     end
 
-    ### Monodromy 
+    ### Expand S0: find solutions of ∇r=0 through gradient descent and trace to ∇r=rhs0
+    new_pts = Vector{ComplexF64}[]
+    g(x, param, t) = real(evaluate(r, x))
+    tspan = (0.0, 1e4)
+
+    if num_gradient_flow_starts>0
+        verbose && println("Expanding the set of start solutions via gradient flow...")
+        for _ in 1:num_gradient_flow_starts
+            start_point = randn(k)
+            v = randn(k); v = v / norm(v);
+            prob = ODEProblem(g, start_point+0.001*v, tspan)
+            sol = DE.solve(prob, reltol = 1e-6, abstol = 1e-6)
+            convergence_point = last(sol.u)
+            improved_point = newton(r, convergence_point) |> solution
+            push!(new_pts, improved_point)
+        end
+        new_pts = HC.unique_points(new_pts)
+        verbose && println("Found $(length(new_pts)) routing points via gradient flow.")
+        if !monodromy_at_zero
+            start_parameters!(H, zeros(ComplexF64, length(rhs0)));
+            target_parameters!(H, rhs0);
+            S0_new_sols = HC.solve(H, new_pts) |> solutions
+            number_of_old_sols = length(S0)
+            S0 = HC.unique_points([S0; S0_new_sols])
+            verbose && println("Traced to $(length(S0)-number_of_old_sols) additional start solutions for the monodromy.")
+        else
+            S0 = [S0; new_pts]
+        end
+    end
+
+    ### Monodromy
     mon_result = monodromy_solve(
         MS,
         S0,
-        p0,
+        rhs0,
         rand(UInt32);
     )
 
-    ### move to parameter = 0
-    intermediate_p = randn(ComplexF64, length(p0))
-    start_parameters!(H, p0)
-    target_parameters!(H, intermediate_p)
-    result_intermediate = HomotopyContinuation.solve(H, solutions(mon_result))
-    start_parameters!(H, intermediate_p)
-    target_parameters!(H, zeros(ComplexF64, length(p0)))
-    result = HomotopyContinuation.solve(H, result_intermediate)
+    ### Trace to ∇r=0
+    if !monodromy_at_zero
+        intermediate_rhs = randn(ComplexF64, length(rhs0))
+        start_parameters!(H, rhs0)
+        target_parameters!(H, intermediate_rhs)
+        result_intermediate = HomotopyContinuation.solve(H, solutions(mon_result))
+        start_parameters!(H, intermediate_rhs)
+        target_parameters!(H, zeros(ComplexF64, length(rhs0)))
+        result = HomotopyContinuation.solve(H, result_intermediate)
+        routing_points = real_solutions(result)
 
-    result, mon_result
+        # Make sure none of the routing points found via gradient flow are lost
+        if num_gradient_flow_starts>0
+            routing_points = HC.unique_points([routing_points; real.(new_pts)])
+        end
+        return routing_points, result, mon_result
+    else
+        routing_points = real_solutions(results(mon_result))
+        return routing_points, mon_result, mon_result
+    end
+
+    return routing_points, result, mon_result
 end

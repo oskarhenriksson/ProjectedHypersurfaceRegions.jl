@@ -20,15 +20,94 @@ k = length(projection_variables)
 c = [13.758979284873828, -0.09884333335596635]
 r = RoutingGradient(F, projection_variables; c = c)
 
-# Critical points
+# Set up homotopy and monodromy solver
 options = MonodromyOptions(
     parameter_sampler = p -> 10 .* randn(ComplexF64, length(p)), # bigger loops
     max_loops_no_progress = 10 # change the stopping criterion
 )
 
-pts, res0, mon_res = critical_points(r, options = options)
+p1 = zeros(k)
+q1 = randn(k)
+H = RoutingPointsHomotopy(r, p1, q1)
+egtracker = EndgameTracker(H) # we want to add options later 
+trackers = [egtracker]
+x₀ = zeros(ComplexF64, size(H, k))
+unique_points = UniquePoints(
+	x₀,
+	1;
+)
+trace = zeros(ComplexF64, length(x₀) + 1, 3)
+P = Vector{ComplexF64}
+MS = HomotopyContinuation.MonodromySolver(
+	trackers,
+	HomotopyContinuation.MonodromyLoop{P}[],
+	unique_points,
+	ReentrantLock(),
+	options,
+	HomotopyContinuation.MonodromyStatistics(),
+	trace,
+	ReentrantLock(),
+)
 
-# Connecting 
+# Start pair
+s0 = randn(ComplexF64, k)
+p0 = evaluate(r, s0)
+S0 = [s0]
+
+##########################################
+
+num_gradient_flow_starts = 10
+
+# Find solutions of ∇r=0 through gradient descent
+# Then trace them back to solutions of ∇r=p0 and add them to S0
+new_pts = Vector{ComplexF64}[]
+g(x, param, t) = real(evaluate(r, x))
+tspan = (0.0, 1e4)
+
+println("Expanding the set of start solutions via gradient flow...")
+
+for _ in 1:num_gradient_flow_starts
+    start_point = randn(k)
+    v = randn(k); v = v / norm(v);
+    prob = ODEProblem(g, start_point+0.001*v, tspan)
+    sol = DE.solve(prob, reltol = 1e-6, abstol = 1e-6)
+    convergence_point = last(sol.u)
+    improved_point = newton(r, convergence_point) |> solution
+    push!(new_pts, improved_point)
+end
+new_pts = HC.unique_points(new_pts)
+
+println("Found $(length(new_pts)) routing points via gradient flow.")
+
+start_parameters!(H, zeros(ComplexF64, length(p0)));
+target_parameters!(H, p0);
+s0_new_sols = HC.solve(H, new_pts) |> solutions
+S0 = HC.unique_points([S0; s0_new_sols])
+
+println("Traced to $(length(S0)-1) additional start solutions for the monodromy.")
+
+##########################################
+
+# Now do the monodromy step
+mon_result = monodromy_solve(
+	MS,
+	S0,
+	p0,
+	rand(UInt32);
+)
+
+# Move back ∇r = 0
+intermediate_p = randn(ComplexF64, length(p0))
+start_parameters!(H, p0)
+target_parameters!(H, intermediate_p)
+result_intermediate = HomotopyContinuation.solve(H, solutions(mon_result))
+start_parameters!(H, intermediate_p)
+target_parameters!(H, zeros(ComplexF64, length(p0)))
+result = HomotopyContinuation.solve(H, result_intermediate)
+
+pts = real_solutions(result)
+
+# Connecting the routing points
 G, idx, failed_info = partition_of_critical_points(r, pts)
 G
 
@@ -52,8 +131,7 @@ contour(
     fill = true,
 )
 
-
-implicit_plot!(
+implicit_plot(
     h; 
     xlims = (-M_x, M_x),
     ylims = (-M_y, M_y),
@@ -62,7 +140,6 @@ implicit_plot!(
     label = "discriminant",
 	legend = false
 )
-
 
 ## plot flow
 pts1 = pts[idx .!= 0]
@@ -101,5 +178,5 @@ end
 
 plot!(; legend = false, dpi=400, legendfontsize=6, yticks=false, xticks=false)
 
-savefig("./figures/example_cubic_without_legend.svg")
-savefig("./figures/example_cubic.png")
+# savefig("./figures/example_cubic.png")
+# savefig("./figures/example_cubic.svg")
