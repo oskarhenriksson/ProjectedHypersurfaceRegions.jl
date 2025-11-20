@@ -39,7 +39,7 @@ println("Degree of discriminant: $d")
 
 # Routing points
 options = MonodromyOptions(
-    parameter_sampler = p -> 100 .* randn(ComplexF64, length(p)), # bigger loops
+    parameter_sampler = p -> 10 .* randn(ComplexF64, length(p)), # bigger loops
     max_loops_no_progress = 15 # change the stopping criterion
 )
 pts, res, mon_res = critical_points(∇r, options = options)
@@ -159,7 +159,7 @@ println("Running second round of monodromy...")
 time_start_round2 = time()
 old_number_of_monodromy_solutions = length(solutions(mon_res))
 options = MonodromyOptions(
-    parameter_sampler = p -> 10 .* randn(ComplexF64, length(p)), # smaller loops
+    parameter_sampler = p -> 100 .* randn(ComplexF64, length(p)), # smaller loops
     max_loops_no_progress = 15 # change the stopping criterion
 )
 pts, res, mon_res = critical_points(∇r, solutions(mon_res), parameters(mon_res), options = options)
