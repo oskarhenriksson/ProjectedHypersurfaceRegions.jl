@@ -154,6 +154,12 @@ plot!(; xlims = (-1,M_x_max), ylims = (-1,M_y_max), legend=:topleft)
 savefig("./figures/3RPR_zoomed_in.svg")
 savefig("./figures/3RPR_zoomed_in.png")
 
+plot!(; xlims = (0,4), ylims = (0,4), legend=false)
+
+savefig("./figures/3RPR_zoomed_in_further.svg")
+savefig("./figures/3RPR_zoomed_in_further.png")
+
+
 # Try another round of monodromy (only if you think the first attempt missed solutions)
 println("Running second round of monodromy...")
 time_start_round2 = time()
