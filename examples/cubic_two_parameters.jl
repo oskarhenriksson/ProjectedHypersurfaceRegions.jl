@@ -51,8 +51,6 @@ contour(
     lw = 1,
     fill = true,
 )
-
-
 implicit_plot!(
     h; 
     xlims = (-M_x, M_x),
@@ -62,7 +60,6 @@ implicit_plot!(
     label = "discriminant",
 	legend = false
 )
-
 
 ## plot flow
 pts1 = pts[idx .!= 0]
@@ -101,5 +98,6 @@ end
 
 plot!(; legend = false, dpi=400, legendfontsize=6, yticks=false, xticks=false)
 
-savefig("./figures/example_cubic_without_legend.pdf")
-savefig("./figures/example_cubic.png")
+savefig("./figures/cubic.pdf")
+savefig("./figures/cubic.svg")
+savefig("./figures/cubic.png")

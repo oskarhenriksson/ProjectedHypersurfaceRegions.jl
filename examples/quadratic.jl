@@ -108,6 +108,6 @@ end
 
 plot!(; legend = :bottomright, dpi=400, legendfontsize=6)
 
-savefig("./figures/example_quadratic.png")
-savefig("./figures/example_quadratic.svg")
-savefig("./figures/example_quadratic.pdf")
+savefig("./figures/quadratic.png")
+savefig("./figures/quadratic.svg")
+savefig("./figures/quadratic.pdf")
