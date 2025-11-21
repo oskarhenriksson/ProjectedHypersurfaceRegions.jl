@@ -137,11 +137,13 @@ end
 
 plot!(; legend = false, dpi=400, legendfontsize=6)
 
+savefig("./figures/allee.pdf")
 savefig("./figures/allee.svg")
 savefig("./figures/allee.png")
 
 plot!(; xlims = (-1,M_x_max), ylims = (-1,M_y_max), legend=:topleft)
 
+savefig("./figures/allee.pdf")
 savefig("./figures/allee.svg")
 savefig("./figures/allee.png")
 

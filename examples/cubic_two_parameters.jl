@@ -101,5 +101,5 @@ end
 
 plot!(; legend = false, dpi=400, legendfontsize=6, yticks=false, xticks=false)
 
-savefig("./figures/example_cubic_without_legend.svg")
+savefig("./figures/example_cubic_without_legend.pdf")
 savefig("./figures/example_cubic.png")

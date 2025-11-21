@@ -179,4 +179,4 @@ end
 plot!(; legend = false, dpi=400, legendfontsize=6, yticks=false, xticks=false)
 
 # savefig("./figures/example_cubic.png")
-# savefig("./figures/example_cubic.svg")
+# savefig("./figures/example_cubic.pdf")
