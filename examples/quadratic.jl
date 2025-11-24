@@ -1,5 +1,4 @@
-using Pkg, Random, Plots, DifferentialEquations, Random, Plots, DifferentialEquations, LightGraphs
-Pkg.activate(".")
+using Random, Plots, DifferentialEquations, Random, Plots, DifferentialEquations, LightGraphs
 
 include("../src/functions.jl");
 

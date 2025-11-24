@@ -1,5 +1,3 @@
-using Pkg
-Pkg.activate(".")
 include("../src/functions.jl");
 
 @var κ[1:6] x[1:2] T[1:2]

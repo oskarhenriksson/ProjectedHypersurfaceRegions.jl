@@ -1,6 +1,4 @@
 # The lossless four bus system, with zero power injections.
-using Pkg
-Pkg.activate(".")
 include("../src/functions.jl");
 
 # In this lossless four bus system with zero power injections, we have 6 parameters (6 aij where i\neq j) and 6 variables (Vd[1:3], Vq[1:3])

@@ -1,5 +1,3 @@
-using Pkg
-Pkg.activate(".")
 using HomotopyContinuation, LinearAlgebra, DifferentialEquations
 include("../src/functions.jl")
 #Example host-range expansion. 3 dimensional system from this paper: https://epubs.siam.org/doi/10.1137/23M1605582

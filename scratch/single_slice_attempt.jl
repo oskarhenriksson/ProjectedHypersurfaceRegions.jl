@@ -1,7 +1,5 @@
 # An attempt to implement the single slice method for computing the Hessian
 
-using Pkg
-Pkg.activate(".")
 using HomotopyContinuation, LinearAlgebra, DifferentialEquations, Plots
 
 include("../src/functions.jl")

@@ -1,10 +1,9 @@
 # This is case 0 of Example 5.2 in the overleaf file
 # Reference: https://arxiv.org/pdf/1903.06126
 
-using Pkg, Random
-Pkg.activate(".")
 
-using Plots, ImplicitPlots
+
+using Plots, ImplicitPlots, Random
 include("../src/functions.jl");
 mkpath("./results/3RPRv0")
 

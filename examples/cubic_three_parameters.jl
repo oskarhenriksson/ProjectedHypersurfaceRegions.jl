@@ -1,5 +1,4 @@
-using Pkg, Random
-Pkg.activate(".")
+using Random
 
 include("../src/functions.jl");
 

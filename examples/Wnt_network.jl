@@ -5,8 +5,7 @@
 # In addition to avoiding the slow and memory intensive determinant, this should be faster
 # since it replaces a dense polynomial of high degree with 19 sparse polynomials of low degree
 
-using Pkg
-Pkg.activate(".")
+
 include("../src/functions.jl");
 
 @var κ[1:31] x[1:19] T[1:5]
