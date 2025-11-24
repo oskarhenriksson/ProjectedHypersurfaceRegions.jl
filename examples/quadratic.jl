@@ -55,8 +55,7 @@ contour(
 	color = :plasma,
 	clabels = false,
 	cbar = false,
-	lw = 1,
-	fill = true,
+	lw = 1
 )
 
 # Plot the discriminant
@@ -66,7 +65,7 @@ plot!(
 	xlims = (-M_x, M_x),
 	ylims = (-M_y, M_y),
 	linecolor = :black,
-	linewidth = 8,
+	linewidth = 4,
 	label = "discriminant",
 )
 

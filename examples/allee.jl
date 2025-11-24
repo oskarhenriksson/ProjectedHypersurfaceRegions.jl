@@ -6,7 +6,7 @@ using Random, Plots, ImplicitPlots
 include("../src/functions.jl");
 mkpath("./results/allee")
 
-Random.seed!(12345)
+Random.seed!(1234)
 
 t_start_round1 = time()
 
@@ -169,5 +169,6 @@ end
 
 t_end_round2 = time()
 println("Additional computation time for round 2: $(t_end_round2 - t_start_round2) seconds")
+println("Total computation time for round 1 and 2: $((t_end_round2 - t_start_round2) + (t_end_round1 - t_start_round1)) seconds")
 
 # If new solutions were found, repeat the steps above manually!

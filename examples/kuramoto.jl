@@ -92,8 +92,7 @@ contour(
     clabels = false,
     cbar = false,
     lw = 1,
-    fill = true,
-)
+);
 
 # Plot the discriminant
 implicit_plot!(
@@ -102,9 +101,10 @@ implicit_plot!(
     ylims = (-M_y, M_y),
     linecolor = :black,
     linewidth = 2,
+    resolution = 1600,
     label = "discriminant",
 	legend = false
-)
+);
 
 
 # Plot gradient flow
@@ -124,14 +124,14 @@ for u0 in pts1
 	sol = DE.solve(prob, reltol = 1e-6, abstol = 1e-6)
 	flow = Tuple.(sol.u)
 	l = length(flow)
-	k = div(l, 3)
+	k = div(l, 4)
 	plot!(flow[1:k], linecolor = :steelblue, linewidth = 2, label = false, arrow = :closed)
 	plot!(flow[k:end], linecolor = :steelblue, linewidth = 2, label = false)
 	prob = ODEProblem(g, u0 - 0.01*v, tspan)
 	sol = DE.solve(prob, reltol = 1e-6, abstol = 1e-6)
 	flow = Tuple.(sol.u)
 	l = length(flow)
-	k = div(l, 3)
+	k = div(l, 4)
 	plot!(flow[1:k], linecolor = :steelblue, linewidth = 2, label = false, arrow = :closed)
 	plot!(flow[k:end], linecolor = :steelblue, linewidth = 2, label = false)
 end
@@ -176,6 +176,6 @@ end
 
 time_end_round2 = time()
 println("Additional computation time for round 2: $(time_end_round2 - time_start_round2) seconds")
-
+println("Total computation time for round 1 and 2: $((time_end_round1 - time_start_round1) + (time_end_round2 - time_start_round2)) seconds")
 
 # If new solutions were found, repeat the steps above manually!

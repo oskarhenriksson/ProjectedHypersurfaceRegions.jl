@@ -1,8 +1,6 @@
 # This is case 0 of Example 5.2 in the overleaf file
 # Reference: https://arxiv.org/pdf/1903.06126
 
-
-
 using Plots, ImplicitPlots, Random
 include("../src/functions.jl");
 mkpath("./results/3RPRv0")
@@ -93,8 +91,7 @@ contour(
     color = :plasma,
     clabels = false,
     cbar = false,
-    lw = 1,
-    fill = true,
+    lw = 1
 )
 
 implicit_plot!(
@@ -173,8 +170,9 @@ else
     println("No new solutions found in the additional monodromy round.")
 end
 
-time_round2 = time()
-println("Additional computation time for round 2: $(time_round2 - time_start_round2) seconds")
+time_end_round2 = time()
+println("Additional computation time for round 2: $(time_end_round2 - time_start_round2) seconds")
+println("Total computation time for round 1 and 2: $((time_end_round1 - time_start_round1) + (time_end_round2 - time_start_round2)) seconds")
 
 # If new solutions were found, repeat the steps above manually!
 

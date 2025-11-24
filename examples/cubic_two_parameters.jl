@@ -47,14 +47,13 @@ contour(
     clabels = false,
     cbar = false,
     lw = 1,
-    fill = true,
 )
 implicit_plot!(
     h; 
     xlims = (-M_x, M_x),
     ylims = (-M_y, M_y),
     linecolor = :black,
-    linewidth = 6,
+    linewidth = 5,
     label = "discriminant",
 	legend = false
 )
