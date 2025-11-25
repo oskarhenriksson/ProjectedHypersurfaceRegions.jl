@@ -5,15 +5,7 @@ This repository contains code for the project _Computing complements of real hyp
 
 ## Running the code 
 
-If you're using Git, you can clone the repository by running the following command in your terminal:
-
-```bash
-gh repo clone oskarhenriksson/parametric_gradients
-```
-
-Alternatively, you can download the repository manually by clicking the green `Code` button at the top of the GitHub page and selecting `Download ZIP`.
-
-Once you have the repository, the easiest way to run the code is to open Julia in the root folder, activate the environment, and (if this is your first time running the code) instantiate the dependencies:
+Clone the respository (either using Git, or by manually downloading it by clicking the green `Code` button at the top of the GitHub page and selecting `Download ZIP`). Once you have the repository, the easiest way to run the code is to open Julia in the root folder of the repository, activate the environment, and (if this is your first time running the code) instantiate the dependencies:
 
 ```julia
 using Pkg
@@ -26,8 +18,6 @@ Once the environment is ready, load the functions of the package by including th
 ```julia
 include("src/functions.jl")
 ```
-
-You're now good to go! 🚀
 
 ## Example
 
@@ -81,7 +71,7 @@ julia> G
 
 The following pictures are created via the files `quadratic.jl` and `cubic_two_parameters.jl` in the `examples` directory.
 
-<p align="center"><img src="figures/example_quadratic.svg" height="200px"/><img src="figures/example_cubic.svg" height="200px"/></p>
+<p align="center"><img src="figures/quadratic.svg" height="200px"/><img src="figures/cubic.svg" height="200px"/></p>
 
 ## Dependencies
 The code relies on the following Julia packages:
