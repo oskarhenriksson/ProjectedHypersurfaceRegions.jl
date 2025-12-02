@@ -9,21 +9,21 @@ Random.seed!(0x8b868320)
 F = System([x^2 + a * x + b; 2x + a], variables = [a, b, x])
 
 # Pick a center for the routing function
-c = [13.758979284873828, -0.09884333335596635]
+c = [13, 2]
 
 # Set up the routing function gradient
 r = RoutingGradient(F, [a, b]; c = c)
 
 # Test forming the routing point homotopies
-p1 = zeros(2)
-q1 = randn(2)
-H = RoutingPointsHomotopy(r, p1, q1)
-u = randn(ComplexF64, 2)
-U = randn(ComplexF64, 2, 2)
-x0 = randn(ComplexF64, 2)
-t0 = 1.0
-@time evaluate_and_jacobian!(u, U, H, x0, t0)
-evaluate_and_jacobian!(u, U, H, x0, t0)
+# p1 = zeros(2)
+# q1 = randn(2)
+# H = RoutingPointsHomotopy(r, p1, q1)
+# u = randn(ComplexF64, 2)
+# U = randn(ComplexF64, 2, 2)
+# x0 = randn(ComplexF64, 2)
+# t0 = 1.0
+# @time evaluate_and_jacobian!(u, U, H, x0, t0)
+# evaluate_and_jacobian!(u, U, H, x0, t0)
 
 # Options for the monodromy step
 options = MonodromyOptions(
@@ -56,7 +56,7 @@ contour(
 	clabels = false,
 	cbar = false,
 	lw = 1
-)
+);
 
 # Plot the discriminant
 A = [[b; b^2 / 4] for b in (-M_x):M_x]
@@ -67,7 +67,7 @@ plot!(
 	linecolor = :black,
 	linewidth = 4,
 	label = "discriminant",
-)
+);
 
 # Plot flows from the critical points
 pts1 = pts[idx .!= 0]
@@ -102,7 +102,7 @@ end
 palette = collect(range(colorant"green", stop=colorant"lightgreen", length=length(G)))
 for (i, component) in enumerate(G)
     scatter!(Tuple.(pts[component]), markercolor = palette[i], markersize = 8, label = "Critical points in region $i")
-end
+end;
 
 plot!(; legend = :bottomright, dpi=400, legendfontsize=6)
 
