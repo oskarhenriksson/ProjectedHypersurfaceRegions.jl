@@ -157,7 +157,7 @@ function critical_points(
             (start_grid_center[i]-w):start_grid_stepsize:(start_grid_center[i]+w) for
             i = 1:k
         ]
-        @showprogress for start_point in Iterators.product(grid...)
+        ProgressMeter.@showprogress for start_point in Iterators.product(grid...)
             prob = ODEProblem(g, collect(start_point), tspan)
             sol = DE.solve(prob, reltol = 1e-6, abstol = 1e-6)
             convergence_point = last(sol.u)
