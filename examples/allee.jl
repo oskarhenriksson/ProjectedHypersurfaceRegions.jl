@@ -20,7 +20,7 @@ steady_state1 = [
 steady_state = subs(steady_state1, a => a / 10) # to make the scale in figure 3 in https://www.biorxiv.org/content/10.1101/2021.02.03.429609v2.full.pdf uniform
 Jac = differentiate.(steady_state, x')
 detJac = det(Jac)
-F = System([steady_state; x[1]*x[2]*x[3]*detJac], variables = [a; b; x])
+F = System([steady_state; detJac], variables = [a; b; x])
 
 # Routing gradient
 C = randn(2)
