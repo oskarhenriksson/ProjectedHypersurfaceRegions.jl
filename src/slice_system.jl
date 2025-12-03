@@ -6,6 +6,7 @@ struct RoutingGradient <: HC.AbstractSystem
     c::Vector
     B::Vector
     ∇logqe::Any
+    ∇logprodg::Any
 end
 function RoutingGradient(
     F,
@@ -13,6 +14,7 @@ function RoutingGradient(
     e::Union{Int,Nothing} = nothing,
     B::Union{Vector,Nothing} = nothing,
     c::Union{Vector,Nothing} = nothing,
+    g::Union{Vector{Expression},Nothing} = nothing
 )
 
     all_vars = variables(F)
@@ -34,11 +36,16 @@ function RoutingGradient(
     @var α[1:k]
     q = 1 + sum((α - c) .* (α - c))
     ∇logqe = System(differentiate(-e * log(q), α), variables = α) |> fixed
+    if !isnothing(g)
+        ∇logprodg = System(sum(log.(g)), variables=projection_vars) |> fixed
+    else
+        ∇logprodg = nothing
+    end
 
     # Use single-slice gradient cache to avoid tracking many lifted lines
     GC = GradientCache(PWS, B)
 
-    RoutingGradient(PWS, projection_vars, GC, e, c, B, ∇logqe)
+    RoutingGradient(PWS, projection_vars, GC, e, c, B, ∇logqe, ∇logprodg)
 end
 
 denominator_exponent(r::RoutingGradient) = r.e
@@ -56,9 +63,12 @@ import HomotopyContinuation.evaluate
 import HomotopyContinuation.taylor!
 
 function evaluate!(u, r::RoutingGradient, x, p = nothing)
-    PWS, GC, B, ∇logqe = r.PWS, r.GC, r.B, r.∇logqe
+    PWS, GC, B, ∇logqe, ∇logprodg = r.PWS, r.GC, r.B, r.∇logqe, r.∇logprodg
 
     evaluate!(u, ∇logqe, x)
+    if !isnothing(∇logprodg)
+        evaluate!(u, ∇logprodg, x)
+    end
 
     # Use cached symbolic objects and arrays
     JsuF = GC.JsuF
@@ -150,9 +160,12 @@ end
 (r::RoutingGradient)(x) = evaluate(r, x)
 function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
 
-    PWS, GC, B, ∇logqe = r.PWS, r.GC, r.B, r.∇logqe
+    PWS, GC, B, ∇logqe, ∇logprodg = r.PWS, r.GC, r.B, r.∇logqe, r.∇logprodg
 
     evaluate_and_jacobian!(u, U, ∇logqe, x)
+    if !isnothing(∇logprodg)
+        evaluate_and_jacobian!(u, U, ∇logprodg, x)
+    end
 
     # Use cached symbolic objects and arrays
     JsuF = GC.JsuF
