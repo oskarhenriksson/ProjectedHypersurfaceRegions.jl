@@ -123,9 +123,11 @@ function evaluate!(u, r::RoutingGradient, x, p = nothing)
         u .-= SB[i,:]
     end
 
+
     if !isnothing(p)
         u .-= p
     end
+
 
     nothing
 end
@@ -224,8 +226,12 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
 
         rhs1 .*= -1
         # In-place linear solving
-        Jsu0 = lu!(JsuF_temp) 
-        LinearAlgebra.ldiv!(Jsu0, rhs1) # solves the system Jsu*A = -[JP JB]
+        try
+            Jsu0 = lu!(JsuF_temp) 
+            LinearAlgebra.ldiv!(Jsu0, rhs1) # solves the system Jsu*A = -[JP JB]
+        catch 
+            rhs1 .== ComplexF64(0)
+        end
 
         SP[i,:] = rhs1[1, 1:k]
         SB[i,:] = rhs1[1, k+1:end]

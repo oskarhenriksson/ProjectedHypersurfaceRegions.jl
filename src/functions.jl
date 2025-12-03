@@ -1,4 +1,4 @@
-using HomotopyContinuation, LinearAlgebra, DifferentialEquations, LightGraphs
+using HomotopyContinuation, LinearAlgebra, DifferentialEquations, LightGraphs, ProgressMeter
 
 const HC = HomotopyContinuation
 const DE = DifferentialEquations

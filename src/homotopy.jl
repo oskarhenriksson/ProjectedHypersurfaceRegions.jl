@@ -93,7 +93,9 @@ function critical_points(r::RoutingGradient,
                             S0::Union{AbstractVector{<:AbstractVector{<:Number}}, Nothing} = nothing,
                             rhs0::Union{AbstractVector{<:Number}, Nothing} = nothing;
                             verbose = true,
-                            num_gradient_flow_starts = 100,
+                            start_grid_width = 5,
+                            start_grid_stepsize = 0.1,
+                            start_grid_center = nothing,
                             monodromy_at_zero = false,
                             options = MonodromyOptions(parameter_sampler = p -> 10 .* randn(ComplexF64, length(p))),  
                             seed = rand(UInt32))
@@ -144,12 +146,17 @@ function critical_points(r::RoutingGradient,
     g(x, param, t) = real(evaluate(r, x))
     tspan = (0.0, 1e4)
 
-    if num_gradient_flow_starts>0
+    if isnothing(start_grid_center)
+        start_grid_center = zeros(k)
+    end
+    
+    if start_grid_width>0
         verbose && println("Expanding the set of start solutions via gradient flow...")
-        for _ in 1:num_gradient_flow_starts
-            start_point = randn(k)
-            v = randn(k); v = v / norm(v);
-            prob = ODEProblem(g, start_point+0.001*v, tspan)
+
+        w = (start_grid_width/2)
+        grid = [(start_grid_center[i]-w):start_grid_stepsize:(start_grid_center[i]+w) for i in 1:k]
+        @showprogress for start_point in Iterators.product(grid...)
+            prob = ODEProblem(g, collect(start_point), tspan)
             sol = DE.solve(prob, reltol = 1e-6, abstol = 1e-6)
             convergence_point = last(sol.u)
             improved_point = newton(r, convergence_point) |> solution
@@ -189,7 +196,7 @@ function critical_points(r::RoutingGradient,
         routing_points = real_solutions(result)
 
         # Make sure none of the routing points found via gradient flow are lost
-        if num_gradient_flow_starts>0
+        if start_grid_width>0
             routing_points = HC.unique_points([routing_points; real.(new_pts)])
         end
         return routing_points, result, mon_result

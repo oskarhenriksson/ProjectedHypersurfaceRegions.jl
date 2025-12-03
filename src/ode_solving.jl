@@ -63,9 +63,9 @@ function limit_critical_point(
 ) where {T1,T2<:AbstractArray}
 
 
-    # first try t_max=10^10
+    # first try t_max=10^6
     y_0 = start_point
-    t_max = 10^10
+    t_max = 10^6
     critical_point_index, retcode =
         limit_critical_point_fixed_time(ode_log!, y_0, real_sols, t_max, reltol, abstol)
 
@@ -78,7 +78,7 @@ function limit_critical_point(
     # second try
     # increase time since the solution converges but does not limit to any critical point
     if retcode == SciMLBase.ReturnCode.Success && critical_point_index == -1
-        t_max = 10^15
+        t_max = 10^10
         critical_point_index, retcode =
             limit_critical_point_fixed_time(ode_log!, y_0, real_sols, t_max, reltol, abstol)
         if retcode == SciMLBase.ReturnCode.Success && critical_point_index != -1
@@ -88,7 +88,7 @@ function limit_critical_point(
         # third try
         # increase time since the solution converges but does not limit to any critical point
         if retcode == SciMLBase.ReturnCode.Success && critical_point_index == -1
-            t_max = 10^20
+            t_max = 10^12
             critical_point_index, retcode = limit_critical_point_fixed_time(
                 ode_log!,
                 y_0,
@@ -124,7 +124,7 @@ function limit_critical_point(
         # second try
         # decrease time since the solution deverges
     else
-        t_max = 10^8
+        t_max = 10^4
         critical_point_index, retcode =
             limit_critical_point_fixed_time(ode_log!, y_0, real_sols, t_max, reltol, abstol)
 
@@ -140,7 +140,7 @@ function limit_critical_point(
         else
             # third try
             # decrease time since the solution deverges
-            t_max = 10^6
+            t_max = 10^2
             critical_point_index, retcode = limit_critical_point_fixed_time(
                 ode_log!,
                 y_0,
