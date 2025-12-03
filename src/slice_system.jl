@@ -37,7 +37,7 @@ function RoutingGradient(
     q = 1 + sum((α - c) .* (α - c))
     ∇logqe = System(differentiate(-e * log(q), α), variables = α) |> fixed
     if !isnothing(g)
-        ∇logprodg = System(sum(log.(g)), variables=projection_vars) |> fixed
+        ∇logprodg = System(sum([differentiate(log(gi), projection_vars) for gi in g]), variables=projection_vars) |> fixed
     else
         ∇logprodg = nothing
     end
