@@ -3,10 +3,7 @@
 
 
 # return index and unstable eigenvectors of the hessian 
-function index_unstable_eigenvector!(u, U, 
-    r,
-    a,
-) 
+function index_unstable_eigenvector!(u, U, r, a)
     evaluate_and_jacobian!(u, U, r, a)
     if is_almost_singular(U)
         flag = true
@@ -28,10 +25,7 @@ function is_almost_singular(matrix::Matrix; threshold = 1e10)
 end
 
 ## calculate the index and unstable eigenvectors of the critical points
-function _index_list(
-    r,
-    crit_pts,
-)
+function _index_list(r, crit_pts)
     index_list::Vector{Int} = []
     unstable_vector_list::Vector{Matrix{Float64}} = []
     flag_prime = false
@@ -40,8 +34,7 @@ function _index_list(
     U = zeros(ComplexF64, k, k)
 
     for a in crit_pts
-        index, unstable_eigenvectors, flag =
-            index_unstable_eigenvector!(u, U, r, a)
+        index, unstable_eigenvectors, flag = index_unstable_eigenvector!(u, U, r, a)
         if flag == true
             flag_prime = true
             return nothing, nothing, nothing, flag_prime
@@ -79,8 +72,7 @@ function partition_of_critical_points(
     abstol::Float64 = 1e-9,
 )
 
-    index_list, unstable_eigenvector_list, flag_prime =
-        _index_list(r, crit_pts)
+    index_list, unstable_eigenvector_list, flag_prime = _index_list(r, crit_pts)
     if flag_prime == true
         @warn "The Hessian is almost singular for some critical points"
         return nothing
@@ -216,4 +208,3 @@ function partition_of_critical_points(
     end
     return partition_critical_point_indices, index_list, failed_info_list
 end
-

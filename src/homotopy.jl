@@ -89,16 +89,18 @@ function ModelKit.taylor!(u, v::Val, H::RoutingPointsHomotopy, tx, t)
 end
 
 import HomotopyContinuation: MonodromyOptions, UniquePoints, EndgameTracker
-function critical_points(r::RoutingGradient,
-                            S0::Union{AbstractVector{<:AbstractVector{<:Number}}, Nothing} = nothing,
-                            rhs0::Union{AbstractVector{<:Number}, Nothing} = nothing;
-                            verbose = true,
-                            start_grid_width = 5,
-                            start_grid_stepsize = 0.1,
-                            start_grid_center = nothing,
-                            monodromy_at_zero = false,
-                            options = MonodromyOptions(parameter_sampler = p -> 10 .* randn(ComplexF64, length(p))),  
-                            seed = rand(UInt32))
+function critical_points(
+    r::RoutingGradient,
+    S0::Union{AbstractVector{<:AbstractVector{<:Number}},Nothing} = nothing,
+    rhs0::Union{AbstractVector{<:Number},Nothing} = nothing;
+    verbose = true,
+    start_grid_width = 5,
+    start_grid_stepsize = 0.1,
+    start_grid_center = nothing,
+    monodromy_at_zero = false,
+    options = MonodromyOptions(parameter_sampler = p -> 10 .* randn(ComplexF64, length(p))),
+    seed = rand(UInt32),
+)
     k = size(r, 2) # number of variables
     p1 = zeros(k)
     q1 = randn(k)
@@ -109,10 +111,7 @@ function critical_points(r::RoutingGradient,
     trackers = [egtracker]
     x₀ = zeros(ComplexF64, size(H, k))
 
-    unique_points = UniquePoints(
-        x₀,
-        1;
-    )
+    unique_points = UniquePoints(x₀, 1;)
 
     trace = zeros(ComplexF64, length(x₀) + 1, 3)
     P = Vector{ComplexF64}
@@ -149,12 +148,15 @@ function critical_points(r::RoutingGradient,
     if isnothing(start_grid_center)
         start_grid_center = zeros(k)
     end
-    
-    if start_grid_width>0
+
+    if start_grid_width > 0
         verbose && println("Expanding the set of start solutions via gradient flow...")
 
-        w = (start_grid_width/2)
-        grid = [(start_grid_center[i]-w):start_grid_stepsize:(start_grid_center[i]+w) for i in 1:k]
+        w = (start_grid_width / 2)
+        grid = [
+            (start_grid_center[i]-w):start_grid_stepsize:(start_grid_center[i]+w) for
+            i = 1:k
+        ]
         @showprogress for start_point in Iterators.product(grid...)
             prob = ODEProblem(g, collect(start_point), tspan)
             sol = DE.solve(prob, reltol = 1e-6, abstol = 1e-6)
@@ -165,24 +167,21 @@ function critical_points(r::RoutingGradient,
         new_pts = HC.unique_points(new_pts)
         verbose && println("Found $(length(new_pts)) routing points via gradient flow.")
         if !monodromy_at_zero
-            start_parameters!(H, zeros(ComplexF64, length(rhs0)));
-            target_parameters!(H, rhs0);
+            start_parameters!(H, zeros(ComplexF64, length(rhs0)))
+            target_parameters!(H, rhs0)
             S0_new_sols = HC.solve(H, new_pts) |> solutions
             number_of_old_sols = length(S0)
             S0 = HC.unique_points([S0; S0_new_sols])
-            verbose && println("Traced to $(length(S0)-number_of_old_sols) additional start solutions for the monodromy.")
+            verbose && println(
+                "Traced to $(length(S0)-number_of_old_sols) additional start solutions for the monodromy.",
+            )
         else
             S0 = [S0; new_pts]
         end
     end
 
     ### Monodromy
-    mon_result = monodromy_solve(
-        MS,
-        S0,
-        rhs0,
-        rand(UInt32);
-    )
+    mon_result = monodromy_solve(MS, S0, rhs0, rand(UInt32);)
 
     ### Trace to ∇r=0
     if !monodromy_at_zero
@@ -196,7 +195,7 @@ function critical_points(r::RoutingGradient,
         routing_points = real_solutions(result)
 
         # Make sure none of the routing points found via gradient flow are lost
-        if start_grid_width>0
+        if start_grid_width > 0
             routing_points = HC.unique_points([routing_points; real.(new_pts)])
         end
         return routing_points, result, mon_result

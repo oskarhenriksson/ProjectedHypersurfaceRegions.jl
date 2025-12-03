@@ -29,7 +29,7 @@ function PseudoWitnessSet(
     k::Int;
     linear_subspace_codim::Union{Int,Nothing} = nothing,
     L::Union{LinearSubspace,Nothing} = nothing,
-    start_system::Symbol = :polyhedral
+    start_system::Symbol = :polyhedral,
 )
     n = nvariables(F)
     if isnothing(linear_subspace_codim)
@@ -48,7 +48,13 @@ function PseudoWitnessSet(
     startL = rand_subspace(n; codim = linear_subspace_codim)
 
     W = witness_set(F, startL; start_system = start_system)
-    E = HC.solve(F, results(W), start_subspace = startL, target_subspace = L, intrinsic = true)
+    E = HC.solve(
+        F,
+        results(W),
+        start_subspace = startL,
+        target_subspace = L,
+        intrinsic = true,
+    )
     M = monodromy_solve(F, solutions(E), L)
 
     PseudoWitnessSet(F, k, L, solutions(M))
@@ -60,11 +66,7 @@ end
 
 Lifts the line `point+t*direction` in $\mathbb{C}^k$ to a LinearSubspace in $\mathbb{C}^k\timess \mathbb{C}^{n-k}$.
 """
-function lifted_line( 
-    point::AbstractVector,
-    direction::AbstractVector,
-    n::Int64,
-)
+function lifted_line(point::AbstractVector, direction::AbstractVector, n::Int64)
     k = length(point)
     πA = transpose(nullspace(direction'))
     A = hcat(πA, zeros(k - 1, n - k))
@@ -73,12 +75,7 @@ function lifted_line(
 end
 
 
-function track_pws_to_lines!(
-    GC,
-    point,
-    directions,
-    PWS::PseudoWitnessSet,
-)
+function track_pws_to_lines!(GC, point, directions, PWS::PseudoWitnessSet)
     n = ambient_dim(PWS)
     for (j, bj) in enumerate(eachcol(directions))
         GC.Ks[j] = lifted_line(point, bj, n)
@@ -98,12 +95,7 @@ Tracks the pseudo-witness set `PWS` to a single lifted line defined by
 `GC.line_hypersurface_intersections[1]`, matching the shape used by
 `GradientCache(...; single_slice=true)`.
 """
-function track_pws_to_line!(
-    GC,
-    point,
-    direction,
-    PWS::PseudoWitnessSet,
-)
+function track_pws_to_line!(GC, point, direction, PWS::PseudoWitnessSet)
     n = ambient_dim(PWS)
     GC.Ks[1] = lifted_line(point, direction, n)
     target_parameters!(GC.tracker, GC.Ks[1])
