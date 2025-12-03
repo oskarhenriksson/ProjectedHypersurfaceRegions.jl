@@ -14,7 +14,7 @@ function RoutingGradient(
     e::Union{Int,Nothing} = nothing,
     B::Union{Vector,Nothing} = nothing,
     c::Union{Vector,Nothing} = nothing,
-    g::Union{Vector{Expression},Nothing} = nothing
+    g::Union{Vector{Expression},Vector{Variable},Nothing} = nothing
 )
 
     all_vars = variables(F)
