@@ -16,7 +16,7 @@ projection_variables = [a; b]
 k = length(projection_variables)
 
 c = [13.758979284873828, -0.09884333335596635]
-r = RoutingGradient(F, projection_variables; c = c)
+∇r = RoutingGradient(F, projection_variables; c = c)
 
 # Critical points
 options = MonodromyOptions(
@@ -24,10 +24,10 @@ options = MonodromyOptions(
     max_loops_no_progress = 10 # change the stopping criterion
 )
 
-pts, res0, mon_res = critical_points(r, options = options)
+pts, res0, mon_res = critical_points(∇r, options = options)
 
 # Connecting 
-G, idx, failed_info = partition_of_critical_points(r, pts)
+G, idx, failed_info = partition_of_critical_points(∇r, pts)
 G
 
 # Plotting 
@@ -36,7 +36,7 @@ M_y = maximum(p -> abs(p[2]), pts) + 6
 
 # Discriminant
 h(x, y) = 4*x^3 - x^2*y^2 - 18*x*y + 4*y^3 + 27
-e = r.e
+e = denominator_exponent(∇r)
 R(x, y) = log(abs(h(x,y) / (1 + (x-c[1])^2 + (y-c[2])^2)^e))
 contour(
     (-M_x):0.1:M_x,
@@ -60,10 +60,10 @@ implicit_plot!(
 
 ## plot flow
 pts1 = pts[idx .!= 0]
-g(x, param, t) = real(evaluate(r, x))
+g(x, param, t) = real(evaluate(∇r, x))
 tspan = (0.0, 1e4)
 for u0 in pts1
-	jac = real(evaluate_and_jacobian(r, u0)[2])
+	jac = real(evaluate_and_jacobian(∇r, u0)[2])
 	eigen_data = LinearAlgebra.eigen(jac)
 	eigenvalues = eigen_data.values
 	eigenvectors = eigen_data.vectors

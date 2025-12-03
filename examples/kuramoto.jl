@@ -81,7 +81,7 @@ h(x, y) = 314928*x^8*y^4 + 1259712*x^7*y^5 + 1889568*x^6*y^6 + 1259712*x^5*y^7 +
     96*x^2 + 96*x*y + 96*y^2 - 1;
 
 # Plot the routing function
-e = ∇r.e
+e = denominator_exponent(∇r)
 R(x, y) = log(abs(h(x,y) / (1 + (x-C[1])^2 + (y-C[2])^2)^e))
 contour(
     (-M_x):0.01:M_x,
