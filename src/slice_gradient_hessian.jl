@@ -32,6 +32,8 @@ mutable struct GradientCache
     M1::Matrix
     M2::Matrix
     M3::Matrix
+    ∇logprodg_temp::Vector{ComplexF64}
+    Hess_logprodg_temp::Matrix{ComplexF64}
 end
 function compute_systems(F, n, k, B)
     @var uval[1:n-k] α[1:k] β[1:k] t
@@ -122,6 +124,9 @@ function GradientCache(PWS, B)
     M2 = zeros(ComplexF64, n-k+1, k)
     M3 = zeros(ComplexF64, k, n-k+1)
 
+    ∇logprodg_temp = zeros(ComplexF64, k)
+    Hess_logprodg_temp = zeros(ComplexF64, k, k)
+
     GradientCache(Ks, line_hypersurface_intersections, tracker,      
                     track_report,
                     JsuF,
@@ -131,7 +136,31 @@ function GradientCache(PWS, B)
                     JxB,
                     JxP,
                     JPB,
-                    S, X, Uvals, SP, SB, UP, UB, A, rhs1, rhs2, JsuF_temp, JPF_temp, JBF_temp, Jtu_temp, HF_temp, JxB_temp, JxP_temp, JPB_temp, M, M1, M2, M3)
+                    S, 
+                    X, 
+                    Uvals, 
+                    SP, 
+                    SB, 
+                    UP, 
+                    UB, 
+                    A, 
+                    rhs1, 
+                    rhs2, 
+                    JsuF_temp, 
+                    JPF_temp, 
+                    JBF_temp, 
+                    Jtu_temp, 
+                    HF_temp, 
+                    JxB_temp, 
+                    JxP_temp, 
+                    JPB_temp, 
+                    M, 
+                    M1, 
+                    M2, 
+                    M3, 
+                    ∇logprodg_temp, 
+                    Hess_logprodg_temp
+                )
 end
 
 
