@@ -72,7 +72,9 @@ function evaluate!(u, r::RoutingGradient, x, p = nothing)
 
     evaluate!(u, ∇logqe, x)
     if !isnothing(∇logprodg)
-        evaluate!(u, ∇logprodg, x)
+        u_temp = deepcopy(u) #TODO: should be cached
+        evaluate!(u_temp, ∇logprodg, x)
+        u .+= u_temp
     end
 
     # Use cached symbolic objects and arrays
@@ -169,7 +171,11 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
 
     evaluate_and_jacobian!(u, U, ∇logqe, x)
     if !isnothing(∇logprodg)
-        evaluate_and_jacobian!(u, U, ∇logprodg, x)
+        u_temp = deepcopy(u) #TODO: should be cached
+        U_temp = deepcopy(U) #TODO: should be cached
+        evaluate_and_jacobian!(u_temp, U_temp, ∇logprodg, x)
+        u .+= u_temp
+        U .+= U_temp
     end
 
     # Use cached symbolic objects and arrays
