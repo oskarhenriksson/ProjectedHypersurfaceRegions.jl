@@ -28,7 +28,7 @@ function RoutingGradient(
         g_degree = 0
     else
         g = Expression.(g)
-        @assert sort(variables(g)) == sort(projection_vars) "Variables in g must match projection_vars"
+        @assert variables(g) ⊆ projection_vars "Variables in g must match projection_vars"
         ∇logprodg = System(sum([differentiate(log(gi), projection_vars) for gi in g]), variables=projection_vars) |> fixed
         g_degree = sum(HC.degree.(g))
     end
