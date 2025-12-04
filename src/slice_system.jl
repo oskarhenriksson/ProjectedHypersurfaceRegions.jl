@@ -23,8 +23,17 @@ function RoutingGradient(
     k = length(projection_vars)
     PWS = PseudoWitnessSet(F_ordered, k, linear_subspace_codim = k - 1)
 
+    if isnothing(g)
+        ∇logprodg = nothing
+        g_degree = 0
+    else
+        @assert sort(variables(g)) == sort(projection_vars) "Variables in g must match projection_vars"
+        ∇logprodg = System(sum([differentiate(log(gi), projection_vars) for gi in g]), variables=projection_vars) |> fixed
+        g_degree = sum(degree.(g))
+    end
+
     if isnothing(e)
-        e = floor(degree(PWS) / 2) + 1
+        e = div(degree(PWS) + g_degree, 2) + 1
     end
     if isnothing(c)
         c = randn(k)
@@ -36,12 +45,6 @@ function RoutingGradient(
     @var α[1:k]
     q = 1 + sum((α - c) .* (α - c))
     ∇logqe = System(differentiate(-e * log(q), α), variables = α) |> fixed
-    if !isnothing(g)
-        @assert sort(variables(g)) == sort(projection_vars) "Variables in g must match projection_vars"
-        ∇logprodg = System(sum([differentiate(log(gi), projection_vars) for gi in g]), variables=projection_vars) |> fixed
-    else
-        ∇logprodg = nothing
-    end
 
     # Use single-slice gradient cache to avoid tracking many lifted lines
     GC = GradientCache(PWS, B)
