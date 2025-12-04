@@ -157,14 +157,21 @@ function critical_points(
             (start_grid_center[i]-w):start_grid_stepsize:(start_grid_center[i]+w) for
             i = 1:k
         ]
+        success_count = 0
         ProgressMeter.@showprogress for start_point in Iterators.product(grid...)
-            prob = ODEProblem(g, collect(start_point), tspan)
-            sol = DE.solve(prob, reltol = 1e-6, abstol = 1e-6)
-            convergence_point = last(sol.u)
-            improved_point = newton(r, convergence_point) |> solution
-            push!(new_pts, improved_point)
+            try
+                prob = ODEProblem(g, collect(start_point), tspan)
+                sol = DE.solve(prob, reltol = 1e-6, abstol = 1e-6)
+                convergence_point = last(sol.u)
+                improved_point = newton(r, convergence_point) |> solution
+                push!(new_pts, improved_point)
+                success_count += 1                
+            catch e
+                continue
+            end
         end
         new_pts = HC.unique_points(new_pts)
+        verbose && println("Successful gradient flow attempts: $(success_count) out of $(length(grid[1])^k) ($(round(success_count / (length(grid[1])^k) * 100, digits=2))%)")
         verbose && println("Found $(length(new_pts)) routing points via gradient flow.")
         if !monodromy_at_zero
             start_parameters!(H, zeros(ComplexF64, length(rhs0)))

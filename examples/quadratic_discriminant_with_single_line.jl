@@ -32,8 +32,7 @@ options = MonodromyOptions(
 )
 
 # Find the complex critical points 
-pts, res0, mon_res = critical_points(r; start_grid_width=0, options = options)
-#pts, res0, mon_res = critical_points(r; options = options) # fails at gradient flow step
+pts, res0, mon_res = critical_points(r; options = options)
 
 # Try another round of monodromy (only if you think the first attempt missed solutions)
 #pts, res0, mon_res = critical_points(r, solutions(mon_res), parameters(mon_res), options = options)
