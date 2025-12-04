@@ -2,28 +2,28 @@ using Random, Plots, DifferentialEquations, Random, Plots, DifferentialEquations
 
 include("../src/functions.jl");
 
-Random.seed!(0x8b868320)
+Random.seed!(12345)
 
 # Set up the system
 @var a b x
 F = System([x^2 + a * x + b; 2x + a], variables = [a, b, x])
 
 # Pick a center for the routing function
-c = rand(2)
+c = [10, 5]
 
 # Set up the routing function gradient
+#r = RoutingGradient(F, [a, b]; c = c);
 r = RoutingGradient(F, [a, b]; c = c, g=[a, b]);
+e = denominator_exponent(r)
 
-# Test forming the routing point homotopies
-p1 = zeros(2)
-q1 = randn(2)
-H = RoutingPointsHomotopy(r, p1, q1);
+# Test evaluation
+r([1,4])
 u = randn(ComplexF64, 2)
 U = randn(ComplexF64, 2, 2)
-x0 = randn(ComplexF64, 2)
-t0 = 1.0
-@time evaluate_and_jacobian!(u, U, H, x0, t0)
-evaluate_and_jacobian!(u, U, H, x0, t0)
+x0 = [1,4] #randn(ComplexF64, 2)
+@time evaluate_and_jacobian!(u, U, r, x0)
+u
+U
 
 # Options for the monodromy step
 options = MonodromyOptions(
@@ -32,8 +32,8 @@ options = MonodromyOptions(
 )
 
 # Find the complex critical points 
-pts, res0, mon_res = critical_points(r; start_grid_width=0, options = options) # finds no real solutions
-pts, res0, mon_res = critical_points(r; options = options) # fails at gradient flow step
+pts, res0, mon_res = critical_points(r; start_grid_width=0, options = options)
+#pts, res0, mon_res = critical_points(r; options = options) # fails at gradient flow step
 
 # Try another round of monodromy (only if you think the first attempt missed solutions)
 #pts, res0, mon_res = critical_points(r, solutions(mon_res), parameters(mon_res), options = options)
@@ -42,12 +42,20 @@ pts, res0, mon_res = critical_points(r; options = options) # fails at gradient f
 G, idx, failed_info = partition_of_critical_points(r, pts)
 G
 
+
+for pt in pts
+	u, U = evaluate_and_jacobian(r, pt)
+	eigenvalues = LinearAlgebra.eigen(U).values
+	println("Point: $pt")
+	println("Eigenvalues: $(real.(eigenvalues))")
+end
+
 ##### Plotting 
-M_x = maximum(p -> abs(p[1]), pts) + 4
-M_y = maximum(p -> abs(p[2]), pts) + 3
+M_x = maximum(p -> abs(p[1]), pts) + 10
+M_y = maximum(p -> abs(p[2]), pts) + 10
 
 # Countour plot of the routing function
-RR(x, y) = log(abs((x^2 - 4 * y) * x * y / (1 + (x-c[1])^2 + (y-c[2])^2)^2)) 
+RR(x, y) = log(abs((x^2 - 4 * y) * x * y / (1 + (x-c[1])^2 + (y-c[2])^2)^e)) 
 contour(
 	(-M_x):0.1:M_x,
 	(-M_y):0.1:M_y,
@@ -100,13 +108,13 @@ for u0 in pts1
 end
 
 # Plot the critical points (colored by component)
-palette = collect(range(colorant"green", stop=colorant"lightgreen", length=length(G)))
+palette = collect(range(colorant"green", stop=colorant"lightgreen", length=length(G)));
 for (i, component) in enumerate(G)
     scatter!(Tuple.(pts[component]), markercolor = palette[i], markersize = 8, label = "Critical points in region $i")
 end;
 
 plot!(; legend = :bottomright, dpi=400, legendfontsize=6)
 
-savefig("./figures/quadratic.png")
-savefig("./figures/quadratic.svg")
-savefig("./figures/quadratic.pdf")
+savefig("./figures/quadratic_discriminant_with_lines.png")
+savefig("./figures/quadratic_discriminant_with_lines.svg")
+savefig("./figures/quadratic_discriminant_with_lines.pdf")
