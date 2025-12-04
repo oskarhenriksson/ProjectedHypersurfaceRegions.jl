@@ -23,7 +23,7 @@ function RoutingGradient(
     k = length(projection_vars)
     PWS = PseudoWitnessSet(F_ordered, k, linear_subspace_codim = k - 1)
 
-    if isnothing(g)
+    if isnothing(g) || length(g) == 0
         ∇logprodg = nothing
         g_degree = 0
     else
