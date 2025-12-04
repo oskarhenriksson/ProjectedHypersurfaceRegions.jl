@@ -28,7 +28,7 @@ write_parameters("./results/allee/center.txt", C)
 
 # C = [-0.3597289068234817, 1.0872084924285859]
 
-∇r = RoutingGradient(F, [a,b], c=C);
+∇r = RoutingGradient(F, [a, b], c=C, g=[a, b, b+1, 3*a+b]);
 d = degree(∇r.PWS)
 
 # Routing points
