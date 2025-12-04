@@ -12,18 +12,8 @@ F = System([x^2 + a * x + b; 2x + a], variables = [a, b, x])
 c = [10, 5]
 
 # Set up the routing function gradient
-#r = RoutingGradient(F, [a, b]; c = c);
-r = RoutingGradient(F, [a, b]; c = c, g=[b])
-e = denominator_exponent(r)
-
-# Test evaluation
-r([1,4])
-u = randn(ComplexF64, 2)
-U = randn(ComplexF64, 2, 2)
-x0 = [1,4] #randn(ComplexF64, 2)
-@time evaluate_and_jacobian!(u, U, r, x0)
-u
-U
+∇r = RoutingGradient(F, [a, b]; c = c, g=[b])
+e = denominator_exponent(∇r)
 
 # Options for the monodromy step
 options = MonodromyOptions(
@@ -32,13 +22,13 @@ options = MonodromyOptions(
 )
 
 # Find the complex critical points 
-pts, res0, mon_res = critical_points(r; options = options)
+pts, res0, mon_res = critical_points(∇r; options = options)
 
 # Try another round of monodromy (only if you think the first attempt missed solutions)
 #pts, res0, mon_res = critical_points(r, solutions(mon_res), parameters(mon_res), options = options)
 
 # Connect the critical points
-G, idx, failed_info = partition_of_critical_points(r, pts)
+G, idx, failed_info = partition_of_critical_points(∇r, pts)
 G
 
 ##### Plotting 
@@ -73,10 +63,10 @@ plot!(
 
 # Plot flows from the critical points
 pts1 = pts[idx .!= 0]
-g(x, param, t) = real(evaluate(r, x))
+g(x, param, t) = real(evaluate(∇r, x))
 tspan = (0.0, 1e4)
 for u0 in pts1
-	jac = real(evaluate_and_jacobian(r, u0)[2])
+	jac = real(evaluate_and_jacobian(∇r, u0)[2])
 	eigen_data = LinearAlgebra.eigen(jac)
 	eigenvalues = eigen_data.values
 	eigenvectors = eigen_data.vectors
