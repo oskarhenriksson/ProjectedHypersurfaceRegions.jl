@@ -9,7 +9,7 @@ Random.seed!(0x8b868320)
 F = System([x^2 + a * x + b; 2x + a], variables = [a, b, x])
 
 # Pick a center for the routing function
-c = [13, 2]
+c = rand(2)
 
 # Set up the routing function gradient
 r = RoutingGradient(F, [a, b]; c = c, g=[a, b]);
@@ -32,7 +32,8 @@ options = MonodromyOptions(
 )
 
 # Find the complex critical points 
-pts, res0, mon_res = critical_points(r; start_grid_width=0, options = options)
+pts, res0, mon_res = critical_points(r; start_grid_width=0, options = options) # finds no real solutions
+pts, res0, mon_res = critical_points(r; options = options) # fails at gradient flow step
 
 # Try another round of monodromy (only if you think the first attempt missed solutions)
 #pts, res0, mon_res = critical_points(r, solutions(mon_res), parameters(mon_res), options = options)
