@@ -18,23 +18,28 @@ Random.seed!(0x8b868320)
 @var x[1:2]
 
 # Polynomial defining the spinodal curve
-h = -4 * e11 * e22 * x[1]^2 * x[2] - 4 * e11 * e22 * x[1] * x[2]^2 + 
-        4 * e12^2 * x[1]^2 * x[2] + 4 * e12^2 * x[1] * x[2]^2 + 
-        4 * e11 * e22 * x[1] * x[2] - 4 * e12^2 * x[1] * x[2] + 
-        2 * e11 * x[1]^2 + 4 * e12 * x[1] * x[2] + 
-        2 * e22 * x[2]^2 - 2 * e11 * x[1] - 2 * e22 * x[2] + 1
+h = -4 * e11 * e22 * x[1]^2 * x[2] - 4 * e11 * e22 * x[1] * x[2]^2 +
+    4 * e12^2 * x[1]^2 * x[2] + 4 * e12^2 * x[1] * x[2]^2 +
+    4 * e11 * e22 * x[1] * x[2] - 4 * e12^2 * x[1] * x[2] +
+    2 * e11 * x[1]^2 + 4 * e12 * x[1] * x[2] +
+    2 * e22 * x[2]^2 - 2 * e11 * x[1] - 2 * e22 * x[2] + 1
 
 # Set up incidence variety for spinodal discriminant
 F = System([h, differentiate(h, x[1]), differentiate(h, x[2])], variables=[ε; x])
 
 # Routing gradient
-r = RoutingGradient(F, ε)
+∇r = RoutingGradient(F, ε)
 
 # This gives 6 but I know the discriminant has degree 72
-d = degree(r.PWS) 
+d = degree(∇r.PWS)
+println("Degree of discriminant: $d")
 
 # Routing points
-pts, res, mon_res = critical_points(r)
+pts, res, mon_res = critical_points(∇r)
 
 # Connected components
-G, idx, failed_info = partition_of_critical_points(r, pts)
+G, idx, failed_info = partition_of_critical_points(∇r, pts)
+println("Connected components: $(G)")
+println("Indicies: $(idx)")
+println("Failed info: $(failed_info)")
+println()

@@ -202,7 +202,7 @@ function partition_of_critical_points(
 
 
     partition = LightGraphs.connected_components(graph)
-    partition_critical_point_indices = []
+    partition_critical_point_indices = Vector{Int}[]
     for par in partition
         push!(partition_critical_point_indices, @view(critical_points_indices[par]))
     end

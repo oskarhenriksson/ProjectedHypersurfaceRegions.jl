@@ -95,10 +95,13 @@ function critical_points(
     rhs0::Union{AbstractVector{<:Number},Nothing} = nothing;
     verbose = true,
     start_grid_width = 5,
-    start_grid_stepsize = 0.1,
+    start_grid_stepsize = 0.2,
     start_grid_center = nothing,
     monodromy_at_zero = false,
-    options = MonodromyOptions(parameter_sampler = p -> 10 .* randn(ComplexF64, length(p))),
+    options = MonodromyOptions(
+        parameter_sampler = p -> 10 .* randn(ComplexF64, length(p)),
+        max_loops_no_progress = 15
+        ),
     seed = rand(UInt32),
 )
     k = size(r, 2) # number of variables
