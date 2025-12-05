@@ -17,7 +17,7 @@ steady_state1 = [
     x[2]*(1 - x[2])*(x[2] - b) - 2*a*x[2] + a*x[1] + a*x[3], 
     x[3]*(1 - x[3])*(x[3] - b) - 2*a*x[3] + a*x[1] + a*x[2]
 ]
-steady_state = subs(steady_state1, a => a / 10) # to make the scale in figure 3 in https://www.biorxiv.org/content/10.1101/2021.02.03.429609v2.full.pdf uniform
+# steady_state = subs(steady_state1, a => a / 10) # to make the scale in figure 3 in https://www.biorxiv.org/content/10.1101/2021.02.03.429609v2.full.pdf uniform
 Jac = differentiate.(steady_state, x')
 detJac = det(Jac)
 F = System([steady_state; detJac], variables = [a; b; x])
@@ -30,6 +30,8 @@ write_parameters("./results/allee/center.txt", C)
 
 ∇r = RoutingGradient(F, [a, b], c=C, g=[a, b, b+1, 3*a+b]);
 d = degree(∇r.PWS)
+
+println("Degree of (singularity part of) discriminant: $d")
 
 # Routing points
 options = MonodromyOptions(
