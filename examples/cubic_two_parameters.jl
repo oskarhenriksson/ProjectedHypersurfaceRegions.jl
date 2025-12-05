@@ -25,6 +25,7 @@ println("Degree of discriminant: $d")
 
 # Critical points
 pts, res0, mon_res = critical_points(∇r)
+# pts = [[0.24019879259471374, 0.6462876625939318], [-19.196301403851297, 17.947215596608764], [13.795122982881756, -0.10215378573628686], [3.6143037072408117, 12.454609261054078], [-14.14401903919251, 0.8670430578243937], [14.082912701198753, 9.0715113805407], [13.570286317137493, -9.183478526567544]]
 
 # Connecting 
 G, idx, failed_info = partition_of_critical_points(∇r, pts)
@@ -46,6 +47,7 @@ analyze_result(∇r, pts, G, idx;
     discriminant_linewidth=4,
     legend=:bottomright,
     root_counting_system=System([x^3 + a * x^2 + b * x + 1], variables=[x], parameters=[a; b]),
+    contour_stepsize=0.1,
     M_x_max=M_x,
     M_x_min=-M_x,
     M_y_max=M_y,
