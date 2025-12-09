@@ -40,7 +40,7 @@ function RoutingGradient(
         c = randn(k)
     end
     if isnothing(B)
-        B = normalize(randn(ComplexF64, k))
+        B = normalize(randn(k))
     end
 
     @var α[1:k]
