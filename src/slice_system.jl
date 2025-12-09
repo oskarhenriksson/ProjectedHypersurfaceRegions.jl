@@ -12,7 +12,6 @@ function RoutingGradient(
     F,
     projection_vars;
     e::Union{Int,Nothing} = nothing,
-    B::Union{Vector,Nothing} = nothing,
     c::Union{Vector,Nothing} = nothing,
     g::Union{Vector{Expression},Vector{Variable},Nothing} = nothing
 )
@@ -39,9 +38,7 @@ function RoutingGradient(
     if isnothing(c)
         c = randn(k)
     end
-    if isnothing(B)
-        B = normalize(randn(k))
-    end
+    B = randn(ComplexF64, k)
 
     @var α[1:k]
     q = 1 + sum((α - c) .* (α - c))
@@ -68,7 +65,10 @@ import HomotopyContinuation.evaluate
 import HomotopyContinuation.taylor!
 
 function evaluate!(u, r::RoutingGradient, x, p = nothing)
+    
+
     PWS, GC, B, ∇logqe, ∇logprodg = r.PWS, r.GC, r.B, r.∇logqe, r.∇logprodg
+
 
     evaluate!(u, ∇logqe, x)
     if !isnothing(∇logprodg)
@@ -89,6 +89,7 @@ function evaluate!(u, r::RoutingGradient, x, p = nothing)
     rhs1 = GC.rhs1
 
     k = n_projection_variables(PWS)
+    n = ambient_dim(PWS)
 
     # TODO: perhaps we should always pass in a single column as B to routing gradient in the first place...
     track_pws_to_line!(GC, x, B, PWS)
@@ -99,8 +100,10 @@ function evaluate!(u, r::RoutingGradient, x, p = nothing)
         for idx = 1:k
             X[idx] = sol[idx]
         end
-        # TODO: view creates a pointer rather than a copy. Might be bugged, try it. Same thing for U below.
-        Uvals[:, j] = sol[k+1:end] # This creates a new vector in memory. should do a for loop.
+        for idx in 1:n-k
+            Uvals[idx, j] = sol[idx+k] 
+        end
+        
         _, nonzero_coordinate = findmax(abs, X - x)
         S[j] = B[nonzero_coordinate] / (X[nonzero_coordinate] - x[nonzero_coordinate]) # We solving for t inside of this: p + (1 / t) * β = X
     end

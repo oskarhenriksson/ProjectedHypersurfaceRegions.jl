@@ -37,10 +37,10 @@ function PseudoWitnessSet(
     end
     if isnothing(L)
         A = hcat(
-            rand(ComplexF64, linear_subspace_codim, k),
+            randn(ComplexF64, linear_subspace_codim, k),
             zeros(linear_subspace_codim, n - k),
         )
-        b = rand(ComplexF64, linear_subspace_codim)
+        b = randn(ComplexF64, linear_subspace_codim)
         L = LinearSubspace(A, b)
     else
         @assert ambient_dim(L) == n "The ambient dimension of the linear subspace L must match the number of variables in the system F."
@@ -68,7 +68,7 @@ Lifts the line `point+t*direction` in $\mathbb{C}^k$ to a LinearSubspace in $\ma
 """
 function lifted_line(point::AbstractVector, direction::AbstractVector, n::Int64)
     k = length(point)
-    πA = transpose(nullspace(direction'))
+    πA = transpose(nullspace(transpose(direction)))
     A = hcat(πA, zeros(k - 1, n - k))
     b = πA * point
     LinearSubspace(ComplexF64.(A), ComplexF64.(b))
