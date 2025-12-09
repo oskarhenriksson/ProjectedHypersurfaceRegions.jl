@@ -68,11 +68,13 @@ function analyze_and_save_result()
         root_count_condition = is_nonnegative_solution,
         plot_contour=false
     )
+    plot!(; aspect_ratio=:none)
     savefig("./figures/allee.pdf")
     savefig("./figures/allee.svg")
     savefig("./figures/allee.png")
     
-    plot!(; xlims = (-1,M_x_max), ylims = (-1,M_y_max), legend=:topleft)
+
+    plot!(; xlims = (-1, 0.1), ylims = (-1, 0.5))
     savefig("./figures/allee.pdf")
     savefig("./figures/allee.svg")
     savefig("./figures/allee.png")
