@@ -12,7 +12,6 @@ function RoutingGradient(
     F,
     projection_vars;
     e::Union{Int,Nothing} = nothing,
-    B::Union{Vector,Nothing} = nothing,
     c::Union{Vector,Nothing} = nothing,
     g::Union{Vector{Expression},Vector{Variable},Nothing} = nothing
 )
@@ -39,9 +38,7 @@ function RoutingGradient(
     if isnothing(c)
         c = randn(k)
     end
-    if isnothing(B)
-        B = normalize(randn(k))
-    end
+    B = randn(ComplexF64, k)
 
     @var α[1:k]
     q = 1 + sum((α - c) .* (α - c))
@@ -68,7 +65,10 @@ import HomotopyContinuation.evaluate
 import HomotopyContinuation.taylor!
 
 function evaluate!(u, r::RoutingGradient, x, p = nothing)
+    
+
     PWS, GC, B, ∇logqe, ∇logprodg = r.PWS, r.GC, r.B, r.∇logqe, r.∇logprodg
+
 
     evaluate!(u, ∇logqe, x)
     if !isnothing(∇logprodg)
