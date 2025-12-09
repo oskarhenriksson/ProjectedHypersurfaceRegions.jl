@@ -6,7 +6,7 @@ include("../src/functions.jl");
     
     @var a b x
     F = System([x^3 + a * x^2 + b * x + 1; 3 * x^2 + 2 * a * x + b], variables=[a, b, x])
-    c = randn(2)
+    c = [10, 5]
     ∇r = RoutingGradient(F, [a, b]; c=c)
 
     @test degree(∇r.PWS) == 4
@@ -102,7 +102,7 @@ end;
 
     F = System([steady_state; detJac], variables=[s; c; w])
 
-    C = rand(2) / 2
+    C = [1, 1]
     ∇r = RoutingGradient(F, w; c=C);
 
     # Degree of the discriminant
@@ -121,6 +121,7 @@ end;
     r_symbolic = h/((w[1] - C[1])^2 + (w[2] - C[2])^2 + 1)^7
     ∇r_symbolic = System(differentiate(log(r_symbolic), [w[1], w[2]]), variables=[w[1], w[2]]) |> fixed
 
+    p0 = randn(ComplexF64, 2)
     @test norm(∇r_symbolic(p0)-∇r(p0)) < 1e-12
 
 end;
@@ -146,6 +147,5 @@ end;
     @test sort(G) == [[1, 2, 4], [3]]
     @test idx == [1, 0, 0, 0]
     @test isempty(failed_info)
-
 
 end;
