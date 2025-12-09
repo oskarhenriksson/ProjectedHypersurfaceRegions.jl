@@ -1,6 +1,10 @@
+using Pkg
+Pkg.activate(joinpath(@__DIR__, ".."))
+Pkg.instantiate()
+
 using Test
 
-include("../src/functions.jl");
+include(joinpath(@__DIR__, "..", "src", "functions.jl"))
 
 @testset "Cublic discriminant" begin
     
