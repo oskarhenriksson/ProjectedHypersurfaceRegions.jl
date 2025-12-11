@@ -12,6 +12,7 @@ steady_state = [
 
 # Boundary discriminant 
 # (detects parameters where we have zeros on the boundary other than (0,0,0))
+
 I_steady_state = ideal(steady_state)
 I_sat = saturation(I_steady_state, ideal(x))
 I_boundary_incidence = I_sat + ideal([x[1]*x[2]*x[3]])
@@ -20,12 +21,16 @@ h_boundary_discriminant = gens(I_boundary_discriminant)[1]
 
 # Singularity discriminant
 # (detects parameters where we have singular steady states)
-# NOTE: Does not terminate within an hour!
+
 Jac = derivative.(steady_state, transpose(x))
 detJac = det(matrix(R, Jac))
 F = [steady_state; detJac]
 I_singular_incidence = ideal(F)
-I_singular_discriminant = eliminate(I_singular_incidence, x)
-h_singular_discriminant = gens(I_singular_discriminant)[1]
+I_radical_singular_incidence = radical(I_singular_incidence) # to remove multiplicities
+
+# NOTE: The folllowing does not terminate within an hour!
+# I_singular_discriminant = eliminate(I_singular_incidence, x)
+# h_singular_discriminant = gens(I_singular_discriminant)[1]
+
 
 
