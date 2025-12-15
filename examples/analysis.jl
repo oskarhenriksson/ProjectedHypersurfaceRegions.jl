@@ -7,6 +7,7 @@ function analyze_result(
     idx::Vector{Int};
     root_counting_system::Union{System,Nothing}=nothing,
     h::Union{Function,Nothing}=nothing,
+    RR::Union{Function,Nothing}=nothing,
     root_count_condition::Union{Function,Nothing}=nothing,
     arrowstyle=:closed,
     markersize=3,
@@ -21,6 +22,7 @@ function analyze_result(
     M_y_max=nothing,
     M_y_min=nothing
 )
+
 
     # Analyze root counts
     if !isnothing(root_counting_system)
@@ -44,14 +46,17 @@ function analyze_result(
     isnothing(M_y_max) && (M_y_max = maximum(p -> p[2], pts) * 1.8)
     isnothing(M_y_min) && (M_y_min = minimum(p -> p[2], pts) * 1.8)
 
+    if isnothing(RR) && !isnothing(h)
+        RR = (x,y) -> log(abs(h(x, y) / (1 + (x - center[1])^2 + (y - center[2])^2)^e))
+    end
+    @show plot_contour
     # Plot the result
-    if !isnothing(h)
+    if !isnothing(RR) 
         e = denominator_exponent(∇r)
-        center = ∇r.c
-        RR(x, y) = log(abs(h(x, y) / (1 + (x - center[1])^2 + (y - center[2])^2)^e))
+        center = ∇r.r.c
 
         if plot_contour
-            contour(
+            pl = contour(
                 (M_x_min):contour_stepsize:M_x_max,
                 (M_y_min):contour_stepsize:M_y_max,
                 RR,
@@ -62,10 +67,10 @@ function analyze_result(
                 lw=1
             )
         else
-            plot()
+            pl = plot()
         end
 
-        implicit_plot!(
+        implicit_plot!(pl, 
             h;
             xlims=(M_x_min, M_x_max),
             ylims=(M_y_min, M_y_max),
@@ -76,7 +81,7 @@ function analyze_result(
             resolution=3000
         )
     else
-        plot()
+        pl = plot()
     end
 
     # Plot flows from the critical points
@@ -99,21 +104,22 @@ function analyze_result(
         flow = Tuple.(sol.u)
         l = length(flow)
         k = div(l, flow_breakpoint_ratio)
-        plot!(flow[1:k], linecolor=:steelblue, linewidth=flow_linewidth, label=false, arrow=arrowstyle)
-        plot!(flow[k:end], linecolor=:steelblue, linewidth=flow_linewidth, label=false)
+        plot!(pl, flow[1:k], linecolor=:steelblue, linewidth=flow_linewidth, label=false, arrow=arrowstyle)
+        plot!(pl, flow[k:end], linecolor=:steelblue, linewidth=flow_linewidth, label=false)
         prob = ODEProblem(g, u0 - 0.01 * v, tspan)
         sol = DE.solve(prob, reltol=1e-6, abstol=1e-6)
         flow = Tuple.(sol.u)
         l = length(flow)
         k = div(l, flow_breakpoint_ratio)
-        plot!(flow[1:k], linecolor=:steelblue, linewidth=flow_linewidth, label=false, arrow=arrowstyle)
-        plot!(flow[k:end], linecolor=:steelblue, linewidth=flow_linewidth, label=false)
+        plot!(pl, flow[1:k], linecolor=:steelblue, linewidth=flow_linewidth, label=false, arrow=arrowstyle)
+        plot!(pl, flow[k:end], linecolor=:steelblue, linewidth=flow_linewidth, label=false)
     end
 
     # Plot the routing points
-    scatter!(Tuple.(pts[idx0]), markercolor=:green, markersize=markersize, label="Routing point (index 0)")
-    scatter!(Tuple.(pts[idx1]), markercolor=:green, markersize=markersize, marker=:diamond, label="Routing point (index > 0)")
+    scatter!(pl, Tuple.(pts[idx0]), markercolor=:green, markersize=markersize, label="Routing point (index 0)")
+    scatter!(pl, Tuple.(pts[idx1]), markercolor=:green, markersize=markersize, marker=:diamond, label="Routing point (index > 0)")
 
-    plot!(; xlims=(M_x_min, M_x_max), ylims=(M_y_min, M_y_max), legend=legend, dpi=400, legendfontsize=6)
+    plot!(pl,; xlims=(M_x_min, M_x_max), ylims=(M_y_min, M_y_max), legend=legend, dpi=400, legendfontsize=6)
 
+    pl
 end

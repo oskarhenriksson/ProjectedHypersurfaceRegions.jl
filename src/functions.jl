@@ -1,5 +1,13 @@
 using HomotopyContinuation, LinearAlgebra, DifferentialEquations, LightGraphs, ProgressMeter
 
+import HomotopyContinuation.evaluate!
+import HomotopyContinuation.evaluate_and_jacobian!
+import HomotopyContinuation.evaluate
+import HomotopyContinuation.taylor!
+import HomotopyContinuation.ModelKit.evaluate
+import HomotopyContinuation.ModelKit.nvariables
+import HomotopyContinuation.ModelKit.variables
+
 const HC = HomotopyContinuation
 const DE = DifferentialEquations
 

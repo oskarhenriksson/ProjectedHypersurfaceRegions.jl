@@ -1,14 +1,15 @@
-struct RoutingGradient <: HC.AbstractSystem
+struct RoutingFunction 
     PWS::PseudoWitnessSet
     projection_vars::Vector{HC.Variable}
     GC::GradientCache
     e::Int
     c::Vector
     B::Vector
-    ∇logqe::Any
+    G::Any
     ∇logprodg::Any
+    ∇logqe::Any
 end
-function RoutingGradient(
+function RoutingFunction(
     F,
     projection_vars;
     e::Union{Int,Nothing} = nothing,
@@ -16,7 +17,7 @@ function RoutingGradient(
     g::Union{Vector{Expression},Vector{Variable},Nothing} = nothing
 )
 
-    all_vars = variables(F)
+    all_vars = ModelKit.variables(F)
     x_vars = setdiff(all_vars, projection_vars)
     F_ordered = System(F.expressions, variables = [projection_vars; x_vars])
     k = length(projection_vars)
@@ -25,9 +26,11 @@ function RoutingGradient(
     if isnothing(g) || length(g) == 0
         ∇logprodg = nothing
         g_degree = 0
+        G = nothing
     else
         g = Expression.(g)
-        @assert variables(g) ⊆ projection_vars "Variables in g must match projection_vars"
+        @assert ModelKit.variables(g) ⊆ projection_vars "Variables in g must match projection_vars"
+        G = System(g, variables=projection_vars)
         ∇logprodg = System(sum([differentiate(log(gi), projection_vars) for gi in g]), variables=projection_vars) |> fixed
         g_degree = sum(HC.degree.(g))
     end
@@ -47,24 +50,58 @@ function RoutingGradient(
     # Use single-slice gradient cache to avoid tracking many lifted lines
     GC = GradientCache(PWS, B)
 
-    RoutingGradient(PWS, projection_vars, GC, e, c, B, ∇logqe, ∇logprodg)
+    RoutingFunction(PWS, projection_vars, GC, e, c, B, G, ∇logprodg, ∇logqe)
+end
+denominator_exponent(r::RoutingFunction) = r.e
+ModelKit.variables(r::RoutingFunction) = r.projection_vars
+ModelKit.nvariables(r::RoutingFunction) = length(r.projection_vars)
+
+
+function ModelKit.evaluate(r::RoutingFunction, x, p = nothing)
+    PWS, GC, B, ∇logqe, ∇logprodg = r.PWS, r.GC, r.B, r.∇logqe, r.∇logprodg
+    e, c = r.e, r.c
+    G = r.G
+
+    S = GC.S
+    X = GC.X
+    Uvals = GC.Uvals
+
+    k = n_projection_variables(PWS)
+    n = ambient_dim(PWS)
+
+    if !isnothing(G)
+        u = sum(log(abs(gi)) for gi in G(x)) - e * log(1 + sum((x - c) .* (x - c)))
+    else
+        u = - e * log(1 + sum((x - c) .* (x - c)))
+    end
+
+    # TODO: perhaps we should always pass in a single column as B to routing gradient in the first place...
+    track_pws_to_line!(GC, x, B, PWS)
+
+    for (j, sol) in enumerate(GC.line_hypersurface_intersections[1])
+        !GC.track_report[j] && continue # skip if j-th track failed
+        @assert all(!isnan, sol) "NaN entries in intersection points: $sol"
+        for idx = 1:k
+            X[idx] = sol[idx]
+        end
+        for idx in 1:n-k
+            Uvals[idx, j] = sol[idx+k] 
+        end
+        
+        _, nonzero_coordinate = findmax(abs, X - x)
+        S[j] = B[nonzero_coordinate] / (X[nonzero_coordinate] - x[nonzero_coordinate]) # We solving for t inside of this: p + (1 / t) * β = X
+    end
+
+
+    for si in S 
+        u += log(abs(1/si))
+    end
+
+    u
 end
 
-denominator_exponent(r::RoutingGradient) = r.e
 
-import Base.size
-function Base.size(r::RoutingGradient)
-    k = length(r.projection_vars)
-    (k, k)
-end
-ModelKit.variables(r::RoutingGradient) = r.projection_vars
-
-import HomotopyContinuation.evaluate!
-import HomotopyContinuation.evaluate_and_jacobian!
-import HomotopyContinuation.evaluate
-import HomotopyContinuation.taylor!
-
-function evaluate!(u, r::RoutingGradient, x, p = nothing)
+function gradient!(u, r::RoutingFunction, x, p = nothing)
     
 
     PWS, GC, B, ∇logqe, ∇logprodg = r.PWS, r.GC, r.B, r.∇logqe, r.∇logprodg
@@ -154,21 +191,21 @@ function evaluate!(u, r::RoutingGradient, x, p = nothing)
 
     nothing
 end
-function evaluate(r::RoutingGradient, x, p = nothing)
+function gradient(r::RoutingFunction, x, p = nothing)
 
     # T = eltype(x)
     # if T <: Real 
     #     T = Float64
     # end
 
-    m, n = size(r)
-    u = zeros(ComplexF64, m)
+    k = nvariables(r)
+    u = zeros(ComplexF64, k)
 
-    evaluate!(u, r, x, p)
+    gradient!(u, r, x, p)
     u
 end
-(r::RoutingGradient)(x) = evaluate(r, x)
-function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
+(r::RoutingFunction)(x) = evaluate(r, x)
+function gradient_and_hessian!(u, U, r::RoutingFunction, x, p = nothing)
 
     PWS, GC, B, ∇logqe, ∇logprodg = r.PWS, r.GC, r.B, r.∇logqe, r.∇logprodg
 
@@ -393,26 +430,51 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
 
     nothing
 end
-function evaluate_and_jacobian(r::RoutingGradient, x, p = nothing)
+function gradient_and_hessian(r::RoutingFunction, x, p = nothing)
 
     # T = eltype(x)
     # if T <: Real 
     #     T = Float64
     # end
 
-    m, n = size(r)
-    u = zeros(ComplexF64, m)
-    U = zeros(ComplexF64, m, n)
-    evaluate_and_jacobian!(u, U, r, x, p)
+    k = nvariables(r)
+    u = zeros(ComplexF64, k)
+    U = zeros(ComplexF64, k, k)
+    gradient_and_hessian!(u, U, r, x, p)
     u, U
 end
+
+
+
+
+##########
+
+struct RoutingGradient <: HC.AbstractSystem
+    r::RoutingFunction
+end
+RoutingGradient(F, projection_vars;
+    e::Union{Int,Nothing} = nothing,
+    c::Union{Vector,Nothing} = nothing,
+    g::Union{Vector{Expression},Vector{Variable},Nothing} = nothing
+) = RoutingGradient(RoutingFunction(F, projection_vars; e=e, c=c, g=g))
+
+
+import Base.size
+function Base.size(∇r::RoutingGradient)
+    k = length(∇r.r.projection_vars)
+    (k, k)
+end
+ModelKit.variables(∇r::RoutingGradient) = ∇r.r.projection_vars
+denominator_exponent(∇r::RoutingGradient) = ∇r.r.e
+
+
+evaluate(∇r::RoutingGradient, x, p = nothing) = gradient(∇r.r, x, p)
+evaluate!(u, ∇r::RoutingGradient, x, p = nothing) = gradient!(u, ∇r.r, x, p)
+evaluate_and_jacobian(∇r::RoutingGradient, x, p = nothing) = gradient_and_hessian(∇r.r, x, p)
+evaluate_and_jacobian!(u, U, ∇r::RoutingGradient, x, p = nothing) = gradient_and_hessian!(u, U, ∇r.r, x, p)
 
 function taylor!(u, ::Val, F::RoutingGradient, x, p)
     for i = 1:length(u)
         u[i] = ComplexF64(0)
     end
 end
-
-## for testing
-_evaluate(r::RoutingGradient, p::Vector) = evaluate(r, p)
-_evaluate_evaluate_jacobian(r::RoutingGradient, p::Vector) = (r.H)(p)
