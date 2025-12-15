@@ -45,16 +45,26 @@ function PseudoWitnessSet(
     else
         @assert ambient_dim(L) == n "The ambient dimension of the linear subspace L must match the number of variables in the system F."
     end
+    
+    # Intersect with random linear subspace
     startL = rand_subspace(n; codim = linear_subspace_codim)
+    W = HC.solve(F, target_subspace=startL, start_system=start_system)
 
-    W = witness_set(F, startL; start_system = start_system)
+    # Check for singular solutions
+    if nsingular(W) > 0
+        @warn "Irreducible component of higher multiplicity detected in the incidence variety."
+    end
+
+    # Trace the nonsingular solutions 
     E = HC.solve(
         F,
-        results(W),
+        nonsingular(W),
         start_subspace = startL,
         target_subspace = L,
         intrinsic = true,
     )
+
+    # Repopulate the solution set via monodromy (safetey feature if solutions were lost)
     M = monodromy_solve(F, solutions(E), L)
 
     PseudoWitnessSet(F, k, L, solutions(M))

@@ -153,3 +153,11 @@ end;
     @test isempty(failed_info)
 
 end;
+
+@testset "Multiplicity detection" begin
+    @var a b x
+    F = System([(x - a) * (x - b); 2 * x - (a + b)], variables=[a, b, x])
+    @test_logs match_mode = :any (:warn, "Irreducible component of higher multiplicity detected in the incidence variety.") begin
+        PseudoWitnessSet(F, 2)
+    end
+end
