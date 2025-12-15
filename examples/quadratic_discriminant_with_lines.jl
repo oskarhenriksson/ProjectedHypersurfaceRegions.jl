@@ -1,4 +1,4 @@
-using Random, Plots, DifferentialEquations, Random, Plots, DifferentialEquations, LightGraphs
+using Random, Plots, DifferentialEquations, Random, Plots, DifferentialEquations, LightGraphs, HomotopyContinuation, ImplicitPlots
 
 include("../src/functions.jl");
 
@@ -12,9 +12,9 @@ F = System([x^2 + a * x + b; 2x + a], variables=[a, b, x])
 c = [10, 5]
 
 # Set up the routing function gradient
-∇r = RoutingGradient(F, [a, b]; c=c, g=[a, b]);
-e = denominator_exponent(∇r)
-
+r = RoutingFunction(F, [a, b]; c=c, g = [a,b]);
+∇r = RoutingGradient(r);
+e = denominator_exponent(r)
 
 # Find the complex critical points 
 pts, res0, mon_res = critical_points(∇r)
@@ -26,10 +26,12 @@ println("Indicies: $(idx)")
 println("Failed info: $(failed_info)")
 println()
 
+
+
 ##### Plotting 
 M_x = maximum(p -> abs(p[1]), pts) + 10
 M_y = maximum(p -> abs(p[2]), pts) + 10
-analyze_result(∇r, pts, G, idx;
+pl = analyze_result(∇r, pts, G, idx;
     h=(a, b) -> (a^2 - 4 * b),
     markersize=7,
     arrowstyle=:simple,
@@ -42,6 +44,8 @@ analyze_result(∇r, pts, G, idx;
     M_y_max=M_y,
     M_y_min=-M_y,
 )
+
+
 
 savefig("./figures/quadratic_discriminant_with_lines.png")
 savefig("./figures/quadratic_discriminant_with_lines.svg")
