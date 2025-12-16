@@ -119,8 +119,8 @@ function analyze_result(
     end
 
     # Plot the routing points
-    scatter!(Tuple.(pts[idx0]), markercolor=:green, markersize=markersize, label="Routing point (index 0)")
-    scatter!(Tuple.(pts[idx1]), markercolor=:green, markersize=markersize, marker=:diamond, label="Routing point (index > 0)")
+    !isempty(idx0) && scatter!(Tuple.(pts[idx0]), markercolor=:green, markersize=markersize, label="Routing point (index 0)")
+    !isempty(idx1) && scatter!(Tuple.(pts[idx1]), markercolor=:green, markersize=markersize, marker=:diamond, label="Routing point (index > 0)")
 
     pl = plot!(; xlims=(M_x_min, M_x_max), ylims=(M_y_min, M_y_max), legend=legend, dpi=400, legendfontsize=6)
 

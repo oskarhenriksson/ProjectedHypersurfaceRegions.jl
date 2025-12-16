@@ -1,6 +1,7 @@
-using Random, Plots, DifferentialEquations, Random, Plots, DifferentialEquations, LightGraphs, HomotopyContinuation, ImplicitPlots
+using Random
 
 include("../src/functions.jl");
+include("./analysis.jl");
 
 Random.seed!(12345)
 
@@ -39,13 +40,12 @@ pl = analyze_result(∇r, pts, G, idx;
     discriminant_linewidth=4,
     root_counting_system=System([x^2 + a * x + b], variables=[x], parameters=[a; b]),
     legend=:bottomright,
+    contour_stepsize=0.1,
     M_x_max=M_x,
     M_x_min=-M_x,
     M_y_max=M_y,
     M_y_min=-M_y,
 )
-
-
 
 savefig("./figures/quadratic_discriminant_with_lines.png")
 savefig("./figures/quadratic_discriminant_with_lines.svg")

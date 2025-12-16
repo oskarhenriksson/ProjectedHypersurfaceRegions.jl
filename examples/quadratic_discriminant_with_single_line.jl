@@ -1,4 +1,4 @@
-using Random, Plots, DifferentialEquations, Random, Plots, DifferentialEquations, LightGraphs
+using Random
 
 include("../src/functions.jl");
 
@@ -38,6 +38,7 @@ analyze_result(∇r, pts, G, idx;
     flow_linewidth=3,
     discriminant_linewidth=4,
     legend=:bottomright,
+    contour_stepsize=0.1,
     M_x_max=M_x_max,
     M_x_min=M_x_min,
     M_y_max=M_y_max,
