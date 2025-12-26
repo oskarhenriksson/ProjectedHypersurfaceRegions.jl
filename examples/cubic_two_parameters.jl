@@ -1,7 +1,8 @@
 
-using ImplicitPlots, Plots, Random
+using Random
 
 include("../src/functions.jl");
+mkpath("./results/cubic_two_parameters");
 
 Random.seed!(0x8b868320)
 
@@ -24,8 +25,14 @@ d = degree(∇r.PWS)
 println("Degree of discriminant: $d")
 
 # Critical points
-pts, res0, mon_res = critical_points(∇r)
-# pts = [[0.24019879259471374, 0.6462876625939318], [-19.196301403851297, 17.947215596608764], [13.795122982881756, -0.10215378573628686], [3.6143037072408117, 12.454609261054078], [-14.14401903919251, 0.8670430578243937], [14.082912701198753, 9.0715113805407], [13.570286317137493, -9.183478526567544]]
+# pts = read_solutions("./results/cubic_two_parameters/routing_points.txt") |> real
+# [[0.24019879259471374, 0.6462876625939318], [-19.196301403851297, 17.947215596608764], [13.795122982881756, -0.10215378573628686], [3.6143037072408117, 12.454609261054078], [-14.14401903919251, 0.8670430578243937], [14.082912701198753, 9.0715113805407], [13.570286317137493, -9.183478526567544]]
+pts, res, mon_res = critical_points(∇r)
+
+write_parameters("./results/cubic_two_parameters/monodromy_parameters.txt", parameters(mon_res))
+write_solutions("./results/cubic_two_parameters/monodromy_result.txt", solutions(mon_res))
+write_solutions("./results/cubic_two_parameters/result.txt", solutions(res))
+write_solutions("./results/cubic_two_parameters/routing_points.txt", pts)
 
 # Connecting 
 G, idx, failed_info = partition_of_critical_points(∇r, pts)
@@ -33,6 +40,8 @@ println("Connected components: $(G)")
 println("Indicies: $(idx)")
 println("Failed info: $(failed_info)")
 println()
+
+write("./results/cubic_two_parameters/connected_components.txt", string(G))
 
 # Analyzw result
 include("./analysis.jl");

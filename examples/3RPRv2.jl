@@ -40,6 +40,7 @@ d = degree(∇r.PWS)
 println("Degree of discriminant: $d")
 
 # Routing points
+# pts = read_solutions("./results/3RPRv2/routing_points.txt") |> real
 pts, res, mon_res = critical_points(∇r)
 
 # Connected components 

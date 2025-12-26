@@ -2,6 +2,7 @@ using Random
 
 include("../src/functions.jl");
 include("./analysis.jl");
+mkpath("./results/quadratic");
 
 Random.seed!(0x8b868320)
 
@@ -30,8 +31,13 @@ println("Degree of discriminant: $d")
 # evaluate_and_jacobian!(u, U, H, x0, t0)
 
 # Find the complex critical points 
-# pts = [[-3.9180890683992278, -6.635887940807433], [13.040296300414134, 1.993819726256856], [3.2168112092392103, 8.082538361382138], [-12.339018441254076, -2.1071368134982302]]
-pts, res0, mon_res = critical_points(∇r)
+# pts = read_solutions("./results/quadratic/routing_points.txt") |> real
+pts, res, mon_res = critical_points(∇r)
+
+write_parameters("./results/quadratic/monodromy_parameters.txt", parameters(mon_res))
+write_solutions("./results/quadratic/monodromy_result.txt", solutions(mon_res))
+write_solutions("./results/quadratic/result.txt", solutions(res))
+write_solutions("./results/quadratic/routing_points.txt", pts)
 
 # Connect the critical points
 G, idx, failed_info = partition_of_critical_points(∇r, pts)
@@ -39,6 +45,8 @@ println("Connected components: $(G)")
 println("Indicies: $(idx)")
 println("Failed info: $(failed_info)")
 println()
+
+write("./results/quadratic/connected_components.txt", string(G))
 
 # Analyze root counts and plot result
 M_x = maximum(p -> abs(p[1]), pts) + 4

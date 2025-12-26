@@ -40,6 +40,7 @@ d = degree(∇r.PWS)
 println("Degree of discriminant: $d")
 
 # Routing points
+# pts = read_solutions("./results/3RPRv1/routing_points.txt") |> real
 pts, res, mon_res = critical_points(∇r)
 
 # Connected components 
@@ -78,6 +79,8 @@ options = MonodromyOptions(
     max_loops_no_progress=10 # stopping criterion
 )
 pts, res, mon_res = critical_points(∇r, solutions(mon_res), parameters(mon_res), options=options)
+pts, res, mon_res = critical_points(∇r, mon_pts, mon_par, options=options)
+
 
 G, idx, failed_info = partition_of_critical_points(∇r, pts)
 
