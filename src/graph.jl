@@ -1,5 +1,5 @@
 
-### This is from https://github.com/JuliaAlgebra/HypersurfaceRegions.jl/blob/main/src/partition.jl
+### This is adapted from https://github.com/JuliaAlgebra/HypersurfaceRegions.jl/blob/main/src/partition.jl
 
 
 # return index and unstable eigenvectors of the hessian 
@@ -95,7 +95,7 @@ function partition_of_critical_points(
 
 
     failed_info_list = []
-    for i = 1:length(index_list)
+    ProgressMeter.@showprogress for i = 1:length(index_list)
         if connectivity_status[i] == 0 && index_list[i] == 1
             # need to do path tracking in two directions
             critical_point_index = critical_points_indices[i]
@@ -142,8 +142,7 @@ function partition_of_critical_points(
         end
     end
 
-
-    for i = 1:length(index_list)
+    ProgressMeter.@showprogress for i = 1:length(index_list)
         if connectivity_status[i] == 0 && index_list[i] > 1
             # track paths and stop whenever one path converges
             critical_point_index = critical_points_indices[i]
