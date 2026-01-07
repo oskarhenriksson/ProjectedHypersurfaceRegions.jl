@@ -92,7 +92,7 @@ function evaluate!(u, r::RoutingGradient, x, p = nothing)
 
     #Obtain gradients of S and U with respect to p and β
     for i = 1:length(S)
-        !GC.track_report[i] && continue # skip if i-th track failed
+        !PWS.track_report[i] && continue # skip if i-th track failed
 
         v0 = vcat(S[i], Uvals[:, i], x)
 
@@ -188,7 +188,7 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
     #Obtain gradients of S and U with respect to p and β
     for i = 1:length(S)
 
-        !GC.track_report[i] && continue # skip if i-th track failed
+        !PWS.track_report[i] && continue # skip if i-th track failed
 
         v0 = vcat(S[i], Uvals[:, i], x)
         @assert all(!isnan, v0) "NaN entries in v0: $v0"
@@ -244,7 +244,7 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
     # Computation outlined in the abstract description Jon gave in Overleaf file
     for j = 1:length(S)
 
-        !GC.track_report[j] && continue # skip if j-th track failed
+        !PWS.track_report[j] && continue # skip if j-th track failed
 
         v0 = vcat(S[j], Uvals[:, j], x)
 
@@ -335,7 +335,7 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
     #Compute Hessian
     fill!(M, 0.0 + 0.0im) # here M will get assigned the Hessian of log r
     for j = 1:length(S)
-        !GC.track_report[j] && continue # skip if j-th track failed
+        !PWS.track_report[j] && continue # skip if j-th track failed
         Jtu = GC.Jtu_temp
         for (idx, J) in enumerate(JsuF)
             evaluate!(view(Jtu, :, idx), J, vcat(S[j], Uvals[:, j], x))

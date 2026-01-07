@@ -11,6 +11,7 @@ struct PseudoWitnessSet
     L::Line
     W::Vector
     tracker::EndgameTracker
+    track_report::Vector{Bool}
 end
 degree(PWS::PseudoWitnessSet) = length(PWS.W)
 ambient_dim(PWS::PseudoWitnessSet) = size(PWS.F, 2)
@@ -60,8 +61,9 @@ function PseudoWitnessSet(
 
     # Set up tracker 
     tracker = Tracker(ParameterHomotopy(F_L, L.p, L.p))
+    track_report = zeros(Bool, length(solutions(M))) # for keeping track of which paths are successful
 
-    PseudoWitnessSet(F, k, L, solutions(M), EndgameTracker(tracker))
+    PseudoWitnessSet(F, k, L, solutions(M), EndgameTracker(tracker), track_report)
 end
 
 function track!(u::Vector, PWS::PseudoWitnessSet, p)
@@ -70,18 +72,19 @@ function track!(u::Vector, PWS::PseudoWitnessSet, p)
     for (l, w) in enumerate(PWS.W)
             HC.track!(tracker, w, 1)
             u[l] .= solution(tracker)
+            PWS.track_report[l] = all(isfinite, u[l]) # note if the track was successful or not
     end
+
+    nothing
 end
-track!(GC::GradientCache, PWS::PseudoWitnessSet, p) = track!(GC.line_hypersurface_intersections, PWS, p) 
-
-
 
 function get_s_and_Uvals!(Uvals, S, GC, PWS)
     k = n_projection_variables(PWS)
     n = ambient_dim(PWS)
+
     
     for (j, sol) in enumerate(GC.line_hypersurface_intersections)
-        !GC.track_report[j] && continue # skip if j-th track failed
+        !PWS.track_report[j] && continue # skip if j-th track failed
         @assert all(!isnan, sol) "NaN entries in intersection points: $sol"
 
         S[j] = 1 / sol[end] # We need S[j] = s = 1 / t, where t = sol[end]

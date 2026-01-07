@@ -1,6 +1,5 @@
 mutable struct GradientCache
     line_hypersurface_intersections::Vector
-    track_report::Vector{Bool}
     JsuF::Vector{HC.CompiledSystem}
     JPF::Vector{HC.CompiledSystem}
     JBF::Vector{HC.CompiledSystem}
@@ -90,8 +89,6 @@ function GradientCache(PWS)
   
     @unique_var t, p[1:k]
 
-    track_report = zeros(Bool, d) # for keeping track of which paths are successful
-
     S = zeros(ComplexF64, d)
     X = zeros(ComplexF64, k)
     Uvals = zeros(ComplexF64, n - k, d)
@@ -125,8 +122,7 @@ function GradientCache(PWS)
     ∇logprodg_temp = zeros(ComplexF64, k)
     Hess_logprodg_temp = zeros(ComplexF64, k, k)
 
-    GradientCache(line_hypersurface_intersections,      
-                    track_report,
+    GradientCache(line_hypersurface_intersections,
                     JsuF,
                     JPF,
                     JBF,
@@ -161,6 +157,7 @@ function GradientCache(PWS)
                 )
 end
 
+track!(GC::GradientCache, PWS::PseudoWitnessSet, p) = track!(GC.line_hypersurface_intersections, PWS, p) 
 
 ∇log_r(F::Vector{Expression}, k::Int; kwargs...) =
     ∇log_r(System(F), variables(F)[1:k]; kwargs...)

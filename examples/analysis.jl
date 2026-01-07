@@ -4,7 +4,7 @@ function analyze_result(
     ∇r::RoutingGradient,
     pts::Vector{Vector{Float64}},
     G::Vector{Vector{Int}},
-    idx::Vector{Int};
+    idx::Vector;
     root_counting_system::Union{System,Nothing}=nothing,
     h::Union{Function,Nothing}=nothing,
     root_count_condition::Union{Function,Nothing}=nothing,
