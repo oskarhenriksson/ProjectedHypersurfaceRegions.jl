@@ -18,6 +18,7 @@ mutable struct GradientCache
     A::Array{ComplexF64,4}
     rhs1::Matrix{ComplexF64}
     rhs2::Vector{ComplexF64}
+    rhs3::Vector{ComplexF64}
     JsuF_temp::Matrix{ComplexF64}
     JPF_temp::Matrix{ComplexF64}
     JBF_temp::Matrix{ComplexF64}
@@ -105,6 +106,7 @@ function GradientCache(PWS)
     # 
     rhs1 = zeros(ComplexF64, N, 2*k)  
     rhs2 = zeros(ComplexF64, N)  
+    rhs3 = zeros(ComplexF64, k)  
 
     JsuF_temp = zeros(ComplexF64, N, 1+n-k)
     JPF_temp = zeros(ComplexF64, N, k)
@@ -144,6 +146,7 @@ function GradientCache(PWS)
                     A, 
                     rhs1, 
                     rhs2, 
+                    rhs3,
                     JsuF_temp, 
                     JPF_temp, 
                     JBF_temp, 

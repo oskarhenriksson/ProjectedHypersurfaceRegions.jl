@@ -83,7 +83,7 @@ function evaluate!(u, r::RoutingGradient, x, p = nothing)
     S = GC.S
     Uvals = GC.Uvals
     SB = GC.SB
-    rhs1, rhs2 = GC.rhs1, GC.rhs2
+    rhs1, rhs2, rhs3 = GC.rhs1, GC.rhs2, GC.rhs3
 
     N, n = size(PWS.F)
     k = n_projection_variables(PWS)
@@ -127,18 +127,23 @@ function evaluate!(u, r::RoutingGradient, x, p = nothing)
 
         JBF_temp = GC.JBF_temp
         for idx = 1:length(JBF)
-            evaluate!(rhs1, JBF[idx], v0)
+            evaluate!(rhs3, JBF[idx], v0)
             @inbounds for ii in 1:k
-                JBF_temp[ii, idx] = rhs1[ii]
+                JBF_temp[ii, idx] = rhs3[ii]
             end
         end
 
-        # fill rhs1 in-place (unchanged)
+        # fill rhs1 in-place (unchanged) using explicit loops to avoid slice allocations
         for col = 1:size(JPF_temp, 2)
-            rhs1[:, col] .= JPF_temp[:, col]
+            @inbounds for row = 1:size(rhs1, 1)
+                rhs1[row, col] = JPF_temp[row, col]
+            end
         end
         for idx = 1:size(JBF_temp, 1)
-            rhs1[:, size(JPF_temp, 2) + idx] .= JBF_temp[idx, :]
+            col = size(JPF_temp, 2) + idx
+            @inbounds for row = 1:size(rhs1, 1)
+                rhs1[row, col] = JBF_temp[idx, row]
+            end
         end
 
         rhs1 .*= -1
@@ -147,7 +152,7 @@ function evaluate!(u, r::RoutingGradient, x, p = nothing)
             Jsu0 = lu!(JsuF_temp)
             LinearAlgebra.ldiv!(Jsu0, rhs1) # solves the system Jsu*A = -[JP JB]
         catch
-            rhs1 .== ComplexF64(0)
+            fill!(rhs1, 0.0 + 0.0im)
         end
 
 
@@ -202,7 +207,7 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
     UP = GC.UP
     UB = GC.UB
     A = GC.A
-    rhs1, rhs2 = GC.rhs1, GC.rhs2
+    rhs1, rhs2, rhs3 = GC.rhs1, GC.rhs2, GC.rhs3
 
     M, M1, M2, M3 = GC.M, GC.M1, GC.M2, GC.M3
 
@@ -248,18 +253,23 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
 
         JBF_temp = GC.JBF_temp
         for idx = 1:length(JBF)
-            evaluate!(rhs1, JBF[idx], v0)
+            evaluate!(rhs3, JBF[idx], v0)
             @inbounds for ii in 1:k
-                JBF_temp[ii, idx] = rhs1[ii]
+                JBF_temp[ii, idx] = rhs3[ii]
             end
         end
 
-        # fill rhs1 in-place (unchanged)
+        # fill rhs1 in-place (unchanged) using explicit loops to avoid slice allocations
         for col = 1:size(JPF_temp, 2)
-            rhs1[:, col] .= JPF_temp[:, col]
+            @inbounds for row = 1:size(rhs1, 1)
+                rhs1[row, col] = JPF_temp[row, col]
+            end
         end
         for idx = 1:size(JBF_temp, 1)
-            rhs1[:, size(JPF_temp, 2) + idx] .= JBF_temp[idx, :]
+            col = size(JPF_temp, 2) + idx
+            @inbounds for row = 1:size(rhs1, 1)
+                rhs1[row, col] = JBF_temp[idx, row]
+            end
         end
 
         rhs1 .*= -1
@@ -268,7 +278,7 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
             Jsu0 = lu!(JsuF_temp)
             LinearAlgebra.ldiv!(Jsu0, rhs1) # solves the system Jsu*A = -[JP JB]
         catch
-            rhs1 .== ComplexF64(0)
+            fill!(rhs1, 0.0 + 0.0im)
         end
 
 
