@@ -71,7 +71,7 @@ function track!(u::Vector, PWS::PseudoWitnessSet, p)
     target_parameters!(tracker, p)
     for (l, w) in enumerate(PWS.W)
             HC.track!(tracker, w, 1)
-            u[l] .= solution(tracker)
+            u[l] .= tracker.tracker.state.x
             PWS.track_report[l] = all(isfinite, u[l]) # note if the track was successful or not
     end
 
