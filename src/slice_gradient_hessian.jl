@@ -106,9 +106,9 @@ function GradientCache(PWS)
     rhs1 = zeros(ComplexF64, N, 2*k)  
     rhs2 = zeros(ComplexF64, N)  
 
-    JsuF_temp = zeros(ComplexF64,N, 1+n-k)
+    JsuF_temp = zeros(ComplexF64, N, 1+n-k)
     JPF_temp = zeros(ComplexF64, N, k)
-    JBF_temp = transpose(zeros(ComplexF64, N, k))
+    JBF_temp = zeros(ComplexF64, k, N)
     Jtu_temp = zeros(ComplexF64, N, 1+n-k) # TODO: Maybe can reuse Jsu_temp....
     HF_temp = zeros(ComplexF64, N, size(HF)...)
     JxB_temp = zeros(ComplexF64, N, size(JxB)...) # size(JxB)

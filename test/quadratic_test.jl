@@ -1,3 +1,5 @@
+using Pkg
+include("../src/functions.jl");
 @var a b x
 F = System([x^2 + a * x + b; 2x + a], variables=[a, b, x])
 

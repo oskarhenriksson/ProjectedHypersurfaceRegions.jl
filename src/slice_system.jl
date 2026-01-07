@@ -216,17 +216,26 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
         # use indexed loops to avoid tuple allocations from enumerate
         JsuF_temp = GC.JsuF_temp
         for idx = 1:length(JsuF)
-            evaluate!(view(JsuF_temp, :, idx), JsuF[idx], v0)
+            evaluate!(rhs2, JsuF[idx], v0)
+            @inbounds for ii in 1:N
+                JsuF_temp[ii, idx] = rhs2[ii]
+            end
         end
 
         JPF_temp = GC.JPF_temp
         for idx = 1:length(JPF)
-            evaluate!(view(JPF_temp, :, idx), JPF[idx], v0)
+            evaluate!(rhs2, JPF[idx], v0)
+            @inbounds for ii in 1:N
+                JPF_temp[ii, idx] = rhs2[ii]
+            end
         end
 
         JBF_temp = GC.JBF_temp
         for idx = 1:length(JBF)
-            evaluate!(view(JBF_temp, :, idx), JBF[idx], v0)
+            evaluate!(rhs2, JBF[idx], v0)
+            @inbounds for ii in 1:N
+                JBF_temp[ii, idx] = rhs2[ii]
+            end
         end
 
         # fill rhs1 in-place (unchanged)
@@ -274,7 +283,10 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
         HF_nrows, HF_ncols = size(HF)
         for col_idx = 1:HF_ncols
             for row_idx = 1:HF_nrows
-                evaluate!(view(HF_temp, :, row_idx, col_idx), HF[row_idx, col_idx], v0)
+                evaluate!(rhs2, HF[row_idx, col_idx], v0)
+                @inbounds for ii in 1:N
+                    HF_temp[ii, row_idx, col_idx] = rhs2[ii]
+                end
             end
         end
 
@@ -283,7 +295,10 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
         JxB_nrows, JxB_ncols = size(JxB)
         for col_idx = 1:JxB_ncols
             for row_idx = 1:JxB_nrows
-                evaluate!(view(JxB_temp, :, row_idx, col_idx), JxB[row_idx, col_idx], v0)
+                evaluate!(rhs2, JxB[row_idx, col_idx], v0)
+                @inbounds for ii in 1:N
+                    JxB_temp[ii, row_idx, col_idx] = rhs2[ii]
+                end
             end
         end
 
@@ -291,7 +306,10 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
         JxP_nrows, JxP_ncols = size(JxP)
         for col_idx = 1:JxP_ncols
             for row_idx = 1:JxP_nrows
-                evaluate!(view(JxP_temp, :, row_idx, col_idx), JxP[row_idx, col_idx], v0)
+                evaluate!(rhs2, JxP[row_idx, col_idx], v0)
+                @inbounds for ii in 1:N
+                    JxP_temp[ii, row_idx, col_idx] = rhs2[ii]
+                end
             end
         end
 
@@ -299,7 +317,10 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
         JPB_nrows, JPB_ncols = size(JPB)
         for col_idx = 1:JPB_ncols
             for row_idx = 1:JPB_nrows
-                evaluate!(view(JPB_temp, :, row_idx, col_idx), JPB[row_idx, col_idx], v0)
+                evaluate!(rhs2, JPB[row_idx, col_idx], v0)
+                @inbounds for ii in 1:N
+                    JPB_temp[ii, row_idx, col_idx] = rhs2[ii]
+                end
             end
         end
 
@@ -355,10 +376,24 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
     #Compute Hessian
     fill!(M, 0.0 + 0.0im) # here M will get assigned the Hessian of log r
     for j = 1:length(S)
+        
         !PWS.track_report[j] && continue # skip if j-th track failed
+
+        v0[1] = S[j]
+        @inbounds for ii = 1:size(Uvals,1)
+            v0[1 + ii] = Uvals[ii, j]
+        end
+        @inbounds for ii = 1:length(x)
+            v0[1 + size(Uvals,1) + ii] = x[ii]
+        end
+
+
         Jtu = GC.Jtu_temp
         for (idx, J) in enumerate(JsuF)
-            evaluate!(view(Jtu, :, idx), J, vcat(S[j], Uvals[:, j], x))
+            evaluate!(rhs2, J, v0)
+            @inbounds for ii in 1:N
+                    Jtu[ii, idx] = rhs2[ii]
+                end
         end
         Jtu0 = lu!(Jtu)
         for a = 1:k, b = 1:k
