@@ -350,10 +350,7 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
         end
     end
 
-
-    for a = 1:k, b = 1:k
-        U[a, b] += M[a, b]
-    end
+    U = U + M
 
     nothing
 end
