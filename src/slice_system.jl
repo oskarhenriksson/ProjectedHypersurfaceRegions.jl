@@ -80,7 +80,6 @@ function evaluate!(u, r::RoutingGradient, x, p = nothing)
     JBF = GC.JBF
 
     S = GC.S
-    X = GC.X
     Uvals = GC.Uvals
     SB = GC.SB
     rhs1 = GC.rhs1
@@ -88,10 +87,8 @@ function evaluate!(u, r::RoutingGradient, x, p = nothing)
     k = n_projection_variables(PWS)
 
     # Track to PWS
-    track!(GC.line_hypersurface_intersections, PWS, x)
-    for (j, sol) in enumerate(GC.line_hypersurface_intersections)
-        S[j] = 1 / sol[end] # We solving for t inside of this: p + (1 / s) * b = x
-    end
+    track!(GC, PWS, x)
+    get_s_and_Uvals!(Uvals, S, GC, PWS)
 
     #Obtain gradients of S and U with respect to p and β
     for i = 1:length(S)
@@ -171,7 +168,6 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
     JPB = GC.JPB
 
     S = GC.S
-    X = GC.X
     Uvals = GC.Uvals
     SP = GC.SP
     SB = GC.SB
@@ -186,10 +182,8 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
     N, n = size(PWS.F)
 
     # Track to PWS
-    track!(GC.line_hypersurface_intersections, PWS, x)
-    for (j, sol) in enumerate(GC.line_hypersurface_intersections)
-        S[j] = 1 / sol[end] # We solving for t inside of this: p + (1 / s) * b = x
-    end
+    track!(GC, PWS, x)
+    get_s_and_Uvals!(Uvals, S, GC, PWS)
 
     #Obtain gradients of S and U with respect to p and β
     for i = 1:length(S)

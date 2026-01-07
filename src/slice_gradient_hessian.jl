@@ -1,5 +1,4 @@
 mutable struct GradientCache
-    Ks::Vector{LinearSubspace}
     line_hypersurface_intersections::Vector
     track_report::Vector{Bool}
     JsuF::Vector{HC.CompiledSystem}
@@ -87,8 +86,7 @@ function GradientCache(PWS)
 
     @assert N == n-k+1 "Unexpected length of system"
 
-    Ks = Vector{LinearSubspace}(undef, 1)
-    line_hypersurface_intersections = [zeros(ComplexF64, n) for _ in 1:d]
+    line_hypersurface_intersections = [zeros(ComplexF64, n + 1) for _ in 1:d]
   
     @unique_var t, p[1:k]
 
@@ -127,7 +125,7 @@ function GradientCache(PWS)
     ∇logprodg_temp = zeros(ComplexF64, k)
     Hess_logprodg_temp = zeros(ComplexF64, k, k)
 
-    GradientCache(Ks, line_hypersurface_intersections,      
+    GradientCache(line_hypersurface_intersections,      
                     track_report,
                     JsuF,
                     JPF,
@@ -162,7 +160,6 @@ function GradientCache(PWS)
                     Hess_logprodg_temp
                 )
 end
-
 
 
 ∇log_r(F::Vector{Expression}, k::Int; kwargs...) =

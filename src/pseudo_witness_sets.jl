@@ -13,7 +13,7 @@ struct PseudoWitnessSet
     tracker::EndgameTracker
 end
 degree(PWS::PseudoWitnessSet) = length(PWS.W)
-ambient_dim(PWS::PseudoWitnessSet) = HC.ambient_dim(PWS.L)
+ambient_dim(PWS::PseudoWitnessSet) = size(PWS.F, 2)
 n_projection_variables(PWS::PseudoWitnessSet) = PWS.k
 system(PWS::PseudoWitnessSet) = PWS.F
 
@@ -64,15 +64,35 @@ function PseudoWitnessSet(
     PseudoWitnessSet(F, k, L, solutions(M), EndgameTracker(tracker))
 end
 
-function track!(u, PWS::PseudoWitnessSet, p)
+function track!(u::Vector, PWS::PseudoWitnessSet, p)
     tracker = PWS.tracker
     target_parameters!(tracker, p)
     for (l, w) in enumerate(PWS.W)
             HC.track!(tracker, w, 1)
-            u[l] .= solution(tracker)[end]
+            u[l] .= solution(tracker)
     end
 end
+track!(GC::GradientCache, PWS::PseudoWitnessSet, p) = track!(GC.line_hypersurface_intersections, PWS, p) 
 
+
+
+function get_s_and_Uvals!(Uvals, S, GC, PWS)
+    k = n_projection_variables(PWS)
+    n = ambient_dim(PWS)
+    
+    for (j, sol) in enumerate(GC.line_hypersurface_intersections)
+        !GC.track_report[j] && continue # skip if j-th track failed
+        @assert all(!isnan, sol) "NaN entries in intersection points: $sol"
+
+        S[j] = 1 / sol[end] # We need S[j] = s = 1 / t, where t = sol[end]
+
+         for idx in 1:n-k
+            Uvals[idx, j] = sol[idx+k] 
+        end
+    end
+
+    nothing
+end
 
 
 
