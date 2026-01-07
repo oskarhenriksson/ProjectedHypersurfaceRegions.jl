@@ -132,8 +132,14 @@ function evaluate!(u, r::RoutingGradient, x, p = nothing)
         end
 
         rhs1 .*= -1
-        Jsu0 = lu!(JsuF_temp)
-        LinearAlgebra.ldiv!(Jsu0, rhs1)
+        # In-place linear solving
+        try
+            Jsu0 = lu!(JsuF_temp)
+            LinearAlgebra.ldiv!(Jsu0, rhs1) # solves the system Jsu*A = -[JP JB]
+        catch
+            rhs1 .== ComplexF64(0)
+        end
+
 
         SB[i, :] = rhs1[1, k+1:end]
         u .-= SB[i, :]
@@ -198,7 +204,7 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
     get_s_and_Uvals!(Uvals, S, GC, PWS)
 
     #Obtain gradients of S and U with respect to p and β
-    for i = 1:length(S)
+    @time for i = 1:length(S)
 
         if !PWS.track_report[i] # skip if i-th track failed
             continue
@@ -247,8 +253,14 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
         end
 
         rhs1 .*= -1
-        Jsu0 = lu!(JsuF_temp)
-        LinearAlgebra.ldiv!(Jsu0, rhs1)
+        # In-place linear solving
+        try
+            Jsu0 = lu!(JsuF_temp)
+            LinearAlgebra.ldiv!(Jsu0, rhs1) # solves the system Jsu*A = -[JP JB]
+        catch
+            rhs1 .== ComplexF64(0)
+        end
+
 
         SP[i, :] = rhs1[1, 1:k]
         SB[i, :] = rhs1[1, k+1:end]
@@ -265,7 +277,7 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
     end
 
     # Computation outlined in the abstract description Jon gave in Overleaf file
-    for j = 1:length(S)
+    @time for j = 1:length(S)
 
         !PWS.track_report[j] && continue # skip if j-th track failed
 
@@ -375,7 +387,7 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
 
     #Compute Hessian
     fill!(M, 0.0 + 0.0im) # here M will get assigned the Hessian of log r
-    for j = 1:length(S)
+    @time for j = 1:length(S)
         
         !PWS.track_report[j] && continue # skip if j-th track failed
 
