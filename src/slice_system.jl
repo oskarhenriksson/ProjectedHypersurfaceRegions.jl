@@ -127,9 +127,9 @@ function evaluate!(u, r::RoutingGradient, x, p = nothing)
 
         JBF_temp = GC.JBF_temp
         for idx = 1:length(JBF)
-            evaluate!(rhs2, JBF[idx], v0)
-            @inbounds for ii in 1:N
-                JBF_temp[ii, idx] = rhs2[ii]
+            evaluate!(rhs1, JBF[idx], v0)
+            @inbounds for ii in 1:k
+                JBF_temp[ii, idx] = rhs1[ii]
             end
         end
 
@@ -214,7 +214,7 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
     get_s_and_Uvals!(Uvals, S, GC, PWS)
 
     #Obtain gradients of S and U with respect to p and β
-    @time for i = 1:length(S)
+    for i = 1:length(S)
 
         if !PWS.track_report[i] # skip if i-th track failed
             continue
@@ -248,9 +248,9 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
 
         JBF_temp = GC.JBF_temp
         for idx = 1:length(JBF)
-            evaluate!(rhs2, JBF[idx], v0)
-            @inbounds for ii in 1:N
-                JBF_temp[ii, idx] = rhs2[ii]
+            evaluate!(rhs1, JBF[idx], v0)
+            @inbounds for ii in 1:k
+                JBF_temp[ii, idx] = rhs1[ii]
             end
         end
 
@@ -287,7 +287,7 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
     end
 
     # Computation outlined in the abstract description Jon gave in Overleaf file
-    @time for j = 1:length(S)
+    for j = 1:length(S)
 
         !PWS.track_report[j] && continue # skip if j-th track failed
 
@@ -397,7 +397,7 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
 
     #Compute Hessian
     fill!(M, 0.0 + 0.0im) # here M will get assigned the Hessian of log r
-    @time for j = 1:length(S)
+    for j = 1:length(S)
         
         !PWS.track_report[j] && continue # skip if j-th track failed
 
