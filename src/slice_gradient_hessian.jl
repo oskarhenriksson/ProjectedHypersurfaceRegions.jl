@@ -1,4 +1,5 @@
 mutable struct GradientCache
+    v0::Vector
     line_hypersurface_intersections::Vector
     JsuF::Vector{HC.CompiledSystem}
     JPF::Vector{HC.CompiledSystem}
@@ -33,7 +34,7 @@ mutable struct GradientCache
     Hess_logprodg_temp::Matrix{ComplexF64}
 end
 function compute_systems(F, n, k, B)
-    @var uval[1:n-k] α[1:k] β[1:k] t
+    @unique_var uval[1:n-k] α[1:k] β[1:k] t
     F_on_line = F([α + (1 / t) * β; uval])
     v = vcat(t, uval)
     vars = vcat(t, uval, α)
@@ -122,7 +123,10 @@ function GradientCache(PWS)
     ∇logprodg_temp = zeros(ComplexF64, k)
     Hess_logprodg_temp = zeros(ComplexF64, k, k)
 
-    GradientCache(line_hypersurface_intersections,
+    v0 = randn(ComplexF64, n+1)
+
+    GradientCache(v0, 
+                    line_hypersurface_intersections,
                     JsuF,
                     JPF,
                     JBF,

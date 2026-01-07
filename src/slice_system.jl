@@ -79,6 +79,7 @@ function evaluate!(u, r::RoutingGradient, x, p = nothing)
     JPF = GC.JPF
     JBF = GC.JBF
 
+    v0 = GC.v0
     S = GC.S
     Uvals = GC.Uvals
     SB = GC.SB
@@ -92,35 +93,45 @@ function evaluate!(u, r::RoutingGradient, x, p = nothing)
 
     #Obtain gradients of S and U with respect to p and β
     for i = 1:length(S)
-        !PWS.track_report[i] && continue # skip if i-th track failed
 
-        v0 = vcat(S[i], Uvals[:, i], x)
+        if !PWS.track_report[i] # skip if i-th track failed
+            continue
+        end
 
+        # fill v0 in-place instead of vcat
+        v0[1] = S[i]
+        @inbounds for ii = 1:size(Uvals,1)
+            v0[1 + ii] = Uvals[ii, i]
+        end
+        @inbounds for ii = 1:length(x)
+            v0[1 + size(Uvals,1) + ii] = x[ii]
+        end
+
+        # use indexed loops to avoid tuple allocations from enumerate
         JsuF_temp = GC.JsuF_temp
-        for (idx, J) in enumerate(JsuF)
-            evaluate!(view(JsuF_temp, :, idx), J, v0)
+        for idx = 1:length(JsuF)
+            evaluate!(view(JsuF_temp, :, idx), JsuF[idx], v0)
         end
 
         JPF_temp = GC.JPF_temp
-        for (idx, J) in enumerate(JPF)
-            evaluate!(view(JPF_temp, :, idx), J, v0)
+        for idx = 1:length(JPF)
+            evaluate!(view(JPF_temp, :, idx), JPF[idx], v0)
         end
 
         JBF_temp = GC.JBF_temp
-        for (idx, J) in enumerate(JBF)
-            evaluate!(view(JBF_temp, :, idx), J, v0)
+        for idx = 1:length(JBF)
+            evaluate!(view(JBF_temp, :, idx), JBF[idx], v0)
         end
 
-        # Fill rhs in-place
+        # fill rhs1 in-place (unchanged)
         for col = 1:size(JPF_temp, 2)
             rhs1[:, col] .= JPF_temp[:, col]
         end
         for idx = 1:size(JBF_temp, 1)
-            rhs1[:, size(JPF_temp, 2)+idx] .= JBF_temp[idx, :]
+            rhs1[:, size(JPF_temp, 2) + idx] .= JBF_temp[idx, :]
         end
 
         rhs1 .*= -1
-        # In-place linear solving
         Jsu0 = lu!(JsuF_temp)
         LinearAlgebra.ldiv!(Jsu0, rhs1)
 
@@ -167,6 +178,7 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
     JxP = GC.JxP
     JPB = GC.JPB
 
+    v0 = GC.v0
     S = GC.S
     Uvals = GC.Uvals
     SP = GC.SP
@@ -188,44 +200,46 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
     #Obtain gradients of S and U with respect to p and β
     for i = 1:length(S)
 
-        !PWS.track_report[i] && continue # skip if i-th track failed
+        if !PWS.track_report[i] # skip if i-th track failed
+            continue
+        end
 
-        v0 = vcat(S[i], Uvals[:, i], x)
-        @assert all(!isnan, v0) "NaN entries in v0: $v0"
+        # fill v0 in-place instead of vcat
+        v0[1] = S[i]
+        @inbounds for ii = 1:size(Uvals,1)
+            v0[1 + ii] = Uvals[ii, i]
+        end
+        @inbounds for ii = 1:length(x)
+            v0[1 + size(Uvals,1) + ii] = x[ii]
+        end
 
+        # use indexed loops to avoid tuple allocations from enumerate
         JsuF_temp = GC.JsuF_temp
-        for (idx, J) in enumerate(JsuF)
-            evaluate!(view(JsuF_temp, :, idx), J, v0)
+        for idx = 1:length(JsuF)
+            evaluate!(view(JsuF_temp, :, idx), JsuF[idx], v0)
         end
 
         JPF_temp = GC.JPF_temp
-        for (idx, J) in enumerate(JPF)
-            evaluate!(view(JPF_temp, :, idx), J, v0)
+        for idx = 1:length(JPF)
+            evaluate!(view(JPF_temp, :, idx), JPF[idx], v0)
         end
-
-
 
         JBF_temp = GC.JBF_temp
-        for (idx, J) in enumerate(JBF)
-            evaluate!(view(JBF_temp, :, idx), J, v0)
+        for idx = 1:length(JBF)
+            evaluate!(view(JBF_temp, :, idx), JBF[idx], v0)
         end
 
-        # Fill rhs in-place
+        # fill rhs1 in-place (unchanged)
         for col = 1:size(JPF_temp, 2)
             rhs1[:, col] .= JPF_temp[:, col]
         end
         for idx = 1:size(JBF_temp, 1)
-            rhs1[:, size(JPF_temp, 2)+idx] .= JBF_temp[idx, :]
+            rhs1[:, size(JPF_temp, 2) + idx] .= JBF_temp[idx, :]
         end
 
         rhs1 .*= -1
-        # In-place linear solving
-        try
-            Jsu0 = lu!(JsuF_temp)
-            LinearAlgebra.ldiv!(Jsu0, rhs1) # solves the system Jsu*A = -[JP JB]
-        catch
-            rhs1 .== ComplexF64(0)
-        end
+        Jsu0 = lu!(JsuF_temp)
+        LinearAlgebra.ldiv!(Jsu0, rhs1)
 
         SP[i, :] = rhs1[1, 1:k]
         SB[i, :] = rhs1[1, k+1:end]
@@ -246,37 +260,48 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
 
         !PWS.track_report[j] && continue # skip if j-th track failed
 
-        v0 = vcat(S[j], Uvals[:, j], x)
+        # fill v0 in-place instead of vcat
+        v0[1] = S[j]
+        @inbounds for ii = 1:size(Uvals,1)
+            v0[1 + ii] = Uvals[ii, j]
+        end
+        @inbounds for ii = 1:length(x)
+            v0[1 + size(Uvals,1) + ii] = x[ii]
+        end
 
         HF_temp = GC.HF_temp
-        for (col_idx, col) in enumerate(eachcol(HF))
-            for (row_idx, h) in enumerate(col)
-                evaluate!(view(HF_temp, :, row_idx, col_idx), h, v0)
+        # indexed loops avoid allocations from eachcol/enumerate
+        HF_nrows, HF_ncols = size(HF)
+        for col_idx = 1:HF_ncols
+            for row_idx = 1:HF_nrows
+                evaluate!(view(HF_temp, :, row_idx, col_idx), HF[row_idx, col_idx], v0)
             end
         end
 
-        # Evaluate JxB using evaluate! instead of map with evaluate
+        # Evaluate JxB using evaluate! with indexed loops
         JxB_temp = GC.JxB_temp
-        for (col_idx, col) in enumerate(eachcol(JxB))
-            for (row_idx, h) in enumerate(col)
-                evaluate!(view(JxB_temp, :, row_idx, col_idx), h, v0)
+        JxB_nrows, JxB_ncols = size(JxB)
+        for col_idx = 1:JxB_ncols
+            for row_idx = 1:JxB_nrows
+                evaluate!(view(JxB_temp, :, row_idx, col_idx), JxB[row_idx, col_idx], v0)
             end
         end
 
         JxP_temp = GC.JxP_temp
-        for (col_idx, col) in enumerate(eachcol(JxP))
-            for (row_idx, h) in enumerate(col)
-                evaluate!(view(JxP_temp, :, row_idx, col_idx), h, v0)
+        JxP_nrows, JxP_ncols = size(JxP)
+        for col_idx = 1:JxP_ncols
+            for row_idx = 1:JxP_nrows
+                evaluate!(view(JxP_temp, :, row_idx, col_idx), JxP[row_idx, col_idx], v0)
             end
         end
 
         JPB_temp = GC.JPB_temp
-        for (col_idx, col) in enumerate(eachcol(JPB))
-            for (row_idx, h) in enumerate(col)
-                evaluate!(view(JPB_temp, :, row_idx, col_idx), h, v0)
+        JPB_nrows, JPB_ncols = size(JPB)
+        for col_idx = 1:JPB_ncols
+            for row_idx = 1:JPB_nrows
+                evaluate!(view(JPB_temp, :, row_idx, col_idx), JPB[row_idx, col_idx], v0)
             end
         end
-
 
         for i = 1:N
 
@@ -306,11 +331,6 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
             Jpbi = view(JPB_temp, i, :, :)
 
             # now step by step in-place matrix multiplications. 
-            # The goal is: 
-            # A[j, i, :, :] .= (M1 * Hi * M2
-            #                + Jpbi 
-            #                + M1 * Jxbi
-            #                + transpose(Jxpi) * M2) |> transpose |> Matrix
             for a = 1:k, b = 1:k
                 A[j, i, a, b] = Jpbi[b, a] # note the transpose here
             end
