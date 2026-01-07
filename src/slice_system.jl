@@ -4,7 +4,6 @@ struct RoutingGradient <: HC.AbstractSystem
     GC::GradientCache
     e::Int
     c::Vector
-    B::Vector
     ∇logqe::Any
     ∇logprodg::Any
 end
@@ -20,7 +19,7 @@ function RoutingGradient(
     x_vars = setdiff(all_vars, projection_vars)
     F_ordered = System(F.expressions, variables = [projection_vars; x_vars])
     k = length(projection_vars)
-    PWS = PseudoWitnessSet(F_ordered, k, linear_subspace_codim = k - 1)
+    PWS = PseudoWitnessSet(F_ordered, k)
 
     if isnothing(g) || length(g) == 0
         ∇logprodg = nothing
@@ -38,16 +37,15 @@ function RoutingGradient(
     if isnothing(c)
         c = randn(k)
     end
-    B = randn(ComplexF64, k)
 
     @var α[1:k]
     q = 1 + sum((α - c) .* (α - c))
     ∇logqe = System(differentiate(-e * log(q), α), variables = α) |> fixed
 
     # Use single-slice gradient cache to avoid tracking many lifted lines
-    GC = GradientCache(PWS, B)
+    GC = GradientCache(PWS)
 
-    RoutingGradient(PWS, projection_vars, GC, e, c, B, ∇logqe, ∇logprodg)
+    RoutingGradient(PWS, projection_vars, GC, e, c, ∇logqe, ∇logprodg)
 end
 
 denominator_exponent(r::RoutingGradient) = r.e
@@ -67,8 +65,7 @@ import HomotopyContinuation.taylor!
 function evaluate!(u, r::RoutingGradient, x, p = nothing)
     
 
-    PWS, GC, B, ∇logqe, ∇logprodg = r.PWS, r.GC, r.B, r.∇logqe, r.∇logprodg
-
+    PWS, GC, ∇logqe, ∇logprodg = r.PWS, r.GC, r.∇logqe, r.∇logprodg
 
     evaluate!(u, ∇logqe, x)
     if !isnothing(∇logprodg)
@@ -89,23 +86,11 @@ function evaluate!(u, r::RoutingGradient, x, p = nothing)
     rhs1 = GC.rhs1
 
     k = n_projection_variables(PWS)
-    n = ambient_dim(PWS)
 
-    # TODO: perhaps we should always pass in a single column as B to routing gradient in the first place...
-    track_pws_to_line!(GC, x, B, PWS)
-
-    for (j, sol) in enumerate(GC.line_hypersurface_intersections[1])
-        !GC.track_report[j] && continue # skip if j-th track failed
-        @assert all(!isnan, sol) "NaN entries in intersection points: $sol"
-        for idx = 1:k
-            X[idx] = sol[idx]
-        end
-        for idx in 1:n-k
-            Uvals[idx, j] = sol[idx+k] 
-        end
-        
-        _, nonzero_coordinate = findmax(abs, X - x)
-        S[j] = B[nonzero_coordinate] / (X[nonzero_coordinate] - x[nonzero_coordinate]) # We solving for t inside of this: p + (1 / t) * β = X
+    # Track to PWS
+    track!(GC.line_hypersurface_intersections, PWS, x)
+    for (j, sol) in enumerate(GC.line_hypersurface_intersections)
+        S[j] = 1 / sol[end] # We solving for t inside of this: p + (1 / s) * b = x
     end
 
     #Obtain gradients of S and U with respect to p and β
@@ -156,11 +141,6 @@ function evaluate!(u, r::RoutingGradient, x, p = nothing)
 end
 function evaluate(r::RoutingGradient, x, p = nothing)
 
-    # T = eltype(x)
-    # if T <: Real 
-    #     T = Float64
-    # end
-
     m, n = size(r)
     u = zeros(ComplexF64, m)
 
@@ -170,7 +150,7 @@ end
 (r::RoutingGradient)(x) = evaluate(r, x)
 function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
 
-    PWS, GC, B, ∇logqe, ∇logprodg = r.PWS, r.GC, r.B, r.∇logqe, r.∇logprodg
+    PWS, GC, ∇logqe, ∇logprodg = r.PWS, r.GC, r.∇logqe, r.∇logprodg
 
     evaluate_and_jacobian!(u, U, ∇logqe, x)
     if !isnothing(∇logprodg)
@@ -203,22 +183,12 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
     M, M1, M2, M3 = GC.M, GC.M1, GC.M2, GC.M3
 
     k = n_projection_variables(PWS)
-    d = degree(PWS)
     N, n = size(PWS.F)
 
-    track_pws_to_line!(GC, x, B, PWS)
-
-
-    for (j, sol) in enumerate(GC.line_hypersurface_intersections[1])
-        !GC.track_report[j] && continue # skip if j-th track failed
-        for i = 1:k
-            X[i] = sol[i]
-        end
-        for i = 1:(n-k)
-            Uvals[i, j] = sol[k+i]
-        end
-        _, nonzero_coordinate = findmax(abs, X - x)
-        S[j] = B[nonzero_coordinate] / (X[nonzero_coordinate] - x[nonzero_coordinate]) # We solving for t inside of this: p + (1 / t) * β = X
+    # Track to PWS
+    track!(GC.line_hypersurface_intersections, PWS, x)
+    for (j, sol) in enumerate(GC.line_hypersurface_intersections)
+        S[j] = 1 / sol[end] # We solving for t inside of this: p + (1 / s) * b = x
     end
 
     #Obtain gradients of S and U with respect to p and β
@@ -394,11 +364,6 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
     nothing
 end
 function evaluate_and_jacobian(r::RoutingGradient, x, p = nothing)
-
-    # T = eltype(x)
-    # if T <: Real 
-    #     T = Float64
-    # end
 
     m, n = size(r)
     u = zeros(ComplexF64, m)

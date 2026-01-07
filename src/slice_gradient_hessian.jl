@@ -1,7 +1,6 @@
 mutable struct GradientCache
     Ks::Vector{LinearSubspace}
     line_hypersurface_intersections::Vector
-    tracker::EndgameTracker
     track_report::Vector{Bool}
     JsuF::Vector{HC.CompiledSystem}
     JPF::Vector{HC.CompiledSystem}
@@ -79,19 +78,20 @@ function compute_systems(F, n, k, B)
 
 end
 
-function GradientCache(PWS, B)
+function GradientCache(PWS)
     d = degree(PWS)
     k = n_projection_variables(PWS)
     F = PWS.F
+    L = PWS.L
     N, n = size(F)
 
     @assert N == n-k+1 "Unexpected length of system"
 
     Ks = Vector{LinearSubspace}(undef, 1)
-    line_hypersurface_intersections = [[zeros(ComplexF64, n) for _ in 1:d]]
+    line_hypersurface_intersections = [zeros(ComplexF64, n) for _ in 1:d]
   
-    Hom = linear_subspace_homotopy(PWS.F, PWS.L, PWS.L; intrinsic = true)
-    tracker = EndgameTracker(Hom)
+    @unique_var t, p[1:k]
+
     track_report = zeros(Bool, d) # for keeping track of which paths are successful
 
     S = zeros(ComplexF64, d)
@@ -103,7 +103,7 @@ function GradientCache(PWS, B)
     UB = zeros(ComplexF64, d, n - k, k)
     A = zeros(ComplexF64, d, N, k, k) 
 
-    JsuF, JPF, JBF, HF, JxB, JxP, JPB = compute_systems(F, n, k, B)
+    JsuF, JPF, JBF, HF, JxB, JxP, JPB = compute_systems(F, n, k, L.b)
 
 
     # 
@@ -127,7 +127,7 @@ function GradientCache(PWS, B)
     ∇logprodg_temp = zeros(ComplexF64, k)
     Hess_logprodg_temp = zeros(ComplexF64, k, k)
 
-    GradientCache(Ks, line_hypersurface_intersections, tracker,      
+    GradientCache(Ks, line_hypersurface_intersections,      
                     track_report,
                     JsuF,
                     JPF,
