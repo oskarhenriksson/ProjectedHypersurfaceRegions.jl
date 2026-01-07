@@ -1,6 +1,6 @@
-mutable struct GradientCache
-    v0::Vector
-    line_hypersurface_intersections::Vector
+mutable struct GradientCache{T}
+    v0::Vector{T}
+    line_hypersurface_intersections::Vector{Vector{T}}
     JsuF::Vector{HC.CompiledSystem}
     JPF::Vector{HC.CompiledSystem}
     JBF::Vector{HC.CompiledSystem}
@@ -8,35 +8,35 @@ mutable struct GradientCache
     JxB::Matrix{HC.CompiledSystem}
     JxP::Matrix{HC.CompiledSystem}
     JPB::Matrix{HC.CompiledSystem}
-    S::Vector{ComplexF64}
-    X::Vector{ComplexF64}
-    Uvals::Matrix{ComplexF64}
-    SP::Matrix{ComplexF64}
-    SB::Matrix{ComplexF64}
-    UP::Array{ComplexF64,3}
-    UB::Array{ComplexF64,3}
-    A::Array{ComplexF64,4}
-    rhs1::Matrix{ComplexF64}
-    rhs2::Vector{ComplexF64}
-    rhs3::Vector{ComplexF64}
-    JsuF_temp::Matrix{ComplexF64}
-    JPF_temp::Matrix{ComplexF64}
-    JBF_temp::Matrix{ComplexF64}
-    Jtu_temp::Matrix{ComplexF64} # Temporary storage for evaluating JsuF
-    HF_temp::Array{ComplexF64, 3} # Temporary storage for evaluating HF
-    JxB_temp::Array{ComplexF64, 3} # Temporary storage for evaluating JxB
-    JxP_temp::Array{ComplexF64, 3} # Temporary storage for evaluating JxP
-    JPB_temp::Array{ComplexF64, 3} # Temporary storage for evaluating JPB
-    temp_Hi::Matrix{ComplexF64}
-    temp_Jxpi::Matrix{ComplexF64}
-    temp_Jxbi::Matrix{ComplexF64}
-    temp_Jpbi::Matrix{ComplexF64}
-    M::Matrix
-    M1::Matrix
-    M2::Matrix
-    M3::Matrix
-    ∇logprodg_temp::Vector{ComplexF64}
-    Hess_logprodg_temp::Matrix{ComplexF64}
+    S::Vector{T}
+    X::Vector{T}
+    Uvals::Matrix{T}
+    SP::Matrix{T}
+    SB::Matrix{T}
+    UP::Array{T,3}
+    UB::Array{T,3}
+    A::Array{T,4}
+    rhs1::Matrix{T}
+    rhs2::Vector{T}
+    rhs3::Vector{T}
+    JsuF_temp::Matrix{T}
+    JPF_temp::Matrix{T}
+    JBF_temp::Matrix{T}
+    Jtu_temp::Matrix{T} # Temporary storage for evaluating JsuF
+    HF_temp::Array{T, 3} # Temporary storage for evaluating HF
+    JxB_temp::Array{T, 3} # Temporary storage for evaluating JxB
+    JxP_temp::Array{T, 3} # Temporary storage for evaluating JxP
+    JPB_temp::Array{T, 3} # Temporary storage for evaluating JPB
+    temp_Hi::Matrix{T}
+    temp_Jxpi::Matrix{T}
+    temp_Jxbi::Matrix{T}
+    temp_Jpbi::Matrix{T}
+    M::Matrix{T}
+    M1::Matrix{T}
+    M2::Matrix{T}
+    M3::Matrix{T}
+    ∇logprodg_temp::Vector{T}
+    Hess_logprodg_temp::Matrix{T}
 end
 function compute_systems(F, n, k, B)
     @unique_var uval[1:n-k] α[1:k] β[1:k] t
@@ -135,7 +135,7 @@ function GradientCache(PWS)
 
     v0 = randn(ComplexF64, n+1)
 
-    GradientCache(v0, 
+    GradientCache{ComplexF64}(v0, 
                     line_hypersurface_intersections,
                     JsuF,
                     JPF,

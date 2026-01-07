@@ -1,11 +1,11 @@
-struct RoutingGradient <: HC.AbstractSystem
+struct RoutingGradient{TQ,TP,TC} <: HC.AbstractSystem
     PWS::PseudoWitnessSet
     projection_vars::Vector{HC.Variable}
-    GC::GradientCache
+    GC::TC
     e::Int
     c::Vector
-    ∇logqe::Any
-    ∇logprodg::Any
+    ∇logqe::Union{TQ, Nothing}
+    ∇logprodg::Union{TP, Nothing}
 end
 function RoutingGradient(
     F,
@@ -45,24 +45,24 @@ function RoutingGradient(
     # Use single-slice gradient cache to avoid tracking many lifted lines
     GC = GradientCache(PWS)
 
-    RoutingGradient(PWS, projection_vars, GC, e, c, ∇logqe, ∇logprodg)
+    RoutingGradient{typeof(∇logqe), typeof(∇logprodg), typeof(GC)}(PWS, projection_vars, GC, e, c, ∇logqe, ∇logprodg)
 end
 
 denominator_exponent(r::RoutingGradient) = r.e
 
 import Base.size
-function Base.size(r::RoutingGradient)
+function Base.size(r::RoutingGradient{TQ,TP,TC}) where {TQ,TP,TC}
     k = length(r.projection_vars)
     (k, k)
 end
-ModelKit.variables(r::RoutingGradient) = r.projection_vars
+ModelKit.variables(r::RoutingGradient{TQ,TP,TC}) where {TQ,TP,TC} = r.projection_vars
 
 import HomotopyContinuation.evaluate!
 import HomotopyContinuation.evaluate_and_jacobian!
 import HomotopyContinuation.evaluate
 import HomotopyContinuation.taylor!
 
-function evaluate!(u, r::RoutingGradient, x, p = nothing)
+function evaluate!(u, r::RoutingGradient{TQ,TP,TC}, x, p = nothing) where {TQ,TP,TC}
     
 
     PWS, GC, ∇logqe, ∇logprodg = r.PWS, r.GC, r.∇logqe, r.∇logprodg
@@ -175,7 +175,7 @@ function evaluate!(u, r::RoutingGradient, x, p = nothing)
 
     nothing
 end
-function evaluate(r::RoutingGradient, x, p = nothing)
+function evaluate(r::RoutingGradient{TQ,TP,TC}, x, p = nothing) where {TQ,TP,TC}
 
     m, n = size(r)
     u = zeros(ComplexF64, m)
@@ -183,8 +183,8 @@ function evaluate(r::RoutingGradient, x, p = nothing)
     evaluate!(u, r, x, p)
     u
 end
-(r::RoutingGradient)(x) = evaluate(r, x)
-function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
+(r::RoutingGradient{TQ,TP,TC})(x) where {TQ,TP,TC} = evaluate(r, x)
+function evaluate_and_jacobian!(u, U, r::RoutingGradient{TQ,TP,TC}, x, p = nothing) where {TQ,TP,TC}
 
     PWS, GC, ∇logqe, ∇logprodg = r.PWS, r.GC, r.∇logqe, r.∇logprodg
 
@@ -475,7 +475,7 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
 
     nothing
 end
-function evaluate_and_jacobian(r::RoutingGradient, x, p = nothing)
+function evaluate_and_jacobian(r::RoutingGradient{TQ,TP,TC}, x, p = nothing) where {TQ,TP,TC}
 
     m, n = size(r)
     u = zeros(ComplexF64, m)
@@ -484,12 +484,12 @@ function evaluate_and_jacobian(r::RoutingGradient, x, p = nothing)
     u, U
 end
 
-function taylor!(u, ::Val, F::RoutingGradient, x, p)
+function taylor!(u, ::Val, F::RoutingGradient{TQ,TP,TC}, x, p) where {TQ,TP,TC}
     for i = 1:length(u)
         u[i] = ComplexF64(0)
     end
 end
 
 ## for testing
-_evaluate(r::RoutingGradient, p::Vector) = evaluate(r, p)
-_evaluate_evaluate_jacobian(r::RoutingGradient, p::Vector) = (r.H)(p)
+_evaluate(r::RoutingGradient{TQ,TP,TC}, p::Vector) where {TQ,TP,TC} = evaluate(r, p)
+_evaluate_evaluate_jacobian(r::RoutingGradient{TQ,TP,TC}, p::Vector) where {TQ,TP,TC} = (r.H)(p)
