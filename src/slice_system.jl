@@ -12,14 +12,16 @@ function RoutingGradient(
     projection_vars;
     e::Union{Int,Nothing} = nothing,
     c::Union{Vector,Nothing} = nothing,
-    g::Union{Vector{Expression},Vector{Variable},Nothing} = nothing
+    g::Union{Vector{Expression},Vector{Variable},Nothing} = nothing,
+    start_system_for_PWS::Symbol = :polyhedral,
+    compile::Union{Bool,Symbol} = :mixed
 )
 
     all_vars = variables(F)
     x_vars = setdiff(all_vars, projection_vars)
     F_ordered = System(F.expressions, variables = [projection_vars; x_vars])
     k = length(projection_vars)
-    PWS = PseudoWitnessSet(F_ordered, k)
+    PWS = PseudoWitnessSet(F_ordered, k; start_system = start_system_for_PWS, compile = compile)
 
     if isnothing(g) || length(g) == 0
         ∇logprodg = nothing

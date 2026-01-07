@@ -36,6 +36,7 @@ function PseudoWitnessSet(
     k::Int;
     L::Union{Line, Nothing} = nothing,
     start_system::Symbol = :polyhedral,
+    compile::Union{Bool,Symbol} = :mixed 
 )
  
     if isnothing(L)
@@ -60,7 +61,7 @@ function PseudoWitnessSet(
     M = monodromy_solve(F_L, solutions(E), L.p)
 
     # Set up tracker 
-    tracker = Tracker(ParameterHomotopy(F_L, L.p, L.p))
+    tracker = Tracker(ParameterHomotopy(fixed(F_L; compile = compile), L.p, L.p))
     track_report = zeros(Bool, length(solutions(M))) # for keeping track of which paths are successful
 
     PseudoWitnessSet(F, k, L, solutions(M), EndgameTracker(tracker), track_report)
