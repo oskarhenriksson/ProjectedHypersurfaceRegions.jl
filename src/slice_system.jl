@@ -83,8 +83,9 @@ function evaluate!(u, r::RoutingGradient, x, p = nothing)
     S = GC.S
     Uvals = GC.Uvals
     SB = GC.SB
-    rhs1 = GC.rhs1
+    rhs1, rhs2 = GC.rhs1, GC.rhs2
 
+    N, n = size(PWS.F)
     k = n_projection_variables(PWS)
 
     # Track to PWS
@@ -110,17 +111,26 @@ function evaluate!(u, r::RoutingGradient, x, p = nothing)
         # use indexed loops to avoid tuple allocations from enumerate
         JsuF_temp = GC.JsuF_temp
         for idx = 1:length(JsuF)
-            evaluate!(view(JsuF_temp, :, idx), JsuF[idx], v0)
+            evaluate!(rhs2, JsuF[idx], v0)
+            @inbounds for ii in 1:N
+                JsuF_temp[ii, idx] = rhs2[ii]
+            end
         end
 
         JPF_temp = GC.JPF_temp
         for idx = 1:length(JPF)
-            evaluate!(view(JPF_temp, :, idx), JPF[idx], v0)
+            evaluate!(rhs2, JPF[idx], v0)
+            @inbounds for ii in 1:N
+                JPF_temp[ii, idx] = rhs2[ii]
+            end
         end
 
         JBF_temp = GC.JBF_temp
         for idx = 1:length(JBF)
-            evaluate!(view(JBF_temp, :, idx), JBF[idx], v0)
+            evaluate!(rhs2, JBF[idx], v0)
+            @inbounds for ii in 1:N
+                JBF_temp[ii, idx] = rhs2[ii]
+            end
         end
 
         # fill rhs1 in-place (unchanged)
