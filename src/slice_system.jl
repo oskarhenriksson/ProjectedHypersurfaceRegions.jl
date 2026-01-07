@@ -156,8 +156,13 @@ function evaluate!(u, r::RoutingGradient, x, p = nothing)
         end
 
 
-        SB[i, :] = rhs1[1, k+1:end]
-        u .-= SB[i, :]
+        # copy rhs1 row segment into SB row without creating slices
+        for jj = 1:k
+            SB[i, jj] = rhs1[1, k + jj]
+        end
+        @inbounds for jj = 1:k
+            u[jj] -= SB[i, jj]
+        end
     end
 
 
@@ -282,13 +287,20 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
         end
 
 
-        SP[i, :] = rhs1[1, 1:k]
-        SB[i, :] = rhs1[1, k+1:end]
-
-        UP[i, :, :] = rhs1[2:end, 1:k]
-        UB[i, :, :] = rhs1[2:end, k+1:end]
-
-        u .-= SB[i, :]
+        # copy without slice allocations
+        for jj= 1:k
+            SP[i, jj] = rhs1[1, jj]
+            SB[i, jj] = rhs1[1, k + jj]
+        end
+        for ii = 1:size(rhs1, 1)-1
+            for jj = 1:k
+                UP[i, ii, jj] = rhs1[1 + ii, jj]
+                UB[i, ii, jj] = rhs1[1 + ii, k + jj]
+            end
+        end
+        @inbounds for jj = 1:k
+            u[jj] -= SB[i, jj]
+        end
 
     end
 
