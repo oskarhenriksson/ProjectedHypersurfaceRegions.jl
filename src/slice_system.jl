@@ -167,7 +167,9 @@ function evaluate!(u, r::RoutingGradient, x, p = nothing)
 
 
     if !isnothing(p)
-        u .-= p
+        @inbounds for ii = 1:length(u)
+            u[ii] -= p[ii]
+        end
     end
 
 
@@ -203,6 +205,12 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
     JxB = GC.JxB
     JxP = GC.JxP
     JPB = GC.JPB
+
+    # preallocate small temporaries to avoid allocating SubArray views inside inner loop
+    temp_Hi = GC.temp_Hi
+    temp_Jxpi = GC.temp_Jxpi
+    temp_Jxbi = GC.temp_Jxbi
+    temp_Jpbi = GC.temp_Jpbi
 
     v0 = GC.v0
     S = GC.S
@@ -305,7 +313,9 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
     end
 
     if !isnothing(p)
-        u .-= p
+        @inbounds for ii = 1:length(u)
+            u[ii] -= p[ii]
+        end
     end
 
     # Computation outlined in the abstract description Jon gave in Overleaf file
@@ -368,6 +378,7 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
             end
         end
 
+
         for i = 1:N
 
             # the following defines 
@@ -390,24 +401,33 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
                 end
             end
 
-            Hi = view(HF_temp, i, :, :)
-            Jxpi = view(JxP_temp, i, :, :)
-            Jxbi = view(JxB_temp, i, :, :)
-            Jpbi = view(JPB_temp, i, :, :)
+            # copy slices into temporaries (avoids allocating SubArray objects)
+            @inbounds for r = 1:HF_nrows, c = 1:HF_ncols
+                temp_Hi[r, c] = HF_temp[i, r, c]
+            end
+            @inbounds for r = 1:JxP_nrows, c = 1:JxP_ncols
+                temp_Jxpi[r, c] = JxP_temp[i, r, c]
+            end
+            @inbounds for r = 1:JxB_nrows, c = 1:JxB_ncols
+                temp_Jxbi[r, c] = JxB_temp[i, r, c]
+            end
+            @inbounds for r = 1:JPB_nrows, c = 1:JPB_ncols
+                temp_Jpbi[r, c] = JPB_temp[i, r, c]
+            end
 
             # now step by step in-place matrix multiplications. 
             for a = 1:k, b = 1:k
-                A[j, i, a, b] = Jpbi[b, a] # note the transpose here
+                A[j, i, a, b] = temp_Jpbi[b, a] # note the transpose here
             end
-            mul!(M, transpose(Jxpi), M2)
+            mul!(M, transpose(temp_Jxpi), M2)
             for a = 1:k, b = 1:k
                 A[j, i, a, b] += M[b, a] # note the transpose here
             end
-            mul!(M, M1, Jxbi)
+            mul!(M, M1, temp_Jxbi)
             for a = 1:k, b = 1:k
                 A[j, i, a, b] += M[b, a] # note the transpose here
             end
-            mul!(M3, M1, Hi)
+            mul!(M3, M1, temp_Hi)
             mul!(M, M3, M2)
             for a = 1:k, b = 1:k
                 A[j, i, a, b] += M[b, a] # note the transpose here

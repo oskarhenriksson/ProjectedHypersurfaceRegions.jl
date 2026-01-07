@@ -27,6 +27,10 @@ mutable struct GradientCache
     JxB_temp::Array{ComplexF64, 3} # Temporary storage for evaluating JxB
     JxP_temp::Array{ComplexF64, 3} # Temporary storage for evaluating JxP
     JPB_temp::Array{ComplexF64, 3} # Temporary storage for evaluating JPB
+    temp_Hi::Matrix{ComplexF64}
+    temp_Jxpi::Matrix{ComplexF64}
+    temp_Jxbi::Matrix{ComplexF64}
+    temp_Jpbi::Matrix{ComplexF64}
     M::Matrix
     M1::Matrix
     M2::Matrix
@@ -116,6 +120,10 @@ function GradientCache(PWS)
     JxB_temp = zeros(ComplexF64, N, size(JxB)...) # size(JxB)
     JxP_temp = zeros(ComplexF64, N, size(JxP)...)
     JPB_temp = zeros(ComplexF64, N, size(JPB)...)
+    temp_Hi = zeros(ComplexF64, size(HF)...)
+    temp_Jxpi = zeros(ComplexF64, size(JxB)...)
+    temp_Jxbi = zeros(ComplexF64, size(JxP)...)
+    temp_Jpbi = zeros(ComplexF64, size(JPB)...)
 
     M = zeros(ComplexF64, k, k)
     M1 = zeros(ComplexF64, k, n-k+1)
@@ -155,6 +163,10 @@ function GradientCache(PWS)
                     JxB_temp, 
                     JxP_temp, 
                     JPB_temp, 
+                    temp_Hi,
+                    temp_Jxpi,
+                    temp_Jxbi,
+                    temp_Jpbi,
                     M, 
                     M1, 
                     M2, 
