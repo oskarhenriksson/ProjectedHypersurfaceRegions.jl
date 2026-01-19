@@ -149,20 +149,19 @@ function evaluate!(u, r::RoutingGradient{TQ,TP,TC}, x, p = nothing) where {TQ,TP
         end
 
         rhs1 .*= -1
-        # In-place linear solving
-        try
-            Jsu0 = lu!(JsuF_temp)
-            LinearAlgebra.ldiv!(Jsu0, rhs1) # solves the system Jsu*A = -[JP JB]
-        catch
-            fill!(rhs1, 0.0 + 0.0im)
+        # In-place linear solving with pre-allocated pivot vector
+        _, ipiv, info = LinearAlgebra.LAPACK.getrf!(JsuF_temp, GC.ipiv)
+        if info == 0 # this indicates successful factorization
+            LinearAlgebra.LAPACK.getrs!('N', JsuF_temp, ipiv, rhs1)
+        else
+            fill!(rhs1, zero(ComplexF64))
         end
-
 
         # copy rhs1 row segment into SB row without creating slices
-        for jj = 1:k
+        @inbounds @simd for jj = 1:k
             SB[i, jj] = rhs1[1, k + jj]
         end
-        @inbounds for jj = 1:k
+        @inbounds @simd for jj = 1:k
             u[jj] -= SB[i, jj]
         end
     end
@@ -178,10 +177,8 @@ function evaluate!(u, r::RoutingGradient{TQ,TP,TC}, x, p = nothing) where {TQ,TP
     nothing
 end
 function evaluate(r::RoutingGradient{TQ,TP,TC}, x, p = nothing) where {TQ,TP,TC}
-
     m, n = size(r)
     u = zeros(ComplexF64, m)
-
     evaluate!(u, r, x, p)
     u
 end
@@ -288,27 +285,26 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient{TQ,TP,TC}, x, p = nothi
         end
 
         rhs1 .*= -1
-        # In-place linear solving
-        try
-            Jsu0 = lu!(JsuF_temp)
-            LinearAlgebra.ldiv!(Jsu0, rhs1) # solves the system Jsu*A = -[JP JB]
-        catch
-            fill!(rhs1, 0.0 + 0.0im)
+        # In-place linear solving with pre-allocated pivot vector
+        _, ipiv, info = LinearAlgebra.LAPACK.getrf!(JsuF_temp, GC.ipiv)
+        if info == 0  # this indicates successful factorization
+            LinearAlgebra.LAPACK.getrs!('N', JsuF_temp, ipiv, rhs1)
+        else
+            fill!(rhs1, zero(ComplexF64))
         end
 
-
         # copy without slice allocations
-        for jj= 1:k
+        @inbounds @simd for jj = 1:k
             SP[i, jj] = rhs1[1, jj]
             SB[i, jj] = rhs1[1, k + jj]
         end
-        for ii = 1:size(rhs1, 1)-1
+        @inbounds for ii = 1:size(rhs1, 1)-1
             for jj = 1:k
                 UP[i, ii, jj] = rhs1[1 + ii, jj]
                 UB[i, ii, jj] = rhs1[1 + ii, k + jj]
             end
         end
-        @inbounds for jj = 1:k
+        @inbounds @simd for jj = 1:k
             u[jj] -= SB[i, jj]
         end
 
@@ -440,7 +436,7 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient{TQ,TP,TC}, x, p = nothi
 
 
     #Compute Hessian
-    fill!(M, 0.0 + 0.0im) # here M will get assigned the Hessian of log r
+    fill!(M, zero(ComplexF64)) # here M will get assigned the Hessian of log r
     for j = 1:length(S)
         
         !PWS.track_report[j] && continue # skip if j-th track failed
@@ -461,12 +457,14 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient{TQ,TP,TC}, x, p = nothi
                     Jtu[ii, idx] = rhs2[ii]
                 end
         end
-        Jtu0 = lu!(Jtu)
+        _, ipiv, info = LinearAlgebra.LAPACK.getrf!(Jtu, GC.ipiv)
         for a = 1:k, b = 1:k
             for i = 1:N
                 rhs2[i] = A[j, i, a, b]
             end
-            LinearAlgebra.ldiv!(Jtu0, rhs2) # in-place linear algebra
+            if info == 0  # this indicates successful factorization
+                LinearAlgebra.LAPACK.getrs!('N', Jtu, ipiv, rhs2)
+            end
             M[a, b] += rhs2[1]
         end
     end
@@ -487,9 +485,7 @@ function evaluate_and_jacobian(r::RoutingGradient{TQ,TP,TC}, x, p = nothing) whe
 end
 
 function taylor!(u, ::Val, F::RoutingGradient{TQ,TP,TC}, x, p) where {TQ,TP,TC}
-    for i = 1:length(u)
-        u[i] = ComplexF64(0)
-    end
+    fill!(u, zero(ComplexF64))
 end
 
 ## for testing

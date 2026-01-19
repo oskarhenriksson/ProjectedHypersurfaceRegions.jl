@@ -31,6 +31,7 @@ mutable struct GradientCache{T}
     temp_Jxpi::Matrix{T}
     temp_Jxbi::Matrix{T}
     temp_Jpbi::Matrix{T}
+    ipiv::Vector{LinearAlgebra.LAPACK.BlasInt} # allocation for pivot for lu! in place linear solving
     M::Matrix{T}
     M1::Matrix{T}
     M2::Matrix{T}
@@ -125,6 +126,8 @@ function GradientCache(PWS)
     temp_Jxbi = zeros(ComplexF64, size(JxP)...)
     temp_Jpbi = zeros(ComplexF64, size(JPB)...)
 
+    ipiv = Vector{LinearAlgebra.LAPACK.BlasInt}(undef, min(size(JsuF_temp,1), size(JsuF_temp,2)))
+
     M = zeros(ComplexF64, k, k)
     M1 = zeros(ComplexF64, k, n-k+1)
     M2 = zeros(ComplexF64, n-k+1, k)
@@ -167,6 +170,7 @@ function GradientCache(PWS)
                     temp_Jxpi,
                     temp_Jxbi,
                     temp_Jpbi,
+                    ipiv,
                     M, 
                     M1, 
                     M2, 
