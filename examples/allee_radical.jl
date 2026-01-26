@@ -137,10 +137,10 @@ pts_original = [[1.2648270055555684, 0.23668758954766242],
     [0.05913176450416948, 0.46985465616956895]
 ]
 
-pl_original = generate_plot(r_original, pts_original; contour_stepsize=1e-3, include_root_counts=false)
-savefig("figures/allee_original_full.png")
-savefig("figures/allee_original_full.pdf")
-savefig("figures/allee_original_full.svg")
+# pl_original = generate_plot(r_original, pts_original; contour_stepsize=1e-3, include_root_counts=false)
+# savefig("figures/allee_original_full.png")
+# savefig("figures/allee_original_full.pdf")
+# savefig("figures/allee_original_full.svg")
 
 pl_original_smaller = generate_plot(r_original, pts_original; xlims=(0, 0.09), ylims=(0, 0.5))
 savefig("figures/allee_original_zoomed_in.png")
@@ -163,10 +163,10 @@ pts = [
 # Check that all points are critical
 ∇r.(pts)
 
-pl_radical = generate_plot(r, pts; contour_stepsize=5e-3, include_root_counts=false)
-savefig("figures/allee_radical_full.png")
-savefig("figures/allee_radical_full.pdf")
-savefig("figures/allee_radical_full.svg")
+# pl_radical = generate_plot(r, pts; contour_stepsize=5e-3, include_root_counts=false)
+# savefig("figures/allee_radical_full.png")
+# savefig("figures/allee_radical_full.pdf")
+# savefig("figures/allee_radical_full.svg")
 
 pl_radical_smaller = generate_plot(r, pts; xlims=(0, 0.09), ylims=(0, 0.5))
 savefig("figures/allee_radical_zoomed_in.png")
