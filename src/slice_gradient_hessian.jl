@@ -1,8 +1,6 @@
-mutable struct GradientCache
-    Ks::Vector{LinearSubspace}
-    line_hypersurface_intersections::Vector
-    tracker::EndgameTracker
-    track_report::Vector{Bool}
+mutable struct GradientCache{T}
+    v0::Vector{T}
+    line_hypersurface_intersections::Vector{Vector{T}}
     JsuF::Vector{HC.CompiledSystem}
     JPF::Vector{HC.CompiledSystem}
     JBF::Vector{HC.CompiledSystem}
@@ -10,33 +8,39 @@ mutable struct GradientCache
     JxB::Matrix{HC.CompiledSystem}
     JxP::Matrix{HC.CompiledSystem}
     JPB::Matrix{HC.CompiledSystem}
-    S::Vector{ComplexF64}
-    X::Vector{ComplexF64}
-    Uvals::Matrix{ComplexF64}
-    SP::Matrix{ComplexF64}
-    SB::Matrix{ComplexF64}
-    UP::Array{ComplexF64,3}
-    UB::Array{ComplexF64,3}
-    A::Array{ComplexF64,4}
-    rhs1::Matrix{ComplexF64}
-    rhs2::Vector{ComplexF64}
-    JsuF_temp::Matrix{ComplexF64}
-    JPF_temp::Matrix{ComplexF64}
-    JBF_temp::Matrix{ComplexF64}
-    Jtu_temp::Matrix{ComplexF64} # Temporary storage for evaluating JsuF
-    HF_temp::Array{ComplexF64, 3} # Temporary storage for evaluating HF
-    JxB_temp::Array{ComplexF64, 3} # Temporary storage for evaluating JxB
-    JxP_temp::Array{ComplexF64, 3} # Temporary storage for evaluating JxP
-    JPB_temp::Array{ComplexF64, 3} # Temporary storage for evaluating JPB
-    M::Matrix
-    M1::Matrix
-    M2::Matrix
-    M3::Matrix
-    ∇logprodg_temp::Vector{ComplexF64}
-    Hess_logprodg_temp::Matrix{ComplexF64}
+    S::Vector{T}
+    X::Vector{T}
+    Uvals::Matrix{T}
+    SP::Matrix{T}
+    SB::Matrix{T}
+    UP::Array{T,3}
+    UB::Array{T,3}
+    A::Array{T,4}
+    rhs1::Matrix{T}
+    rhs2::Vector{T}
+    rhs3::Vector{T}
+    JsuF_temp::Matrix{T}
+    JPF_temp::Matrix{T}
+    JBF_temp::Matrix{T}
+    Jtu_temp::Matrix{T} # Temporary storage for evaluating JsuF
+    HF_temp::Array{T, 3} # Temporary storage for evaluating HF
+    JxB_temp::Array{T, 3} # Temporary storage for evaluating JxB
+    JxP_temp::Array{T, 3} # Temporary storage for evaluating JxP
+    JPB_temp::Array{T, 3} # Temporary storage for evaluating JPB
+    temp_Hi::Matrix{T}
+    temp_Jxpi::Matrix{T}
+    temp_Jxbi::Matrix{T}
+    temp_Jpbi::Matrix{T}
+    ipiv::Vector{LinearAlgebra.LAPACK.BlasInt} # allocation for pivot for lu! in place linear solving
+    M::Matrix{T}
+    M1::Matrix{T}
+    M2::Matrix{T}
+    M3::Matrix{T}
+    ∇logprodg_temp::Vector{T}
+    Hess_logprodg_temp::Matrix{T}
 end
 function compute_systems(F, n, k, B)
-    @var uval[1:n-k] α[1:k] β[1:k] t
+    @unique_var uval[1:n-k] α[1:k] β[1:k] t
     F_on_line = F([α + (1 / t) * β; uval])
     v = vcat(t, uval)
     vars = vcat(t, uval, α)
@@ -79,20 +83,18 @@ function compute_systems(F, n, k, B)
 
 end
 
-function GradientCache(PWS, B)
+function GradientCache(PWS)
     d = degree(PWS)
     k = n_projection_variables(PWS)
     F = PWS.F
+    L = PWS.L
     N, n = size(F)
 
     @assert N == n-k+1 "Unexpected length of system"
 
-    Ks = Vector{LinearSubspace}(undef, 1)
-    line_hypersurface_intersections = [[zeros(ComplexF64, n) for _ in 1:d]]
+    line_hypersurface_intersections = [zeros(ComplexF64, n + 1) for _ in 1:d]
   
-    Hom = linear_subspace_homotopy(PWS.F, PWS.L, PWS.L; intrinsic = true)
-    tracker = EndgameTracker(Hom)
-    track_report = zeros(Bool, d) # for keeping track of which paths are successful
+    @unique_var t, p[1:k]
 
     S = zeros(ComplexF64, d)
     X = zeros(ComplexF64, k)
@@ -103,21 +105,28 @@ function GradientCache(PWS, B)
     UB = zeros(ComplexF64, d, n - k, k)
     A = zeros(ComplexF64, d, N, k, k) 
 
-    JsuF, JPF, JBF, HF, JxB, JxP, JPB = compute_systems(F, n, k, B)
+    JsuF, JPF, JBF, HF, JxB, JxP, JPB = compute_systems(F, n, k, L.b)
 
 
     # 
     rhs1 = zeros(ComplexF64, N, 2*k)  
     rhs2 = zeros(ComplexF64, N)  
+    rhs3 = zeros(ComplexF64, k)  
 
-    JsuF_temp = zeros(ComplexF64,N, 1+n-k)
+    JsuF_temp = zeros(ComplexF64, N, 1+n-k)
     JPF_temp = zeros(ComplexF64, N, k)
-    JBF_temp = transpose(zeros(ComplexF64, N, k))
+    JBF_temp = zeros(ComplexF64, k, N)
     Jtu_temp = zeros(ComplexF64, N, 1+n-k) # TODO: Maybe can reuse Jsu_temp....
     HF_temp = zeros(ComplexF64, N, size(HF)...)
     JxB_temp = zeros(ComplexF64, N, size(JxB)...) # size(JxB)
     JxP_temp = zeros(ComplexF64, N, size(JxP)...)
     JPB_temp = zeros(ComplexF64, N, size(JPB)...)
+    temp_Hi = zeros(ComplexF64, size(HF)...)
+    temp_Jxpi = zeros(ComplexF64, size(JxB)...)
+    temp_Jxbi = zeros(ComplexF64, size(JxP)...)
+    temp_Jpbi = zeros(ComplexF64, size(JPB)...)
+
+    ipiv = Vector{LinearAlgebra.LAPACK.BlasInt}(undef, min(size(JsuF_temp,1), size(JsuF_temp,2)))
 
     M = zeros(ComplexF64, k, k)
     M1 = zeros(ComplexF64, k, n-k+1)
@@ -127,8 +136,10 @@ function GradientCache(PWS, B)
     ∇logprodg_temp = zeros(ComplexF64, k)
     Hess_logprodg_temp = zeros(ComplexF64, k, k)
 
-    GradientCache(Ks, line_hypersurface_intersections, tracker,      
-                    track_report,
+    v0 = randn(ComplexF64, n+1)
+
+    GradientCache{ComplexF64}(v0, 
+                    line_hypersurface_intersections,
                     JsuF,
                     JPF,
                     JBF,
@@ -146,6 +157,7 @@ function GradientCache(PWS, B)
                     A, 
                     rhs1, 
                     rhs2, 
+                    rhs3,
                     JsuF_temp, 
                     JPF_temp, 
                     JBF_temp, 
@@ -154,6 +166,11 @@ function GradientCache(PWS, B)
                     JxB_temp, 
                     JxP_temp, 
                     JPB_temp, 
+                    temp_Hi,
+                    temp_Jxpi,
+                    temp_Jxbi,
+                    temp_Jpbi,
+                    ipiv,
                     M, 
                     M1, 
                     M2, 
@@ -163,7 +180,7 @@ function GradientCache(PWS, B)
                 )
 end
 
-
+track!(GC::GradientCache, PWS::PseudoWitnessSet, p) = track!(GC.line_hypersurface_intersections, PWS, p) 
 
 ∇log_r(F::Vector{Expression}, k::Int; kwargs...) =
     ∇log_r(System(F), variables(F)[1:k]; kwargs...)

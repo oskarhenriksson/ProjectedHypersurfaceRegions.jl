@@ -1,26 +1,27 @@
-struct RoutingGradient <: HC.AbstractSystem
+struct RoutingGradient{TQ,TP,TC} <: HC.AbstractSystem
     PWS::PseudoWitnessSet
     projection_vars::Vector{HC.Variable}
-    GC::GradientCache
+    GC::TC
     e::Int
     c::Vector
-    B::Vector
-    ∇logqe::Any
-    ∇logprodg::Any
+    ∇logqe::Union{TQ, Nothing}
+    ∇logprodg::Union{TP, Nothing}
 end
 function RoutingGradient(
     F,
     projection_vars;
     e::Union{Int,Nothing} = nothing,
     c::Union{Vector,Nothing} = nothing,
-    g::Union{Vector{Expression},Vector{Variable},Nothing} = nothing
+    g::Union{Vector{Expression},Vector{Variable},Nothing} = nothing,
+    start_system_for_PWS::Symbol = :polyhedral,
+    compile::Union{Bool,Symbol} = :mixed
 )
 
     all_vars = variables(F)
     x_vars = setdiff(all_vars, projection_vars)
     F_ordered = System(F.expressions, variables = [projection_vars; x_vars])
     k = length(projection_vars)
-    PWS = PseudoWitnessSet(F_ordered, k, linear_subspace_codim = k - 1)
+    PWS = PseudoWitnessSet(F_ordered, k; start_system = start_system_for_PWS, compile = compile)
 
     if isnothing(g) || length(g) == 0
         ∇logprodg = nothing
@@ -38,37 +39,35 @@ function RoutingGradient(
     if isnothing(c)
         c = randn(k)
     end
-    B = randn(ComplexF64, k)
 
     @var α[1:k]
     q = 1 + sum((α - c) .* (α - c))
     ∇logqe = System(differentiate(-e * log(q), α), variables = α) |> fixed
 
     # Use single-slice gradient cache to avoid tracking many lifted lines
-    GC = GradientCache(PWS, B)
+    GC = GradientCache(PWS)
 
-    RoutingGradient(PWS, projection_vars, GC, e, c, B, ∇logqe, ∇logprodg)
+    RoutingGradient{typeof(∇logqe), typeof(∇logprodg), typeof(GC)}(PWS, projection_vars, GC, e, c, ∇logqe, ∇logprodg)
 end
 
 denominator_exponent(r::RoutingGradient) = r.e
 
 import Base.size
-function Base.size(r::RoutingGradient)
+function Base.size(r::RoutingGradient{TQ,TP,TC}) where {TQ,TP,TC}
     k = length(r.projection_vars)
     (k, k)
 end
-ModelKit.variables(r::RoutingGradient) = r.projection_vars
+ModelKit.variables(r::RoutingGradient{TQ,TP,TC}) where {TQ,TP,TC} = r.projection_vars
 
 import HomotopyContinuation.evaluate!
 import HomotopyContinuation.evaluate_and_jacobian!
 import HomotopyContinuation.evaluate
 import HomotopyContinuation.taylor!
 
-function evaluate!(u, r::RoutingGradient, x, p = nothing)
+function evaluate!(u, r::RoutingGradient{TQ,TP,TC}, x, p = nothing) where {TQ,TP,TC}
     
 
-    PWS, GC, B, ∇logqe, ∇logprodg = r.PWS, r.GC, r.B, r.∇logqe, r.∇logprodg
-
+    PWS, GC, ∇logqe, ∇logprodg = r.PWS, r.GC, r.∇logqe, r.∇logprodg
 
     evaluate!(u, ∇logqe, x)
     if !isnothing(∇logprodg)
@@ -82,95 +81,111 @@ function evaluate!(u, r::RoutingGradient, x, p = nothing)
     JPF = GC.JPF
     JBF = GC.JBF
 
+    v0 = GC.v0
     S = GC.S
-    X = GC.X
     Uvals = GC.Uvals
     SB = GC.SB
-    rhs1 = GC.rhs1
+    rhs1, rhs2, rhs3 = GC.rhs1, GC.rhs2, GC.rhs3
 
+    N, n = size(PWS.F)
     k = n_projection_variables(PWS)
-    n = ambient_dim(PWS)
 
-    # TODO: perhaps we should always pass in a single column as B to routing gradient in the first place...
-    track_pws_to_line!(GC, x, B, PWS)
-
-    for (j, sol) in enumerate(GC.line_hypersurface_intersections[1])
-        !GC.track_report[j] && continue # skip if j-th track failed
-        @assert all(!isnan, sol) "NaN entries in intersection points: $sol"
-        for idx = 1:k
-            X[idx] = sol[idx]
-        end
-        for idx in 1:n-k
-            Uvals[idx, j] = sol[idx+k] 
-        end
-        
-        _, nonzero_coordinate = findmax(abs, X - x)
-        S[j] = B[nonzero_coordinate] / (X[nonzero_coordinate] - x[nonzero_coordinate]) # We solving for t inside of this: p + (1 / t) * β = X
-    end
+    # Track to PWS
+    track!(GC, PWS, x)
+    get_s_and_Uvals!(Uvals, S, GC, PWS)
 
     #Obtain gradients of S and U with respect to p and β
     for i = 1:length(S)
-        !GC.track_report[i] && continue # skip if i-th track failed
 
-        v0 = vcat(S[i], Uvals[:, i], x)
+        if !PWS.track_report[i] # skip if i-th track failed
+            continue
+        end
 
+        # fill v0 in-place instead of vcat
+        v0[1] = S[i]
+        @inbounds for ii = 1:size(Uvals,1)
+            v0[1 + ii] = Uvals[ii, i]
+        end
+        @inbounds for ii = 1:length(x)
+            v0[1 + size(Uvals,1) + ii] = x[ii]
+        end
+
+        # use indexed loops to avoid tuple allocations from enumerate
         JsuF_temp = GC.JsuF_temp
-        for (idx, J) in enumerate(JsuF)
-            evaluate!(view(JsuF_temp, :, idx), J, v0)
+        for idx = 1:length(JsuF)
+            evaluate!(rhs2, JsuF[idx], v0)
+            @inbounds for ii in 1:N
+                JsuF_temp[ii, idx] = rhs2[ii]
+            end
         end
 
         JPF_temp = GC.JPF_temp
-        for (idx, J) in enumerate(JPF)
-            evaluate!(view(JPF_temp, :, idx), J, v0)
+        for idx = 1:length(JPF)
+            evaluate!(rhs2, JPF[idx], v0)
+            @inbounds for ii in 1:N
+                JPF_temp[ii, idx] = rhs2[ii]
+            end
         end
 
         JBF_temp = GC.JBF_temp
-        for (idx, J) in enumerate(JBF)
-            evaluate!(view(JBF_temp, :, idx), J, v0)
+        for idx = 1:length(JBF)
+            evaluate!(rhs3, JBF[idx], v0)
+            @inbounds for ii in 1:k
+                JBF_temp[ii, idx] = rhs3[ii]
+            end
         end
 
-        # Fill rhs in-place
+        # fill rhs1 in-place (unchanged) using explicit loops to avoid slice allocations
         for col = 1:size(JPF_temp, 2)
-            rhs1[:, col] .= JPF_temp[:, col]
+            @inbounds for row = 1:size(rhs1, 1)
+                rhs1[row, col] = JPF_temp[row, col]
+            end
         end
         for idx = 1:size(JBF_temp, 1)
-            rhs1[:, size(JPF_temp, 2)+idx] .= JBF_temp[idx, :]
+            col = size(JPF_temp, 2) + idx
+            @inbounds for row = 1:size(rhs1, 1)
+                rhs1[row, col] = JBF_temp[idx, row]
+            end
         end
 
         rhs1 .*= -1
-        # In-place linear solving
-        Jsu0 = lu!(JsuF_temp)
-        LinearAlgebra.ldiv!(Jsu0, rhs1)
+        # In-place linear solving with pre-allocated pivot vector
+        _, ipiv, info = LinearAlgebra.LAPACK.getrf!(JsuF_temp, GC.ipiv)
+        if info == 0 # this indicates successful factorization
+            LinearAlgebra.LAPACK.getrs!('N', JsuF_temp, ipiv, rhs1)
+        else
+            fill!(rhs1, zero(ComplexF64))
+        end
 
-        SB[i, :] = rhs1[1, k+1:end]
-        u .-= SB[i, :]
+        # copy rhs1 row segment into SB row without creating slices
+        @inbounds @simd for jj = 1:k
+            SB[i, jj] = rhs1[1, k + jj]
+        end
+        @inbounds @simd for jj = 1:k
+            u[jj] -= SB[i, jj]
+        end
     end
 
 
     if !isnothing(p)
-        u .-= p
+        @inbounds for ii = 1:length(u)
+            u[ii] -= p[ii]
+        end
     end
 
 
     nothing
 end
-function evaluate(r::RoutingGradient, x, p = nothing)
-
-    # T = eltype(x)
-    # if T <: Real 
-    #     T = Float64
-    # end
-
+function evaluate(r::RoutingGradient{TQ,TP,TC}, x, p = nothing) where {TQ,TP,TC}
     m, n = size(r)
     u = zeros(ComplexF64, m)
-
     evaluate!(u, r, x, p)
     u
 end
-(r::RoutingGradient)(x) = evaluate(r, x)
-function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
+(r::RoutingGradient{TQ,TP,TC})(x) where {TQ,TP,TC} = evaluate(r, x)
+function evaluate_and_jacobian!(u, U, r::RoutingGradient{TQ,TP,TC}, x, p = nothing) where {TQ,TP,TC}
 
-    PWS, GC, B, ∇logqe, ∇logprodg = r.PWS, r.GC, r.B, r.∇logqe, r.∇logprodg
+    PWS, GC, ∇logqe, ∇logprodg = r.PWS, r.GC, r.∇logqe, r.∇logprodg
 
     evaluate_and_jacobian!(u, U, ∇logqe, x)
     if !isnothing(∇logprodg)
@@ -190,126 +205,174 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
     JxP = GC.JxP
     JPB = GC.JPB
 
+    # preallocate small temporaries to avoid allocating SubArray views inside inner loop
+    temp_Hi = GC.temp_Hi
+    temp_Jxpi = GC.temp_Jxpi
+    temp_Jxbi = GC.temp_Jxbi
+    temp_Jpbi = GC.temp_Jpbi
+
+    v0 = GC.v0
     S = GC.S
-    X = GC.X
     Uvals = GC.Uvals
     SP = GC.SP
     SB = GC.SB
     UP = GC.UP
     UB = GC.UB
     A = GC.A
-    rhs1, rhs2 = GC.rhs1, GC.rhs2
+    rhs1, rhs2, rhs3 = GC.rhs1, GC.rhs2, GC.rhs3
 
     M, M1, M2, M3 = GC.M, GC.M1, GC.M2, GC.M3
 
     k = n_projection_variables(PWS)
-    d = degree(PWS)
     N, n = size(PWS.F)
 
-    track_pws_to_line!(GC, x, B, PWS)
-
-
-    for (j, sol) in enumerate(GC.line_hypersurface_intersections[1])
-        !GC.track_report[j] && continue # skip if j-th track failed
-        for i = 1:k
-            X[i] = sol[i]
-        end
-        for i = 1:(n-k)
-            Uvals[i, j] = sol[k+i]
-        end
-        _, nonzero_coordinate = findmax(abs, X - x)
-        S[j] = B[nonzero_coordinate] / (X[nonzero_coordinate] - x[nonzero_coordinate]) # We solving for t inside of this: p + (1 / t) * β = X
-    end
+    # Track to PWS
+    track!(GC, PWS, x)
+    get_s_and_Uvals!(Uvals, S, GC, PWS)
 
     #Obtain gradients of S and U with respect to p and β
     for i = 1:length(S)
 
-        !GC.track_report[i] && continue # skip if i-th track failed
+        if !PWS.track_report[i] # skip if i-th track failed
+            continue
+        end
 
-        v0 = vcat(S[i], Uvals[:, i], x)
-        @assert all(!isnan, v0) "NaN entries in v0: $v0"
+        # fill v0 in-place instead of vcat
+        v0[1] = S[i]
+        @inbounds for ii = 1:size(Uvals,1)
+            v0[1 + ii] = Uvals[ii, i]
+        end
+        @inbounds for ii = 1:length(x)
+            v0[1 + size(Uvals,1) + ii] = x[ii]
+        end
 
+        # use indexed loops to avoid tuple allocations from enumerate
         JsuF_temp = GC.JsuF_temp
-        for (idx, J) in enumerate(JsuF)
-            evaluate!(view(JsuF_temp, :, idx), J, v0)
+        for idx = 1:length(JsuF)
+            evaluate!(rhs2, JsuF[idx], v0)
+            @inbounds for ii in 1:N
+                JsuF_temp[ii, idx] = rhs2[ii]
+            end
         end
 
         JPF_temp = GC.JPF_temp
-        for (idx, J) in enumerate(JPF)
-            evaluate!(view(JPF_temp, :, idx), J, v0)
+        for idx = 1:length(JPF)
+            evaluate!(rhs2, JPF[idx], v0)
+            @inbounds for ii in 1:N
+                JPF_temp[ii, idx] = rhs2[ii]
+            end
         end
-
-
 
         JBF_temp = GC.JBF_temp
-        for (idx, J) in enumerate(JBF)
-            evaluate!(view(JBF_temp, :, idx), J, v0)
+        for idx = 1:length(JBF)
+            evaluate!(rhs3, JBF[idx], v0)
+            @inbounds for ii in 1:k
+                JBF_temp[ii, idx] = rhs3[ii]
+            end
         end
 
-        # Fill rhs in-place
+        # fill rhs1 in-place (unchanged) using explicit loops to avoid slice allocations
         for col = 1:size(JPF_temp, 2)
-            rhs1[:, col] .= JPF_temp[:, col]
+            @inbounds for row = 1:size(rhs1, 1)
+                rhs1[row, col] = JPF_temp[row, col]
+            end
         end
         for idx = 1:size(JBF_temp, 1)
-            rhs1[:, size(JPF_temp, 2)+idx] .= JBF_temp[idx, :]
+            col = size(JPF_temp, 2) + idx
+            @inbounds for row = 1:size(rhs1, 1)
+                rhs1[row, col] = JBF_temp[idx, row]
+            end
         end
 
         rhs1 .*= -1
-        # In-place linear solving
-        try
-            Jsu0 = lu!(JsuF_temp)
-            LinearAlgebra.ldiv!(Jsu0, rhs1) # solves the system Jsu*A = -[JP JB]
-        catch
-            rhs1 .== ComplexF64(0)
+        # In-place linear solving with pre-allocated pivot vector
+        _, ipiv, info = LinearAlgebra.LAPACK.getrf!(JsuF_temp, GC.ipiv)
+        if info == 0  # this indicates successful factorization
+            LinearAlgebra.LAPACK.getrs!('N', JsuF_temp, ipiv, rhs1)
+        else
+            fill!(rhs1, zero(ComplexF64))
         end
 
-        SP[i, :] = rhs1[1, 1:k]
-        SB[i, :] = rhs1[1, k+1:end]
-
-        UP[i, :, :] = rhs1[2:end, 1:k]
-        UB[i, :, :] = rhs1[2:end, k+1:end]
-
-        u .-= SB[i, :]
+        # copy without slice allocations
+        @inbounds @simd for jj = 1:k
+            SP[i, jj] = rhs1[1, jj]
+            SB[i, jj] = rhs1[1, k + jj]
+        end
+        @inbounds for ii = 1:size(rhs1, 1)-1
+            for jj = 1:k
+                UP[i, ii, jj] = rhs1[1 + ii, jj]
+                UB[i, ii, jj] = rhs1[1 + ii, k + jj]
+            end
+        end
+        @inbounds @simd for jj = 1:k
+            u[jj] -= SB[i, jj]
+        end
 
     end
 
     if !isnothing(p)
-        u .-= p
+        @inbounds for ii = 1:length(u)
+            u[ii] -= p[ii]
+        end
     end
 
     # Computation outlined in the abstract description Jon gave in Overleaf file
     for j = 1:length(S)
 
-        !GC.track_report[j] && continue # skip if j-th track failed
+        !PWS.track_report[j] && continue # skip if j-th track failed
 
-        v0 = vcat(S[j], Uvals[:, j], x)
+        # fill v0 in-place instead of vcat
+        v0[1] = S[j]
+        @inbounds for ii = 1:size(Uvals,1)
+            v0[1 + ii] = Uvals[ii, j]
+        end
+        @inbounds for ii = 1:length(x)
+            v0[1 + size(Uvals,1) + ii] = x[ii]
+        end
 
         HF_temp = GC.HF_temp
-        for (col_idx, col) in enumerate(eachcol(HF))
-            for (row_idx, h) in enumerate(col)
-                evaluate!(view(HF_temp, :, row_idx, col_idx), h, v0)
+        # indexed loops avoid allocations from eachcol/enumerate
+        HF_nrows, HF_ncols = size(HF)
+        for col_idx = 1:HF_ncols
+            for row_idx = 1:HF_nrows
+                evaluate!(rhs2, HF[row_idx, col_idx], v0)
+                @inbounds for ii in 1:N
+                    HF_temp[ii, row_idx, col_idx] = rhs2[ii]
+                end
             end
         end
 
-        # Evaluate JxB using evaluate! instead of map with evaluate
+        # Evaluate JxB using evaluate! with indexed loops
         JxB_temp = GC.JxB_temp
-        for (col_idx, col) in enumerate(eachcol(JxB))
-            for (row_idx, h) in enumerate(col)
-                evaluate!(view(JxB_temp, :, row_idx, col_idx), h, v0)
+        JxB_nrows, JxB_ncols = size(JxB)
+        for col_idx = 1:JxB_ncols
+            for row_idx = 1:JxB_nrows
+                evaluate!(rhs2, JxB[row_idx, col_idx], v0)
+                @inbounds for ii in 1:N
+                    JxB_temp[ii, row_idx, col_idx] = rhs2[ii]
+                end
             end
         end
 
         JxP_temp = GC.JxP_temp
-        for (col_idx, col) in enumerate(eachcol(JxP))
-            for (row_idx, h) in enumerate(col)
-                evaluate!(view(JxP_temp, :, row_idx, col_idx), h, v0)
+        JxP_nrows, JxP_ncols = size(JxP)
+        for col_idx = 1:JxP_ncols
+            for row_idx = 1:JxP_nrows
+                evaluate!(rhs2, JxP[row_idx, col_idx], v0)
+                @inbounds for ii in 1:N
+                    JxP_temp[ii, row_idx, col_idx] = rhs2[ii]
+                end
             end
         end
 
         JPB_temp = GC.JPB_temp
-        for (col_idx, col) in enumerate(eachcol(JPB))
-            for (row_idx, h) in enumerate(col)
-                evaluate!(view(JPB_temp, :, row_idx, col_idx), h, v0)
+        JPB_nrows, JPB_ncols = size(JPB)
+        for col_idx = 1:JPB_ncols
+            for row_idx = 1:JPB_nrows
+                evaluate!(rhs2, JPB[row_idx, col_idx], v0)
+                @inbounds for ii in 1:N
+                    JPB_temp[ii, row_idx, col_idx] = rhs2[ii]
+                end
             end
         end
 
@@ -336,29 +399,33 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
                 end
             end
 
-            Hi = view(HF_temp, i, :, :)
-            Jxpi = view(JxP_temp, i, :, :)
-            Jxbi = view(JxB_temp, i, :, :)
-            Jpbi = view(JPB_temp, i, :, :)
+            # copy slices into temporaries (avoids allocating SubArray objects)
+            @inbounds for r = 1:HF_nrows, c = 1:HF_ncols
+                temp_Hi[r, c] = HF_temp[i, r, c]
+            end
+            @inbounds for r = 1:JxP_nrows, c = 1:JxP_ncols
+                temp_Jxpi[r, c] = JxP_temp[i, r, c]
+            end
+            @inbounds for r = 1:JxB_nrows, c = 1:JxB_ncols
+                temp_Jxbi[r, c] = JxB_temp[i, r, c]
+            end
+            @inbounds for r = 1:JPB_nrows, c = 1:JPB_ncols
+                temp_Jpbi[r, c] = JPB_temp[i, r, c]
+            end
 
             # now step by step in-place matrix multiplications. 
-            # The goal is: 
-            # A[j, i, :, :] .= (M1 * Hi * M2
-            #                + Jpbi 
-            #                + M1 * Jxbi
-            #                + transpose(Jxpi) * M2) |> transpose |> Matrix
             for a = 1:k, b = 1:k
-                A[j, i, a, b] = Jpbi[b, a] # note the transpose here
+                A[j, i, a, b] = temp_Jpbi[b, a] # note the transpose here
             end
-            mul!(M, transpose(Jxpi), M2)
+            mul!(M, transpose(temp_Jxpi), M2)
             for a = 1:k, b = 1:k
                 A[j, i, a, b] += M[b, a] # note the transpose here
             end
-            mul!(M, M1, Jxbi)
+            mul!(M, M1, temp_Jxbi)
             for a = 1:k, b = 1:k
                 A[j, i, a, b] += M[b, a] # note the transpose here
             end
-            mul!(M3, M1, Hi)
+            mul!(M3, M1, temp_Hi)
             mul!(M, M3, M2)
             for a = 1:k, b = 1:k
                 A[j, i, a, b] += M[b, a] # note the transpose here
@@ -369,23 +436,38 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
 
 
     #Compute Hessian
-    fill!(M, 0.0 + 0.0im) # here M will get assigned the Hessian of log r
+    fill!(M, zero(ComplexF64)) # here M will get assigned the Hessian of log r
     for j = 1:length(S)
-        !GC.track_report[j] && continue # skip if j-th track failed
+        
+        !PWS.track_report[j] && continue # skip if j-th track failed
+
+        v0[1] = S[j]
+        @inbounds for ii = 1:size(Uvals,1)
+            v0[1 + ii] = Uvals[ii, j]
+        end
+        @inbounds for ii = 1:length(x)
+            v0[1 + size(Uvals,1) + ii] = x[ii]
+        end
+
+
         Jtu = GC.Jtu_temp
         for (idx, J) in enumerate(JsuF)
-            evaluate!(view(Jtu, :, idx), J, vcat(S[j], Uvals[:, j], x))
+            evaluate!(rhs2, J, v0)
+            @inbounds for ii in 1:N
+                    Jtu[ii, idx] = rhs2[ii]
+                end
         end
-        Jtu0 = lu!(Jtu)
+        _, ipiv, info = LinearAlgebra.LAPACK.getrf!(Jtu, GC.ipiv)
         for a = 1:k, b = 1:k
             for i = 1:N
                 rhs2[i] = A[j, i, a, b]
             end
-            LinearAlgebra.ldiv!(Jtu0, rhs2) # in-place linear algebra
+            if info == 0  # this indicates successful factorization
+                LinearAlgebra.LAPACK.getrs!('N', Jtu, ipiv, rhs2)
+            end
             M[a, b] += rhs2[1]
         end
     end
-
 
     for a = 1:k, b = 1:k
         U[a, b] += M[a, b]
@@ -393,12 +475,7 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient, x, p = nothing)
 
     nothing
 end
-function evaluate_and_jacobian(r::RoutingGradient, x, p = nothing)
-
-    # T = eltype(x)
-    # if T <: Real 
-    #     T = Float64
-    # end
+function evaluate_and_jacobian(r::RoutingGradient{TQ,TP,TC}, x, p = nothing) where {TQ,TP,TC}
 
     m, n = size(r)
     u = zeros(ComplexF64, m)
@@ -407,12 +484,10 @@ function evaluate_and_jacobian(r::RoutingGradient, x, p = nothing)
     u, U
 end
 
-function taylor!(u, ::Val, F::RoutingGradient, x, p)
-    for i = 1:length(u)
-        u[i] = ComplexF64(0)
-    end
+function taylor!(u, ::Val, F::RoutingGradient{TQ,TP,TC}, x, p) where {TQ,TP,TC}
+    fill!(u, zero(ComplexF64))
 end
 
 ## for testing
-_evaluate(r::RoutingGradient, p::Vector) = evaluate(r, p)
-_evaluate_evaluate_jacobian(r::RoutingGradient, p::Vector) = (r.H)(p)
+_evaluate(r::RoutingGradient{TQ,TP,TC}, p::Vector) where {TQ,TP,TC} = evaluate(r, p)
+_evaluate_evaluate_jacobian(r::RoutingGradient{TQ,TP,TC}, p::Vector) where {TQ,TP,TC} = (r.H)(p)

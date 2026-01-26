@@ -1,13 +1,20 @@
 using HomotopyContinuation, LinearAlgebra
 
+struct Line 
+    p::Vector
+    b::Vector 
+end
+
 struct PseudoWitnessSet
     F::System
     k::Int
-    L::LinearSubspace
+    L::Line
     W::Vector
+    tracker::EndgameTracker
+    track_report::Vector{Bool}
 end
 degree(PWS::PseudoWitnessSet) = length(PWS.W)
-ambient_dim(PWS::PseudoWitnessSet) = HC.ambient_dim(PWS.L)
+ambient_dim(PWS::PseudoWitnessSet) = size(PWS.F, 2)
 n_projection_variables(PWS::PseudoWitnessSet) = PWS.k
 system(PWS::PseudoWitnessSet) = PWS.F
 
@@ -27,94 +34,69 @@ Optional inputs:
 function PseudoWitnessSet(
     F::System,
     k::Int;
-    linear_subspace_codim::Union{Int,Nothing} = nothing,
-    L::Union{LinearSubspace,Nothing} = nothing,
+    L::Union{Line, Nothing} = nothing,
     start_system::Symbol = :polyhedral,
+    compile::Union{Bool,Symbol} = :mixed 
 )
-    n = nvariables(F)
-    if isnothing(linear_subspace_codim)
-        linear_subspace_codim = n - length(F)
-    end
+ 
     if isnothing(L)
-        A = hcat(
-            randn(ComplexF64, linear_subspace_codim, k),
-            zeros(linear_subspace_codim, n - k),
-        )
-        b = randn(ComplexF64, linear_subspace_codim)
-        L = LinearSubspace(A, b)
-    else
-        @assert ambient_dim(L) == n "The ambient dimension of the linear subspace L must match the number of variables in the system F."
+        L = Line(randn(ComplexF64, k), randn(ComplexF64, k))
     end
     
     # Intersect with random linear subspace
-    startL = rand_subspace(n; codim = linear_subspace_codim)
-    W = HC.solve(F, target_subspace=startL, start_system=start_system)
+    @unique_var t, p[1:k]
+    v = variables(F)
+    F_L = System([F.expressions; p + t .* L.b - v[1:k]], variables = [v; t], parameters = p)
 
-    # Check for singular solutions
-    if nsingular(W) > 0
+    # Trace the nonsingular solutions 
+    E = HC.solve(F_L; start_system = start_system,
+                    target_parameters = L.p)
+
+     # Check for singular solutions
+    if nsingular(E) > 0
         @warn "Irreducible component of higher multiplicity detected in the incidence variety."
     end
 
-    # Trace the nonsingular solutions 
-    E = HC.solve(
-        F,
-        nonsingular(W),
-        start_subspace = startL,
-        target_subspace = L,
-        intrinsic = true,
-    )
-
     # Repopulate the solution set via monodromy (safetey feature if solutions were lost)
-    M = monodromy_solve(F, solutions(E), L)
+    M = monodromy_solve(F_L, solutions(E), L.p)
 
-    PseudoWitnessSet(F, k, L, solutions(M))
+    # Set up tracker 
+    tracker = Tracker(ParameterHomotopy(fixed(F_L; compile = compile), L.p, L.p))
+    track_report = zeros(Bool, length(solutions(M))) # for keeping track of which paths are successful
+
+    PseudoWitnessSet(F, k, L, solutions(M), EndgameTracker(tracker), track_report)
 end
 
-
-@doc raw"""
-    lifted_line(point::AbstractVector, direction::AbstractVector, n::Int64)
-
-Lifts the line `point+t*direction` in $\mathbb{C}^k$ to a LinearSubspace in $\mathbb{C}^k\timess \mathbb{C}^{n-k}$.
-"""
-function lifted_line(point::AbstractVector, direction::AbstractVector, n::Int64)
-    k = length(point)
-    πA = transpose(nullspace(transpose(direction)))
-    A = hcat(πA, zeros(k - 1, n - k))
-    b = πA * point
-    LinearSubspace(ComplexF64.(A), ComplexF64.(b))
-end
-
-
-function track_pws_to_lines!(GC, point, directions, PWS::PseudoWitnessSet)
-    n = ambient_dim(PWS)
-    for (j, bj) in enumerate(eachcol(directions))
-        GC.Ks[j] = lifted_line(point, bj, n)
-        target_parameters!(GC.tracker, GC.Ks[j])
-        for (l, w) in enumerate(PWS.W)
-            track!(GC.tracker, w, 1)
-            GC.line_hypersurface_intersections[j][l] .= solution(GC.tracker)
-        end
-    end
-end
-
-
-"""track_pws_to_line!(GC, point, direction, PWS)
-
-Tracks the pseudo-witness set `PWS` to a single lifted line defined by
-`point` and `direction`. Results are stored in `GC.Ks[1]` and
-`GC.line_hypersurface_intersections[1]`, matching the shape used by
-`GradientCache(...; single_slice=true)`.
-"""
-function track_pws_to_line!(GC, point, direction, PWS::PseudoWitnessSet)
-    n = ambient_dim(PWS)
-    GC.Ks[1] = lifted_line(point, direction, n)
-    target_parameters!(GC.tracker, GC.Ks[1])
+function track!(u::Vector, PWS::PseudoWitnessSet, p)
+    tracker = PWS.tracker
+    target_parameters!(tracker, p)
     for (l, w) in enumerate(PWS.W)
-        track!(GC.tracker, w, 1)
-        GC.line_hypersurface_intersections[1][l] .= solution(GC.tracker)
-        GC.track_report[l] = all(isfinite, GC.line_hypersurface_intersections[1][l]) # note if the track was successful or not
-        if GC.track_report[l] == false
-            #@warn "Track $l failed. This point will be ignored in gradient and Hessian computations."
+            HC.track!(tracker, w, 1)
+            u[l] .= tracker.tracker.state.x
+            PWS.track_report[l] = all(isfinite, u[l]) # note if the track was successful or not
+    end
+
+    nothing
+end
+
+function get_s_and_Uvals!(Uvals, S, GC, PWS)
+    k = n_projection_variables(PWS)
+    n = ambient_dim(PWS)
+
+    
+    for (j, sol) in enumerate(GC.line_hypersurface_intersections)
+        !PWS.track_report[j] && continue # skip if j-th track failed
+        @assert all(!isnan, sol) "NaN entries in intersection points: $sol"
+
+        S[j] = 1 / sol[end] # We need S[j] = s = 1 / t, where t = sol[end]
+
+         for idx in 1:n-k
+            Uvals[idx, j] = sol[idx+k] 
         end
     end
+
+    nothing
 end
+
+
+
