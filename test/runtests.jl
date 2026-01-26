@@ -6,6 +6,35 @@ using Test
 
 include(joinpath(@__DIR__, "..", "src", "functions.jl"))
 
+
+@testset "Quadratic discriminant" begin
+    
+    @var a b x
+    F = System([x^2 + a * x + b; 2x + a], variables=[a, b, x])
+    c = [13, 2]
+    R = RoutingGradient(F, [a, b]; c = c);
+    e = denominator_exponent(R)
+    @test e == 2
+
+
+    disc = a^2 - 4 * b
+    q = 1 + sum(([a;b] - c).^2)
+    r_test = differentiate(log(disc / q^e), [a;b])
+    H_test = differentiate(r_test, [a;b])
+
+    k = 2
+    p = randn(ComplexF64, k)
+    u1 = evaluate(r_test, [a;b] => p)
+    U1 = evaluate(H_test, [a;b] => p)
+    u2, u22, U2 = randn(ComplexF64, k), randn(ComplexF64, k), randn(ComplexF64, k, k);
+    evaluate_and_jacobian!(u2, U2, R, p);
+    evaluate!(u22, R, p);
+
+    @test norm(u1 - u2) < 1e-12
+    @test norm(u1 - u22) < 1e-12
+    @test norm(U1 - U2) < 1e-12
+end
+
 @testset "Cublic discriminant" begin
     
     @var a b x
