@@ -14,14 +14,17 @@ function RoutingFunction(
     projection_vars;
     e::Union{Int,Nothing} = nothing,
     c::Union{Vector,Nothing} = nothing,
-    g::Union{Vector{Expression},Vector{Variable},Nothing} = nothing
+    g::Union{Vector{Expression},Vector{Variable},Nothing} = nothing,
+    PWS::Union{PseudoWitnessSet,Nothing} = nothing
 )
 
     all_vars = ModelKit.variables(F)
     x_vars = setdiff(all_vars, projection_vars)
     F_ordered = System(F.expressions, variables = [projection_vars; x_vars])
     k = length(projection_vars)
-    PWS = PseudoWitnessSet(F_ordered, k, linear_subspace_codim = k - 1)
+    if isnothing(PWS)
+        PWS = PseudoWitnessSet(F_ordered, k, linear_subspace_codim = k - 1)
+    end
 
     if isnothing(g) || length(g) == 0
         ∇logprodg = nothing
