@@ -142,16 +142,10 @@ savefig("figures/allee_original_full.png")
 savefig("figures/allee_original_full.pdf")
 savefig("figures/allee_original_full.svg")
 
-# Zoom in and save again
-# plot!(pl, xlims=(0, 0.09), ylims=(0, 0.5), legend=false)
-# savefig("figures/allee_original_zoomed_in.png")
-# savefig("figures/allee_original_zoomed_in.pdf")
-# savefig("figures/allee_original_zoomed_in.svg")
-
 pl_original_smaller = generate_plot(r_original, pts_original; xlims=(0, 0.09), ylims=(0, 0.5))
-savefig("figures/allee_original_zoomed_in_new.png")
-savefig("figures/allee_original_zoomed_in_new.pdf")
-savefig("figures/allee_original_zoomed_in_new.svg")
+savefig("figures/allee_original_zoomed_in.png")
+savefig("figures/allee_original_zoomed_in.pdf")
+savefig("figures/allee_original_zoomed_in.svg")
 
 # ROUTING FUNCTION FROM RADICAL GENERATORS
 
@@ -174,19 +168,7 @@ savefig("figures/allee_radical_full.png")
 savefig("figures/allee_radical_full.pdf")
 savefig("figures/allee_radical_full.svg")
 
-# # Zoom in and save again
-# plot!(pl, xlims=(0, 0.09), ylims=(0, 0.5), legend=false)
-# savefig("figures/allee_radical_zoomed_in.png")
-# savefig("figures/allee_radical_zoomed_in.pdf")
-# savefig("figures/allee_radical_zoomed_in.svg")
-
 pl_radical_smaller = generate_plot(r, pts; xlims=(0, 0.09), ylims=(0, 0.5))
-savefig("figures/allee_radical_zoomed_in_new.png")
-savefig("figures/allee_radical_zoomed_in_new.pdf")
-savefig("figures/allee_radical_zoomed_in_new.svg")
-
-# To get rid of weird line
-pl_radical_smaller2 = generate_plot(r, pts; xlims=(0, 0.09), ylims=(0, 0.5), contour_stepsize=6e-4)
-savefig("figures/allee_radical_zoomed_in_new2.png")
-savefig("figures/allee_radical_zoomed_in_new2.pdf")
-savefig("figures/allee_radical_zoomed_in_new2.svg")
+savefig("figures/allee_radical_zoomed_in.png")
+savefig("figures/allee_radical_zoomed_in.pdf")
+savefig("figures/allee_radical_zoomed_in.svg")
