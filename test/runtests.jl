@@ -191,3 +191,37 @@ end;
         PseudoWitnessSet(F, 2)
     end
 end
+
+
+@testset "Hypersurface evaluations for quadratic" begin
+
+    # Set up the system
+    @var a b x
+    F = System([x^2 + a * x + b; 2x + a], variables=[a, b, x])
+    H = ProjectedHypersurface(F, [a, b])
+
+    # Test the degree
+    @test degree(H) == 2
+
+    # Random point
+    p = rand(2)
+
+    # Test the evaluation formula
+    pt = [1, 1]
+    log_abs_h = p -> log(abs(p[1]^2 - 4*p[2]))
+    direction = H.PWS.L.b
+    C = log(abs(direction[1]^2))
+    @test H(pt) + C - log_abs_h(pt) |> abs < 1e-6
+
+    # Test the gradient 
+    pt = [3, 2]
+    ∇log_abs_h = p -> [(2 * p[1])/(p[1]^2 - 4 * p[2]), -4/(p[1]^2 - 4 * p[2])]
+    @test gradient(H, pt) - ∇log_abs_h(pt) |> norm < 1e-6
+
+    # Test the Hessian
+    pt = [11, 7]
+    Hess_log_abs_h = p -> [[2/(p[1]^2 - 4*p[2]) - 4*p[1]^2/(p[1]^2 - 4*p[2])^2 8*p[1]/(p[1]^2 - 4*p[2])^2]; 
+    [8*p[1]/(p[1]^2 - 4*p[2])^2  -16/(p[1]^2 - 4*p[2])^2]]
+    @test Hess_log_abs_h(pt) - gradient_and_hessian(H, pt)[2] |> norm < 1e-6
+
+end
