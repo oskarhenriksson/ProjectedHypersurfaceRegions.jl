@@ -90,6 +90,52 @@ end
 
 
 """
+    critical_points(r, S0, rhs0; kwargs...)
+
+Find critical points of the routing function using monodromy and gradient flow.
+"""
+function critical_points(
+    r::RoutingGradient,
+    S0::Union{AbstractVector{<:AbstractVector{<:Number}},Nothing} = nothing,
+    rhs0::Union{AbstractVector{<:Number},Nothing} = nothing;
+    verbose = true,
+    start_grid_width = 5,
+    start_grid_stepsize = 0.2,
+    start_grid_center = nothing,
+    monodromy_at_zero = false,
+    options = MonodromyOptions(
+        parameter_sampler = p -> 10 .* randn(ComplexF64, length(p)),
+        max_loops_no_progress = 15
+    ),
+    seed = rand(UInt32),
+)
+    # Step 1: Setup monodromy solver
+    MS, H, S0, rhs0, k = _setup_monodromy_solver(
+        r, S0, rhs0;
+        monodromy_at_zero = monodromy_at_zero,
+        options = options,
+    )
+
+    # Step 2: Expand start solutions via gradient flow
+    S0, new_pts = _expand_start_solutions(
+        r, H, S0, rhs0, k;
+        verbose = verbose,
+        start_grid_width = start_grid_width,
+        start_grid_stepsize = start_grid_stepsize,
+        start_grid_center = start_grid_center,
+        monodromy_at_zero = monodromy_at_zero,
+    )
+
+    # Step 3: Solve and trace to critical points
+    return _solve_and_trace(
+        MS, H, S0, rhs0, new_pts;
+        monodromy_at_zero = monodromy_at_zero,
+        start_grid_width = start_grid_width,
+    )
+end
+
+
+"""
     _setup_monodromy_solver(r, S0, rhs0; monodromy_at_zero, options)
 
 Set up the monodromy solver and initial start pair.
@@ -257,49 +303,4 @@ function _solve_and_trace(
         routing_points = real_solutions(results(mon_result))
         return routing_points, mon_result, mon_result
     end
-end
-
-"""
-    critical_points(r, S0, rhs0; kwargs...)
-
-Find critical points of the routing function using monodromy and gradient flow.
-"""
-function critical_points(
-    r::RoutingGradient,
-    S0::Union{AbstractVector{<:AbstractVector{<:Number}},Nothing} = nothing,
-    rhs0::Union{AbstractVector{<:Number},Nothing} = nothing;
-    verbose = true,
-    start_grid_width = 5,
-    start_grid_stepsize = 0.2,
-    start_grid_center = nothing,
-    monodromy_at_zero = false,
-    options = MonodromyOptions(
-        parameter_sampler = p -> 10 .* randn(ComplexF64, length(p)),
-        max_loops_no_progress = 15
-    ),
-    seed = rand(UInt32),
-)
-    # Step 1: Setup monodromy solver
-    MS, H, S0, rhs0, k = _setup_monodromy_solver(
-        r, S0, rhs0;
-        monodromy_at_zero = monodromy_at_zero,
-        options = options,
-    )
-
-    # Step 2: Expand start solutions via gradient flow
-    S0, new_pts = _expand_start_solutions(
-        r, H, S0, rhs0, k;
-        verbose = verbose,
-        start_grid_width = start_grid_width,
-        start_grid_stepsize = start_grid_stepsize,
-        start_grid_center = start_grid_center,
-        monodromy_at_zero = monodromy_at_zero,
-    )
-
-    # Step 3: Solve and trace to critical points
-    return _solve_and_trace(
-        MS, H, S0, rhs0, new_pts;
-        monodromy_at_zero = monodromy_at_zero,
-        start_grid_width = start_grid_width,
-    )
 end
