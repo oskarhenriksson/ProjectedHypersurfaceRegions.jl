@@ -90,13 +90,13 @@ end
 
 
 """
-    setup_monodromy_solver(r, S0, rhs0; monodromy_at_zero, options)
+    _setup_monodromy_solver(r, S0, rhs0; monodromy_at_zero, options)
 
 Set up the monodromy solver and initial start pair.
 Returns (MS, H, S0, rhs0, k) where MS is the MonodromySolver, H is the homotopy,
 S0 are the start solutions, rhs0 is the target parameters, and k is the number of variables.
 """
-function setup_MS(
+function _setup_monodromy_solver(
     r::RoutingGradient,
     S0::Union{AbstractVector{<:AbstractVector{<:Number}},Nothing} = nothing,
     rhs0::Union{AbstractVector{<:Number},Nothing} = nothing;
@@ -149,12 +149,12 @@ function setup_MS(
 end
 
 """
-    expand_start_solutions(r, H, S0, rhs0, k; verbose, start_grid_width, start_grid_stepsize, start_grid_center, monodromy_at_zero)
+    _expand_start_solutions(r, H, S0, rhs0, k; verbose, start_grid_width, start_grid_stepsize, start_grid_center, monodromy_at_zero)
 
 Expand S0 by finding solutions of ∇r=0 through gradient descent and tracing to ∇r=rhs0.
 Returns (S0, new_pts) where S0 is the expanded set of start solutions and new_pts are the points found via gradient flow.
 """
-function expand_S0(
+function _expand_start_solutions(
     r::RoutingGradient,
     H::RoutingPointsHomotopy,
     S0::AbstractVector{<:AbstractVector{<:Number}},
@@ -220,12 +220,12 @@ function expand_S0(
 end
 
 """
-    solve_and_trace(MS, H, S0, rhs0, new_pts; monodromy_at_zero, start_grid_width)
+    _solve_and_trace(MS, H, S0, rhs0, new_pts; monodromy_at_zero, start_grid_width)
 
 Perform monodromy solving and trace solutions to ∇r=0.
 Returns (routing_points, result, mon_result).
 """
-function solve_and_trace(
+function _solve_and_trace(
     MS::HomotopyContinuation.MonodromySolver,
     H::RoutingPointsHomotopy,
     S0::AbstractVector{<:AbstractVector{<:Number}},
@@ -280,14 +280,14 @@ function critical_points(
     seed = rand(UInt32),
 )
     # Step 1: Setup monodromy solver
-    MS, H, S0, rhs0, k = setup_MS(
+    MS, H, S0, rhs0, k = _setup_monodromy_solver(
         r, S0, rhs0;
         monodromy_at_zero = monodromy_at_zero,
         options = options,
     )
 
     # Step 2: Expand start solutions via gradient flow
-    S0, new_pts = expand_S0(
+    S0, new_pts = _expand_start_solutions(
         r, H, S0, rhs0, k;
         verbose = verbose,
         start_grid_width = start_grid_width,
@@ -297,7 +297,7 @@ function critical_points(
     )
 
     # Step 3: Solve and trace to critical points
-    return solve_and_trace(
+    return _solve_and_trace(
         MS, H, S0, rhs0, new_pts;
         monodromy_at_zero = monodromy_at_zero,
         start_grid_width = start_grid_width,
