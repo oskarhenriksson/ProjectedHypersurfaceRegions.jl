@@ -2,7 +2,7 @@ using Pkg
 Pkg.activate(joinpath(@__DIR__, ".."))
 Pkg.instantiate()
 
-using Test
+using Test, Random
 
 include(joinpath(@__DIR__, "..", "src", "functions.jl"))
 
@@ -184,6 +184,7 @@ end;
 end;
 
 @testset "Multiplicity detection" begin
+    Random.seed!(1234)
     @var a b x
     F = System([(x - a) * (x - b); 2 * x - (a + b)], variables=[a, b, x])
     @test_logs match_mode = :any (:warn, "Irreducible component of higher multiplicity detected in the incidence variety.") begin
