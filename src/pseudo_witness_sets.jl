@@ -9,12 +9,12 @@ struct PseudoWitnessSet
     F::System
     k::Int
     L::Line
-    W::Vector
+    Wt::Vector
     tracker::EndgameTracker
     track_report::Vector{Bool}
 end
-degree(PWS::PseudoWitnessSet) = length(PWS.W)
-ambient_dim(PWS::PseudoWitnessSet) = size(PWS.F, 2)
+degree(PWS::PseudoWitnessSet) = length(PWS.Wt)
+total_dim(PWS::PseudoWitnessSet) = size(PWS.F, 2)
 n_projection_variables(PWS::PseudoWitnessSet) = PWS.k
 system(PWS::PseudoWitnessSet) = PWS.F
 Base.show(io::IO, PWS::PseudoWitnessSet) = 
@@ -61,18 +61,21 @@ function PseudoWitnessSet(
 
     # Repopulate the solution set via monodromy (safetey feature if solutions were lost)
     M = monodromy_solve(F_L, solutions(E), L.p)
+    Wt = solutions(M)
 
     # Set up tracker 
     tracker = Tracker(ParameterHomotopy(fixed(F_L; compile = compile), L.p, L.p))
     track_report = zeros(Bool, length(solutions(M))) # for keeping track of which paths are successful
 
-    PseudoWitnessSet(F, k, L, solutions(M), EndgameTracker(tracker), track_report)
+    PseudoWitnessSet(F, k, L, Wt, EndgameTracker(tracker), track_report)
 end
+
+witness_points(PWS::PseudoWitnessSet) = [w[1:end-1] for w in PWS.Wt]
 
 function track!(u::Vector, PWS::PseudoWitnessSet, p)
     tracker = PWS.tracker
     target_parameters!(tracker, p)
-    for (l, w) in enumerate(PWS.W)
+    for (l, w) in enumerate(PWS.Wt)
             HC.track!(tracker, w, 1)
             u[l] .= tracker.tracker.state.x
             PWS.track_report[l] = all(isfinite, u[l]) # note if the track was successful or not
