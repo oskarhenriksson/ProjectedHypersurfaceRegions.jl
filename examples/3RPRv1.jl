@@ -9,7 +9,7 @@ Random.seed!(12345)
 
 time_start_round1 = time()
 
-# Set up incidence variety of the discriminant
+# Incidence variety of the discriminant
 a2 = 14 // 10;
 a3 = 7 // 10;
 b3 = 1;
@@ -28,23 +28,26 @@ f = [φ[1]^2 + φ[2]^2 - 1,
 
 Jac = differentiate(f, [p; φ])
 F = System([f; det(Jac)], variables=[p; φ; c])
+
+# Form projected hypersurface
 projection_variables = c;
+h = ProjectedHypersurface(F, projection_variables)
+
+# Degree of the discriminant
+d = degree(h)
+println("Degree of discriminant: $d")
 
 # Set up routing function
 center = 5 * rand(length(projection_variables))
 write_parameters("./results/3RPRv1/center.txt", center)
-∇r = RoutingGradient(F, projection_variables; c=center);
-
-# Degree of the discriminant
-d = degree(∇r.PWS)
-println("Degree of discriminant: $d")
+r = RoutingFunction(h; c=center);
 
 # Routing points
 # pts = read_solutions("./results/3RPRv1/routing_points.txt") |> real
-pts, res, mon_res = critical_points(∇r)
+pts, res, mon_res = critical_points(r)
 
 # Connected components 
-G, idx, failed_info = partition_of_critical_points(∇r, pts)
+G, idx, failed_info = partition_of_critical_points(r, pts)
 
 time_end_round1 = time()
 println("Computation time for round 1: $(time_end_round1 - time_start_round1) seconds")
@@ -62,7 +65,7 @@ function analyze_and_save_result()
     println("Failed info: $(failed_info)")
     println()
 
-    analyze_result(∇r, pts, G, idx;
+    analyze_result(r, pts, G, idx;
         root_counting_system=System(f, variables=vcat(p, φ), parameters=projection_variables)
     )
 end
@@ -78,11 +81,9 @@ options = MonodromyOptions(
     parameter_sampler=p -> 100 .* randn(ComplexF64, length(p)), # larger loops
     max_loops_no_progress=10 # stopping criterion
 )
-pts, res, mon_res = critical_points(∇r, solutions(mon_res), parameters(mon_res), options=options)
-pts, res, mon_res = critical_points(∇r, mon_pts, mon_par, options=options)
+pts, res, mon_res = critical_points(r, solutions(mon_res), parameters(mon_res), options=options)
 
-
-G, idx, failed_info = partition_of_critical_points(∇r, pts)
+G, idx, failed_info = partition_of_critical_points(r, pts)
 
 time_end_round2 = time()
 println("Additional computation time for round 2: $(time_end_round2 - time_start_round2) seconds")

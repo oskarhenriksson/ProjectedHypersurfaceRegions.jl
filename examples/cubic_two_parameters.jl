@@ -10,24 +10,25 @@ Random.seed!(0x8b868320)
 
 # The discriminant of x^3 + a * x^2 + b*x + 1 is
 # 4*a^3 - a^2*b^2 - 18*a*b + 4*b^3 + 27
+
+# Incidence variety of discriminant
 @var a b x
 F = System([x^3 + a * x^2 + b * x + 1; 3 * x^2 + 2 * a * x + b], variables=[a, b, x])
 
-projection_variables = [a; b]
-k = length(projection_variables)
+# Set up projected hypersurface
+h = ProjectedHypersurface(F, [a; b])
+
+# Degree of discriminant
+d = degree(h)
+println("Degree of discriminant: $d")
 
 # Routing gradient
 c = [13.758979284873828, -0.09884333335596635]
-∇r = RoutingGradient(F, projection_variables; c=c)
-
-# Degree of discriminant
-d = degree(∇r.PWS)
-println("Degree of discriminant: $d")
+r = RoutingFunction(h; c=c)
 
 # Critical points
 # pts = read_solutions("./results/cubic_two_parameters/routing_points.txt") |> real
-# [[0.24019879259471374, 0.6462876625939318], [-19.196301403851297, 17.947215596608764], [13.795122982881756, -0.10215378573628686], [3.6143037072408117, 12.454609261054078], [-14.14401903919251, 0.8670430578243937], [14.082912701198753, 9.0715113805407], [13.570286317137493, -9.183478526567544]]
-pts, res, mon_res = critical_points(∇r)
+pts, res, mon_res = critical_points(r)
 
 write_parameters("./results/cubic_two_parameters/monodromy_parameters.txt", parameters(mon_res))
 write_solutions("./results/cubic_two_parameters/monodromy_result.txt", solutions(mon_res))
@@ -35,7 +36,7 @@ write_solutions("./results/cubic_two_parameters/result.txt", solutions(res))
 write_solutions("./results/cubic_two_parameters/routing_points.txt", pts)
 
 # Connecting 
-G, idx, failed_info = partition_of_critical_points(∇r, pts)
+G, idx, failed_info = partition_of_critical_points(r, pts)
 println("Connected components: $(G)")
 println("Indicies: $(idx)")
 println("Failed info: $(failed_info)")
@@ -47,9 +48,8 @@ write("./results/cubic_two_parameters/connected_components.txt", string(G))
 include("./analysis.jl");
 M_x = maximum(p -> abs(p[1]), pts) + 6
 M_y = maximum(p -> abs(p[2]), pts) + 6
-h(x, y) = 4 * x^3 - x^2 * y^2 - 18 * x * y + 4 * y^3 + 27
-analyze_result(∇r, pts, G, idx;
-    h=h,
+analyze_result(r, pts, G, idx;
+    h = (x,y) -> 4 * x^3 - x^2 * y^2 - 18 * x * y + 4 * y^3 + 27,
     markersize=7,
     arrowstyle=:simple,
     flow_linewidth=3,
