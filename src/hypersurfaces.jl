@@ -1,5 +1,3 @@
-#TODO: Work out some test case by hand (and add to the test file and README)
-
 struct ProjectedHypersurface{TC} <: HC.AbstractSystem
     PWS::PseudoWitnessSet
     projection_vars::Vector{HC.Variable}
@@ -28,7 +26,7 @@ end
 degree(h::ProjectedHypersurface) = degree(h.PWS)
 
 Base.show(io::IO, h::ProjectedHypersurface) = println(io, "Projected hypersurface of degree $(degree(h)) in ambient dimension $(nvariables(h))")
-
+    
 ModelKit.variables(h::ProjectedHypersurface{TC}) where {TC} = h.projection_vars
 ModelKit.nvariables(h::ProjectedHypersurface{TC}) where {TC} = length(h.projection_vars)
 
@@ -36,23 +34,17 @@ function evaluate(h::ProjectedHypersurface{TC}, x, p = nothing) where {TC}
     PWS, GC = h.PWS, h.GC
 
     S = GC.S
-    X = GC.X
     Uvals = GC.Uvals
-
-    k = n_projection_variables(PWS) #TODO: Remove?
-    n = ambient_dim(PWS)
 
     track!(GC, PWS, x)
 
     u = 0.0
 
-    get_s_and_Uvals!(Uvals, S, GC, PWS) # TODO: Is this what we want?    
+    get_s_and_Uvals!(Uvals, S, GC, PWS)
     #@inbounds @simd 
     for si in S 
         u += -log(abs(si))
     end
-
-    # TODO: How should we treat p?
 
     u
 end
