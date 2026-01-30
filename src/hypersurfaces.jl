@@ -25,14 +25,14 @@ function ProjectedHypersurface(
     ProjectedHypersurface{typeof(GC)}(PWS, projection_vars, GC)
 end
 
-degree(H::ProjectedHypersurface) = degree(H.PWS)
-ambient_dim(H::ProjectedHypersurface) = ambient_dim(H.PWS)
+degree(h::ProjectedHypersurface) = degree(h.PWS)
+ambient_dim(h::ProjectedHypersurface) = ambient_dim(h.PWS)
 
-ModelKit.variables(H::ProjectedHypersurface{TC}) where {TC} = H.projection_vars
-ModelKit.nvariables(H::ProjectedHypersurface{TC}) where {TC} = length(H.projection_vars)
+ModelKit.variables(h::ProjectedHypersurface{TC}) where {TC} = h.projection_vars
+ModelKit.nvariables(h::ProjectedHypersurface{TC}) where {TC} = length(h.projection_vars)
 
-function evaluate(H::ProjectedHypersurface{TC}, x, p = nothing) where {TC}
-    PWS, GC = H.PWS, H.GC
+function evaluate(h::ProjectedHypersurface{TC}, x, p = nothing) where {TC}
+    PWS, GC = h.PWS, h.GC
 
     S = GC.S
     X = GC.X
@@ -56,9 +56,9 @@ function evaluate(H::ProjectedHypersurface{TC}, x, p = nothing) where {TC}
     u
 end
 
-function gradient!(u, H::ProjectedHypersurface{TC}, x, p = nothing) where {TC}
+function gradient!(u, h::ProjectedHypersurface{TC}, x, p = nothing) where {TC}
     
-    PWS, GC = H.PWS, H.GC
+    PWS, GC = h.PWS, h.GC
 
     # Use cached symbolic objects and arrays
     JsuF = GC.JsuF
@@ -73,6 +73,8 @@ function gradient!(u, H::ProjectedHypersurface{TC}, x, p = nothing) where {TC}
 
     N, n = size(PWS.F)
     k = n_projection_variables(PWS)
+
+    u .= zero(eltype(u))
 
     # Track to PWS
     track!(GC, PWS, x)
@@ -160,16 +162,16 @@ function gradient!(u, H::ProjectedHypersurface{TC}, x, p = nothing) where {TC}
 
     nothing
 end
-function gradient(H::ProjectedHypersurface{TC}, x, p = nothing) where {TC}
-    k = nvariables(H)
+function gradient(h::ProjectedHypersurface{TC}, x, p = nothing) where {TC}
+    k = nvariables(h)
     u = zeros(ComplexF64, k)
-    gradient!(u, H, x, p)
+    gradient!(u, h, x, p)
     u
 end
 
-function gradient_and_hessian!(u, U, H::ProjectedHypersurface{TC}, x, p = nothing) where {TC}
+function gradient_and_hessian!(u, U, h::ProjectedHypersurface{TC}, x, p = nothing) where {TC}
 
-    PWS, GC = H.PWS, H.GC
+    PWS, GC = h.PWS, h.GC
 
     # Use cached symbolic objects and arrays
     JsuF = GC.JsuF
@@ -200,6 +202,9 @@ function gradient_and_hessian!(u, U, H::ProjectedHypersurface{TC}, x, p = nothin
 
     k = n_projection_variables(PWS)
     N, n = size(PWS.F)
+
+    u .= zero(eltype(u))
+    U .= zero(eltype(U))
 
     # Track to PWS
     track!(GC, PWS, x)
@@ -452,11 +457,11 @@ function gradient_and_hessian!(u, U, H::ProjectedHypersurface{TC}, x, p = nothin
 end
 
 
-function gradient_and_hessian(H::ProjectedHypersurface{TC}, x, p = nothing) where {TC}
+function gradient_and_hessian(h::ProjectedHypersurface{TC}, x, p = nothing) where {TC}
 
-    k = nvariables(H)
+    k = nvariables(h)
     u = zeros(ComplexF64, k)
     U = zeros(ComplexF64, k, k)
-    gradient_and_hessian!(u, U, H, x, p)
+    gradient_and_hessian!(u, U, h, x, p)
     u, U
 end
