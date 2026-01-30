@@ -36,8 +36,8 @@ mutable struct GradientCache{T}
     M1::Matrix{T}
     M2::Matrix{T}
     M3::Matrix{T}
-    ∇logprodg_temp::Vector{T}
-    Hess_logprodg_temp::Matrix{T}
+    gradient_temp::Vector{T}
+    Hess_temp::Matrix{T}
 end
 function compute_systems(F, n, k, B)
     @unique_var uval[1:n-k] α[1:k] β[1:k] t
@@ -133,8 +133,8 @@ function GradientCache(PWS)
     M2 = zeros(ComplexF64, n-k+1, k)
     M3 = zeros(ComplexF64, k, n-k+1)
 
-    ∇logprodg_temp = zeros(ComplexF64, k)
-    Hess_logprodg_temp = zeros(ComplexF64, k, k)
+    gradient_temp = zeros(ComplexF64, k)
+    Hess_temp = zeros(ComplexF64, k, k)
 
     v0 = randn(ComplexF64, n+1)
 
@@ -175,8 +175,8 @@ function GradientCache(PWS)
                     M1, 
                     M2, 
                     M3, 
-                    ∇logprodg_temp, 
-                    Hess_logprodg_temp
+                    gradient_temp, 
+                    Hess_temp
                 )
 end
 
