@@ -221,8 +221,8 @@ function _expand_start_solutions(
     if start_grid_width <= 0
         return S0, new_pts
     end
-    
-    g(x, param, t) = real(evaluate(r, x))
+
+    g(x, param, t) = real(evaluate(∇r, x))
     tspan = (0.0, 1e4)
 
     if isnothing(start_grid_center)
