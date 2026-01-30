@@ -27,7 +27,7 @@ f_{a,b}(x)=x^2+ax+b
 ``` 
 with parameters $a$ and $b$.
 
-We start by setting up the incidence variety $`\{(a,b,x)\in ℂ^3\mid f_{a,b}(x)=f′_{a,b}(x)=0\}`$ of the discriminant, and forming a `ProjectedHypersurface`, which is the central structure of the package.
+We start by setting up the incidence variety $`\{(a,b,x)\in ℂ^3\mid f_{a,b}(x)=f′_{a,b}(x)=0\}`$ of the discriminant, which we use to form a `ProjectedHypersurface` that represents the discrimiminant via a pseudo-witness set.
 
 ```julia-repl
 julia> @var a b x;
@@ -36,7 +36,27 @@ julia> h = ProjectedHypersurface(F, [a, b])
 Projected hypersurface of degree 2 in ambient dimension 2
 ```
 
-We then form a routing function as follows. (If we don't specify the center `c` for the denominator, it is chosen randomly.)
+We can use `h` to evaluate (up to a constant) the logarithm of the defining polynomial of the discriminant, as well ot the gradient and Hessian. 
+
+```julia-repl
+julia> p = [1, 1];
+
+julia> h(p) # the value depends on the direction of the pseudo-witness line
+1.5362619674238103
+
+julia> gradient(h, p)
+2-element Vector{ComplexF64}:
+ -0.6666666666666665 + 4.440892098500626e-16im
+  1.3333333333333335 - 2.220446049250313e-16im
+
+julia> hessian(h, p) 
+2×2 Matrix{ComplexF64}:
+ -1.11111-9.99201e-16im  0.888889+4.44089e-16im
+ 0.888889+7.77156e-16im  -1.77778+9.71445e-16im
+
+```
+
+We use `h` to form a routing function as follows. (If we don't specify the center `c` for the denominator, it is chosen randomly.)
 
 ```julia-repl
 julia> r = RoutingFunction(h; c=[13, 2])
