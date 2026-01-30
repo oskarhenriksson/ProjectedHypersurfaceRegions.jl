@@ -458,3 +458,5 @@ function gradient_and_hessian(h::ProjectedHypersurface{TC}, x, p = nothing) wher
     gradient_and_hessian!(u, U, h, x, p)
     u, U
 end
+
+hessian(h::ProjectedHypersurface{TC}, x, p = nothing) where {TC} = gradient_and_hessian(h, x, p)[2]

@@ -155,6 +155,8 @@ function gradient_and_hessian(r::RoutingFunction{TQ,TP,TC}, x, p = nothing) wher
     gradient_and_hessian!(u, U, r, x, p)
     u, U
 end
+hessian(r::RoutingFunction{TQ,TP,TC}, x, p = nothing) where {TQ,TP,TC} =
+    gradient_and_hessian(r, x, p)[2]
 
 #########
 
