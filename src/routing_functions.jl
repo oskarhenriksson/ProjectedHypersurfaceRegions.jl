@@ -5,6 +5,7 @@ struct RoutingFunction{TQ,TP,TC} <: HC.AbstractSystem
     c::Vector
     G::Union{MixedSystem, Nothing}
     ∇logprodg::Union{TP, Nothing}
+    q::Expression
     ∇logqe::Union{TQ, Nothing}
 end
 function RoutingFunction(
@@ -37,16 +38,28 @@ function RoutingFunction(
         c = randn(k)
     end
 
-    @unique_var α[1:k]
-    q = 1 + sum((α - c) .* (α - c))
-    ∇logqe = System(differentiate(-e * log(q), α), variables = α) |> fixed
+    q = 1 + sum((projection_vars - c) .* (projection_vars - c))
+    ∇logqe = System(differentiate(-e * log(q), projection_vars), variables = projection_vars) |> fixed
 
-    RoutingFunction{typeof(∇logqe), typeof(∇logprodg), typeof(h.GC)}(h, projection_vars, e, c, G, ∇logprodg, ∇logqe)
+    RoutingFunction{typeof(∇logqe), typeof(∇logprodg), typeof(h.GC)}(h, projection_vars, e, c, G, ∇logprodg, q, ∇logqe)
 end
 
 denominator_exponent(r::RoutingFunction) = r.e
 ModelKit.variables(r::RoutingFunction) = r.projection_vars
 ModelKit.nvariables(r::RoutingFunction) = length(r.projection_vars)
+
+function Base.show(io::IO, r::RoutingFunction)
+    header = "Routing function for projected hypersurface"
+    println(io, header) 
+    println(io, "="^(length(header)))
+    println(io, " Variables: ", join(r.h.projection_vars, ", "))
+    print(io, " Numerator: ", r.h)
+    if !isnothing(r.G)
+        println(io, " Additional factors in numerator: ", join(r.G.compiled.system.expressions, ", "))
+    end
+    println(io, " Denominator: ", (r.q)^r.e)
+end
+
 
 function ModelKit.evaluate(r::RoutingFunction, x, p = nothing)
     h = r.h
