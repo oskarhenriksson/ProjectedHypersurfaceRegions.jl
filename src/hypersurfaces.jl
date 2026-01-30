@@ -25,15 +25,11 @@ function ProjectedHypersurface(
     ProjectedHypersurface{typeof(GC)}(PWS, projection_vars, GC)
 end
 
-degree(H::ProjectedHypersurface{TC}) where {TC} = degree(H.PWS)
+degree(H::ProjectedHypersurface) = degree(H.PWS)
+ambient_dim(H::ProjectedHypersurface) = ambient_dim(H.PWS)
 
 ModelKit.variables(H::ProjectedHypersurface{TC}) where {TC} = H.projection_vars
 ModelKit.nvariables(H::ProjectedHypersurface{TC}) where {TC} = length(H.projection_vars)
-
-import HomotopyContinuation.evaluate!
-import HomotopyContinuation.evaluate_and_jacobian!
-import HomotopyContinuation.evaluate
-import HomotopyContinuation.taylor!
 
 function evaluate(H::ProjectedHypersurface{TC}, x, p = nothing) where {TC}
     PWS, GC = H.PWS, H.GC
