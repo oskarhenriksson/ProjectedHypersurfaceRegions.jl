@@ -86,7 +86,7 @@ end
 
 function get_s_and_Uvals!(Uvals, S, GC, PWS)
     k = n_projection_variables(PWS)
-    n = ambient_dim(PWS)
+    n = total_dim(PWS)
 
     
     for (j, sol) in enumerate(GC.line_hypersurface_intersections)
