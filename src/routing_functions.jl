@@ -162,6 +162,8 @@ struct RoutingGradient <: HC.AbstractSystem
     r::RoutingFunction
 end
 
+Base.show(io::IO, ∇r::RoutingGradient) = print(io, "Routing gradient")
+
 import Base.size
 function Base.size(∇r::RoutingGradient)
     k = nvariables(∇r.r)
