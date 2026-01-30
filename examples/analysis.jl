@@ -1,7 +1,7 @@
 using Plots, ImplicitPlots
 
 function analyze_result(
-    ∇r::RoutingGradient,
+    r::RoutingFunction,
     pts::Vector{Vector{Float64}},
     G::Vector{Vector{Int}},
     idx::Vector;
@@ -21,6 +21,8 @@ function analyze_result(
     M_y_max=nothing,
     M_y_min=nothing
 )
+
+    ∇r = RoutingGradient(r)
 
     # Analyze root counts
     if !isnothing(root_counting_system)
@@ -46,8 +48,8 @@ function analyze_result(
 
     # Plot the result
     if !isnothing(h)
-        e = denominator_exponent(∇r)
-        center = ∇r.c
+        e = denominator_exponent(r)
+        center = r.c
         RR(x, y) = log(abs(h(x, y) / (1 + (x - center[1])^2 + (y - center[2])^2)^e))
 
         if plot_contour

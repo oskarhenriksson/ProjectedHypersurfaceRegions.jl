@@ -2,7 +2,7 @@
 # copied and adapted from https://github.com/JuliaHomotopyContinuation/HomotopyContinuation.jl/blob/main/src/homotopies/parameter_homotopy.jl
 
 struct RoutingPointsHomotopy <: AbstractHomotopy
-    r::RoutingGradient
+    ∇r::RoutingGradient
     p::Vector{ComplexF64}
     q::Vector{ComplexF64}
     #cache
@@ -11,18 +11,18 @@ struct RoutingPointsHomotopy <: AbstractHomotopy
     taylor_pt::TaylorVector{2,ComplexF64}
 end
 
-function RoutingPointsHomotopy(r::RoutingGradient, p::AbstractVector, q::AbstractVector)
-    @assert length(p) == length(q) == size(r)[1]
+function RoutingPointsHomotopy(∇r::RoutingGradient, p::AbstractVector, q::AbstractVector)
+    @assert length(p) == length(q) == size(∇r)[1]
 
     p̂ = Vector{ComplexF64}(p)
     q̂ = Vector{ComplexF64}(q)
     taylor_pt = TaylorVector{2}(ComplexF64, length(q))
     pt = copy(p̂)
 
-    RoutingPointsHomotopy(r, p̂, q̂, Ref(complex(NaN)), pt, taylor_pt)
+    RoutingPointsHomotopy(∇r, p̂, q̂, Ref(complex(NaN)), pt, taylor_pt)
 end
 
-Base.size(H::RoutingPointsHomotopy) = size(H.r)
+Base.size(H::RoutingPointsHomotopy) = size(H.∇r)
 
 import HomotopyContinuation.start_parameters!
 import HomotopyContinuation.target_parameters!
@@ -75,22 +75,22 @@ end
 
 function ModelKit.evaluate!(u, H::RoutingPointsHomotopy, x, t)
     tp!(H, t)
-    evaluate!(u, H.r, x, H.pt)
+    evaluate!(u, H.∇r, x, H.pt)
 end
 
 function ModelKit.evaluate_and_jacobian!(u, U, H::RoutingPointsHomotopy, x, t)
     tp!(H, t)
-    evaluate_and_jacobian!(u, U, H.r, x, H.pt)
+    evaluate_and_jacobian!(u, U, H.∇r, x, H.pt)
 end
 
 function ModelKit.taylor!(u, v::Val, H::RoutingPointsHomotopy, tx, t)
-    taylor!(u, v, H.r, tx, tp!(H, t))
+    taylor!(u, v, H.∇r, tx, tp!(H, t))
     u
 end
 
 import HomotopyContinuation: MonodromyOptions, UniquePoints, EndgameTracker
 function critical_points(
-    r::RoutingGradient,
+    r::RoutingFunction,
     S0::Union{AbstractVector{<:AbstractVector{<:Number}},Nothing} = nothing,
     rhs0::Union{AbstractVector{<:Number},Nothing} = nothing;
     verbose = true,
@@ -104,10 +104,11 @@ function critical_points(
         ),
     seed = rand(UInt32),
 )
-    k = size(r, 2) # number of variables
+    ∇r = RoutingGradient(r)
+    k = size(∇r, 2) # number of variables
     p1 = zeros(k)
     q1 = randn(k)
-    H = RoutingPointsHomotopy(r, p1, q1)
+    H = RoutingPointsHomotopy(∇r, p1, q1)
 
     ### Use monodromy to the system ∇r = rhs0 where we view the right-hand side are the parameters of the system
     egtracker = EndgameTracker(H) # we want to add options later
@@ -133,7 +134,7 @@ function critical_points(
     if !monodromy_at_zero
         if isnothing(rhs0) || isnothing(S0)
             s0 = randn(ComplexF64, k)
-            rhs0 = evaluate(r, s0)
+            rhs0 = evaluate(∇r, s0)
             S0 = [s0]
         end
     else
@@ -145,7 +146,7 @@ function critical_points(
 
     ### Expand S0: find solutions of ∇r=0 through gradient descent and trace to ∇r=rhs0
     new_pts = Vector{ComplexF64}[]
-    g(x, param, t) = real(evaluate(r, x))
+    g(x, param, t) = real(evaluate(∇r, x))
     tspan = (0.0, 1e4)
 
     if isnothing(start_grid_center)
@@ -166,7 +167,7 @@ function critical_points(
                 prob = ODEProblem(g, collect(start_point), tspan)
                 sol = DE.solve(prob, reltol = 1e-6, abstol = 1e-6)
                 convergence_point = last(sol.u)
-                improved_point = newton(r, convergence_point) |> solution
+                improved_point = newton(∇r, convergence_point) |> solution
                 push!(new_pts, improved_point)
                 success_count += 1                
             catch e

@@ -3,8 +3,8 @@
 
 
 # return index and unstable eigenvectors of the hessian 
-function index_unstable_eigenvector!(u, U, r, a)
-    evaluate_and_jacobian!(u, U, r, a)
+function index_unstable_eigenvector!(u, U, ∇r, a)
+    evaluate_and_jacobian!(u, U, ∇r, a)
     if is_almost_singular(U)
         flag = true
         println("The Hessian is almost singular for", a)
@@ -25,16 +25,16 @@ function is_almost_singular(matrix::Matrix; threshold = 1e10)
 end
 
 ## calculate the index and unstable eigenvectors of the critical points
-function _index_list(r, crit_pts)
+function _index_list(∇r, crit_pts)
     index_list::Vector{Int} = []
     unstable_vector_list::Vector{Matrix{Float64}} = []
     flag_prime = false
-    k = size(r, 1)
+    k = size(∇r, 1)
     u = randn(ComplexF64, k)
     U = zeros(ComplexF64, k, k)
 
     for a in crit_pts
-        index, unstable_eigenvectors, flag = index_unstable_eigenvector!(u, U, r, a)
+        index, unstable_eigenvectors, flag = index_unstable_eigenvector!(u, U, ∇r, a)
         if flag == true
             flag_prime = true
             return nothing, nothing, nothing, flag_prime
@@ -62,24 +62,24 @@ function partition_indices(lst)
 end
 
 
-
-
 function partition_of_critical_points(
-    r,
+    r::RoutingFunction,
     crit_pts::Vector{Vector{Float64}},
     epsilon::Float64 = 1e-6,
     reltol::Float64 = 1e-6,
     abstol::Float64 = 1e-9,
 )
 
-    index_list, unstable_eigenvector_list, flag_prime = _index_list(r, crit_pts)
+    ∇r = RoutingGradient(r)
+
+    index_list, unstable_eigenvector_list, flag_prime = _index_list(∇r, crit_pts)
     if flag_prime == true
         @warn "The Hessian is almost singular for some critical points"
         return nothing
     end
 
 
-    ode_log! = set_up_ode(r)
+    ode_log! = set_up_ode(∇r)
 
     graph = LightGraphs.SimpleGraph(length(crit_pts))
     connectivity_status = zeros(Int, length(crit_pts))
