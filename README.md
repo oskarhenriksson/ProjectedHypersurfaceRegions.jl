@@ -3,23 +3,22 @@
 
 This repository contains code for the project _Computing complements of real hypersurfaces using pseudowitness sets_ by Paul Breiding, John Cobb, Aviva Englander, Nayda Farnsworth, Jon Hauenstein, Oskar Henriksson, David Johnson, Jordy Lopez Garcia, and Deepak Mundayur.
 
-## Running the code 
+## Installation
 
-Clone the respository (either using Git, or by manually downloading it by clicking the green `Code` button at the top of the GitHub page and selecting `Download ZIP`). Once you have the repository, the easiest way to run the code is to open Julia in the root folder of the repository, activate the environment, and (if this is your first time running the code) instantiate the dependencies:
+You can install the package directly from the github repository:
 
 ```julia
 using Pkg
-Pkg.activate(".")  
-Pkg.instantiate()
+Pkg.add(url="https://github.com/oskarhenriksson/ProjectedHypersurfaceRegions.jl")
 ```
 
-Once the environment is ready, load the functions of the package by including the main source file:
+## Examples of usage
+
+We load the package in a Julia session by running the following command:
 
 ```julia
-include("src/functions.jl")
+using ProjectedHypersurfaceRegions
 ```
-
-## Example
 
 Suppose that we want to study the complement of the discriminant for the quadratic polynomial 
 ```math
