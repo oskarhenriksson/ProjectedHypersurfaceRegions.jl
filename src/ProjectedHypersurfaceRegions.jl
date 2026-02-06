@@ -1,3 +1,4 @@
+module ProjectedHypersurfaceRegions
 using HomotopyContinuation, LinearAlgebra, DifferentialEquations, LightGraphs, ProgressMeter
 
 const HC = HomotopyContinuation
@@ -11,6 +12,9 @@ import HomotopyContinuation.ModelKit.evaluate
 import HomotopyContinuation.ModelKit.nvariables
 import HomotopyContinuation.ModelKit.variables
 
+using Reexport: @reexport
+@reexport using HomotopyContinuation
+
 include("pseudo_witness_sets.jl")
 include("gradient_cache.jl")
 include("hypersurfaces.jl")
@@ -18,3 +22,7 @@ include("routing_functions.jl")
 include("homotopy.jl")
 include("ode_solving.jl")
 include("graph.jl")
+
+
+
+end
