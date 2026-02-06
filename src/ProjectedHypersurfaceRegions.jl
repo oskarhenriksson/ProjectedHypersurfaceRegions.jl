@@ -20,6 +20,7 @@ include("gradient_cache.jl")
 include("hypersurfaces.jl")
 include("routing_functions.jl")
 include("homotopy.jl")
+include("critical_points.jl")
 include("ode_solving.jl")
 include("graph.jl")
 
