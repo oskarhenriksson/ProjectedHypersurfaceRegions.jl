@@ -1,0 +1,6 @@
+# Don't track editor and OS specific files
+.DS_Store
+.vscode/
+
+# Don't track figures
+figures/
