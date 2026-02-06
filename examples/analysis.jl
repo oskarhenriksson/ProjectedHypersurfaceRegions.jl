@@ -1,4 +1,7 @@
-using Plots, ImplicitPlots
+using Plots, ImplicitPlots, DifferentialEquations, LinearAlgebra
+
+DE = DifferentialEquations
+HC = HomotopyContinuation
 
 function analyze_result(
     r::RoutingFunction,
