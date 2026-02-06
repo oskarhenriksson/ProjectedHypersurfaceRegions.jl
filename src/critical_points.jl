@@ -155,7 +155,7 @@ function _expand_start_solutions(
             prob = ODEProblem(g, collect(start_point), tspan)
             sol = DE.solve(prob, reltol = 1e-6, abstol = 1e-6)
             convergence_point = last(sol.u)
-            improved_point = newton(r, convergence_point) |> solution
+            improved_point = newton(∇r, convergence_point) |> solution
             push!(new_pts, improved_point)
             success_count += 1                
         catch e
