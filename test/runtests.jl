@@ -86,6 +86,19 @@ end
     ProjectedHypersurfaceRegions.evaluate_and_jacobian!(u, U, H, x0, 0.0)
     @test norm(∇r_symbolic(x0)-q1 - u) < 1e-12
 
+
+    # Test that the expansion of start solutions works
+    ∇r = RoutingGradient(r)
+    MS, H, S0, rhs0, k = ProjectedHypersurfaceRegions._setup_monodromy_solver(∇r)
+    S0, new_pts = ProjectedHypersurfaceRegions._expand_start_solutions(
+        ∇r, H, S0, rhs0, k;
+        start_grid_width = 7,
+        start_grid_stepsize = 1,
+    )
+    @test length(S0) >= 5 # should find at least five new points (one for each local maximum)
+    @test all(norm(∇r(z)) < 1e-12 for z in new_pts) # all new points are routing points
+    @test all(norm(∇r(z)-rhs0) < 1e-12 for z in S0) # all points are traced to solutions of ∇r=rhs0
+
     # Check critical points
     options = MonodromyOptions(target_solutions_count = 2)
     pts, res0, mon_res = critical_points(r, start_grid_width=0, options=options)    
