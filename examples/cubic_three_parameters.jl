@@ -1,6 +1,4 @@
-using Random
-
-include("../src/functions.jl");
+using Random, ProjectedHypersurfaceRegions
 
 Random.seed!(0x8b868320)
 

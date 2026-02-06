@@ -1,6 +1,5 @@
-using Random
+using Random, ProjectedHypersurfaceRegions
 
-include("../src/functions.jl");
 include("./analysis.jl");
 mkpath("./results/quadratic");
 

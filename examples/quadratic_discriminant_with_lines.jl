@@ -1,6 +1,4 @@
-using Random
-
-include("../src/functions.jl");
+using Random, ProjectedHypersurfaceRegions
 include("./analysis.jl");
 mkpath("./results/quadratic_discriminant_with_lines");
 

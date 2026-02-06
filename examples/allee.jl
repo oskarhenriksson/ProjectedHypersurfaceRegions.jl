@@ -2,8 +2,7 @@
 # See also https://www.biorxiv.org/content/10.1101/2021.02.03.429609v2.full
 # More recent paper: https://arxiv.org/pdf/2501.19062
 
-using Random, Plots, ImplicitPlots
-include("../src/functions.jl");
+using Random, Plots, ImplicitPlots, ProjectedHypersurfaceRegions
 mkpath("./results/allee")
 
 Random.seed!(1234)
