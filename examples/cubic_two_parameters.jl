@@ -1,7 +1,5 @@
 
-using Random
-
-include("../src/functions.jl");
+using Random, ProjectedHypersurfaceRegions
 mkpath("./results/cubic_two_parameters");
 
 Random.seed!(0x8b868320)
