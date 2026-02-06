@@ -7,17 +7,17 @@ This repository contains code for the project _Computing complements of real hyp
 
 You can install the package directly from the github repository:
 
-```julia
-using Pkg
-Pkg.add(url="https://github.com/oskarhenriksson/ProjectedHypersurfaceRegions.jl")
+```julia-repl
+julia> using Pkg
+julia> Pkg.add(url="https://github.com/oskarhenriksson/ProjectedHypersurfaceRegions.jl")
 ```
 
 ## Examples of usage
 
 We load the package in a Julia session by running the following command:
 
-```julia
-using ProjectedHypersurfaceRegions
+```julia-repl
+julia> using ProjectedHypersurfaceRegions
 ```
 
 Suppose that we want to study the complement of the discriminant for the quadratic polynomial 
