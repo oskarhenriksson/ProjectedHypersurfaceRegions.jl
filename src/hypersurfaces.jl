@@ -1,3 +1,4 @@
+export ProjectedHypersurface, evaluate, gradient, hessian, degree
 struct ProjectedHypersurface{TC} <: HC.AbstractSystem
     PWS::PseudoWitnessSet
     projection_vars::Vector{HC.Variable}

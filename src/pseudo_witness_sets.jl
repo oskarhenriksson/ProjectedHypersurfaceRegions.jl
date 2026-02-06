@@ -1,5 +1,4 @@
-using HomotopyContinuation, LinearAlgebra
-
+export PseudoWitnessSet, degree, total_dim, system, witness_points
 struct Line 
     p::Vector
     b::Vector 

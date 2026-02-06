@@ -1,4 +1,4 @@
-
+export critical_points
 # copied and adapted from https://github.com/JuliaHomotopyContinuation/HomotopyContinuation.jl/blob/main/src/homotopies/parameter_homotopy.jl
 
 struct RoutingPointsHomotopy <: AbstractHomotopy
@@ -43,12 +43,12 @@ function parameters!(H::RoutingPointsHomotopy, p, q)
     start_parameters!(H, p)
     target_parameters!(H, q)
 end
-function HomotopyContinuation.parameters!(H::RoutingPointsHomotopy, p, q)
-    H.p .= p
-    H.q .= q
-    H.t_cache[] = NaN
-    H
-end
+# function HomotopyContinuation.parameters!(H::RoutingPointsHomotopy, p, q)
+#     H.p .= p
+#     H.q .= q
+#     H.t_cache[] = NaN
+#     H
+# end
 
 function tp!(H::RoutingPointsHomotopy, t::Union{ComplexF64,Float64})
     t == H.t_cache[] && return H.taylor_pt

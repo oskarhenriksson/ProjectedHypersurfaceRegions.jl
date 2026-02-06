@@ -1,4 +1,4 @@
-
+export partition_of_critical_points
 ### This is adapted from https://github.com/JuliaAlgebra/HypersurfaceRegions.jl/blob/main/src/partition.jl
 
 

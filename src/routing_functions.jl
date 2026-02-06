@@ -1,3 +1,5 @@
+export RoutingFunction, evaluate, gradient, hessian, denominator_exponent, RoutingGradient
+
 struct RoutingFunction{TQ,TP,TC} <: HC.AbstractSystem
     h::ProjectedHypersurface{TC} 
     projection_vars::Vector{HC.Variable}

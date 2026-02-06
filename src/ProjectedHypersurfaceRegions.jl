@@ -12,6 +12,9 @@ import HomotopyContinuation.ModelKit.evaluate
 import HomotopyContinuation.ModelKit.nvariables
 import HomotopyContinuation.ModelKit.variables
 
+using Reexport: @reexport
+@reexport using HomotopyContinuation
+
 include("pseudo_witness_sets.jl")
 include("gradient_cache.jl")
 include("hypersurfaces.jl")
@@ -20,6 +23,6 @@ include("homotopy.jl")
 include("ode_solving.jl")
 include("graph.jl")
 
-export ProjectedHypersurface, RoutingFunction, RoutingGradient, critical_points, partition_of_critical_points, analyze_result
+
 
 end
