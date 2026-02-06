@@ -162,7 +162,9 @@ function _expand_start_solutions(
             continue
         end
     end
-    new_pts = HC.unique_points(new_pts)
+    if length(new_pts) > 0
+        new_pts = HC.unique_points(new_pts)
+    end
     verbose && println("Successful gradient flow attempts: $(success_count) out of $(length(grid[1])^k) ($(round(success_count / (length(grid[1])^k) * 100, digits=2))%)")
     verbose && println("Found $(length(new_pts)) routing points via gradient flow.")
     
