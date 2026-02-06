@@ -2,7 +2,7 @@
 # copied and adapted from https://github.com/JuliaHomotopyContinuation/HomotopyContinuation.jl/blob/main/src/homotopies/parameter_homotopy.jl
 
 struct RoutingPointsHomotopy <: AbstractHomotopy
-    r::RoutingGradient
+    ∇r::RoutingGradient
     p::Vector{ComplexF64}
     q::Vector{ComplexF64}
     #cache
@@ -11,18 +11,18 @@ struct RoutingPointsHomotopy <: AbstractHomotopy
     taylor_pt::TaylorVector{2,ComplexF64}
 end
 
-function RoutingPointsHomotopy(r::RoutingGradient, p::AbstractVector, q::AbstractVector)
-    @assert length(p) == length(q) == size(r)[1]
+function RoutingPointsHomotopy(∇r::RoutingGradient, p::AbstractVector, q::AbstractVector)
+    @assert length(p) == length(q) == size(∇r)[1]
 
     p̂ = Vector{ComplexF64}(p)
     q̂ = Vector{ComplexF64}(q)
     taylor_pt = TaylorVector{2}(ComplexF64, length(q))
     pt = copy(p̂)
 
-    RoutingPointsHomotopy(r, p̂, q̂, Ref(complex(NaN)), pt, taylor_pt)
+    RoutingPointsHomotopy(∇r, p̂, q̂, Ref(complex(NaN)), pt, taylor_pt)
 end
 
-Base.size(H::RoutingPointsHomotopy) = size(H.r)
+Base.size(H::RoutingPointsHomotopy) = size(H.∇r)
 
 import HomotopyContinuation.start_parameters!
 import HomotopyContinuation.target_parameters!
@@ -75,19 +75,20 @@ end
 
 function ModelKit.evaluate!(u, H::RoutingPointsHomotopy, x, t)
     tp!(H, t)
-    evaluate!(u, H.r, x, H.pt)
+    evaluate!(u, H.∇r, x, H.pt)
 end
 
 function ModelKit.evaluate_and_jacobian!(u, U, H::RoutingPointsHomotopy, x, t)
     tp!(H, t)
-    evaluate_and_jacobian!(u, U, H.r, x, H.pt)
+    evaluate_and_jacobian!(u, U, H.∇r, x, H.pt)
 end
 
 function ModelKit.taylor!(u, v::Val, H::RoutingPointsHomotopy, tx, t)
-    taylor!(u, v, H.r, tx, tp!(H, t))
+    taylor!(u, v, H.∇r, tx, tp!(H, t))
     u
 end
 
+import HomotopyContinuation: MonodromyOptions, UniquePoints, EndgameTracker
 
 """
     critical_points(r, S0, rhs0; kwargs...)
@@ -95,7 +96,7 @@ end
 Find critical points of the routing function using monodromy and gradient flow.
 """
 function critical_points(
-    r::RoutingGradient,
+    r::RoutingFunction,
     S0::Union{AbstractVector{<:AbstractVector{<:Number}},Nothing} = nothing,
     rhs0::Union{AbstractVector{<:Number},Nothing} = nothing;
     verbose = true,
@@ -109,16 +110,19 @@ function critical_points(
     ),
     seed = rand(UInt32),
 )
+
+    ∇r = RoutingGradient(r)
+
     # Step 1: Setup monodromy solver
     MS, H, S0, rhs0, k = _setup_monodromy_solver(
-        r, S0, rhs0;
+        ∇r, S0, rhs0;
         monodromy_at_zero = monodromy_at_zero,
         options = options,
     )
 
     # Step 2: Expand start solutions via gradient flow
     S0, new_pts = _expand_start_solutions(
-        r, H, S0, rhs0, k;
+        ∇r, H, S0, rhs0, k;
         verbose = verbose,
         start_grid_width = start_grid_width,
         start_grid_stepsize = start_grid_stepsize,
@@ -136,14 +140,14 @@ end
 
 
 """
-    _setup_monodromy_solver(r, S0, rhs0; monodromy_at_zero, options)
+    _setup_monodromy_solver(∇r, S0, rhs0; monodromy_at_zero, options)
 
 Set up the monodromy solver and initial start pair.
 Returns (MS, H, S0, rhs0, k) where MS is the MonodromySolver, H is the homotopy,
 S0 are the start solutions, rhs0 is the target parameters, and k is the number of variables.
 """
 function _setup_monodromy_solver(
-    r::RoutingGradient,
+    ∇r::RoutingGradient,
     S0::Union{AbstractVector{<:AbstractVector{<:Number}},Nothing} = nothing,
     rhs0::Union{AbstractVector{<:Number},Nothing} = nothing;
     monodromy_at_zero = false,
@@ -152,10 +156,10 @@ function _setup_monodromy_solver(
         max_loops_no_progress = 15
     ),
 )
-    k = size(r, 2) # number of variables
+    k = size(∇r, 2) # number of variables
     p1 = zeros(k)
     q1 = randn(k)
-    H = RoutingPointsHomotopy(r, p1, q1)
+    H = RoutingPointsHomotopy(∇r, p1, q1)
 
     ### Use monodromy to the system ∇r = rhs0 where we view the right-hand side are the parameters of the system
     egtracker = EndgameTracker(H)
@@ -181,7 +185,7 @@ function _setup_monodromy_solver(
     if !monodromy_at_zero
         if isnothing(rhs0) || isnothing(S0)
             s0 = randn(ComplexF64, k)
-            rhs0 = evaluate(r, s0)
+            rhs0 = evaluate(∇r, s0)
             S0 = [s0]
         end
     else
@@ -195,13 +199,13 @@ function _setup_monodromy_solver(
 end
 
 """
-    _expand_start_solutions(r, H, S0, rhs0, k; verbose, start_grid_width, start_grid_stepsize, start_grid_center, monodromy_at_zero)
+    _expand_start_solutions(∇r, H, S0, rhs0, k; verbose, start_grid_width, start_stepsize, start_center, monodromy_at_zero)
 
 Expand S0 by finding solutions of ∇r=0 through gradient descent and tracing to ∇r=rhs0.
 Returns (S0, new_pts) where S0 is the expanded set of start solutions and new_pts are the points found via gradient flow.
 """
 function _expand_start_solutions(
-    r::RoutingGradient,
+    ∇r::RoutingGradient,
     H::RoutingPointsHomotopy,
     S0::AbstractVector{<:AbstractVector{<:Number}},
     rhs0::AbstractVector{<:Number},
@@ -217,8 +221,8 @@ function _expand_start_solutions(
     if start_grid_width <= 0
         return S0, new_pts
     end
-    
-    g(x, param, t) = real(evaluate(r, x))
+
+    g(x, param, t) = real(evaluate(∇r, x))
     tspan = (0.0, 1e4)
 
     if isnothing(start_grid_center)

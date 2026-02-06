@@ -27,35 +27,62 @@ f_{a,b}(x)=x^2+ax+b
 ``` 
 with parameters $a$ and $b$.
 
-We start by setting up the incidence variety $`\{(a,b,x)\in ℂ^3\mid f_{a,b}(x)=f′_{a,b}(x)=0\}`$ of the discriminant:
+We start by setting up the incidence variety $`\{(a,b,x)\in ℂ^3\mid f_{a,b}(x)=f′_{a,b}(x)=0\}`$ of the discriminant, which we use to form a `ProjectedHypersurface` that represents the discrimiminant via a pseudo-witness set.
 
 ```julia-repl
 julia> @var a b x;
 julia> F = System([x^2 + a * x + b, 2x + a], variables = [a, b, x]);
+julia> h = ProjectedHypersurface(F, [a, b])
+Projected hypersurface of degree 2 in ambient dimension 2
 ```
 
-We form the gradient of the routing function by writing:
+We can use `h` to evaluate (up to a constant) the logarithm of the defining polynomial of the discriminant, as well ot the gradient and Hessian. 
 
 ```julia-repl
-julia> ∇r = RoutingGradient(F, [a, b]);
+julia> p = [1, 1];
+
+julia> h(p) # the value depends on the direction of the pseudo-witness line
+1.5362619674238103
+
+julia> gradient(h, p)
+2-element Vector{ComplexF64}:
+ -0.6666666666666665 + 4.440892098500626e-16im
+  1.3333333333333335 - 2.220446049250313e-16im
+
+julia> hessian(h, p) 
+2×2 Matrix{ComplexF64}:
+ -1.11111-9.99201e-16im  0.888889+4.44089e-16im
+ 0.888889+7.77156e-16im  -1.77778+9.71445e-16im
+
 ```
 
-We find the critical points via the `critical_points` function (the exact output depends on the randomized choice of center point `c` that happens when the routing function is created):
+We use `h` to form a routing function as follows. (If we don't specify the center `c` for the denominator, it is chosen randomly.)
+
+```julia-repl
+julia> r = RoutingFunction(h; c=[13, 2])
+Routing function for projected hypersurface
+===========================================
+ Variables: a, b
+ Numerator: Projected hypersurface of degree 2 in ambient dimension 2
+ Denominator: (1 + (-13 + a)^2 + (-2 + b)^2)^2
+```
+
+We find the critical points via the `critical_points` function:
 
 ```julia-repl   
-julia> routing_points, res, mon_res = critical_points(∇r);
+julia> routing_points, res, mon_res = critical_points(r);
 julia> routing_points
 4-element Vector{Vector{Float64}}:
- [-5.175022390506237, -7.4163002433454395]
- [2.7890571286291124, 7.76755857260763]
- [13.795193093096357, -0.1040935401458447]
- [-11.409227831219235, -4.510747011398911]
+ [13.040296300414134, 1.993819726256856]
+ [3.2168112092392143, 8.082538361382136]
+ [-3.9180890683992504, -6.635887940807433]
+ [-12.339018441254092, -2.1071368134982262]
 ```
 
 Finally, we connect the critical points that belong to the same component of the complement:
 
 ```julia-repl
-julia> G, idx, failed_info = partition_of_critical_points(∇r, routing_points);
+julia> G, idx, failed_info = partition_of_critical_points(r, routing_points);
 ```
 
 The first output `G` describes the connected components. We see that the first, third and fourth critical points belong to the same connected component, and that the second one belongs to its own component:

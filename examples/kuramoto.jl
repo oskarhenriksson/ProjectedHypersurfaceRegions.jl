@@ -19,24 +19,26 @@ norm2 = s[2]^2 + c[2]^2 - 1
 steady_state = [freq1, freq2, norm1, norm2]
 Jac = differentiate.(steady_state, [s; c]')
 detJac = expand(det(Jac) / 4)
-
 F = System([steady_state; detJac], variables=[s; c; w])
 
-### Routing gradient
+# Set up projected hypersurface
+h = ProjectedHypersurface(F, w)
+
+# Degree of the discriminant
+d = degree(h)
+println("Degree of discriminant: $d")
+
+# Routing gradient
 C = rand(2) / 2
 write_parameters("./results/kuramoto/center.txt", C)
 ∇r = RoutingGradient(F, w, c=C);
 
-# Degree of the discriminant
-d = degree(∇r.PWS)
-println("Degree of discriminant: $d")
-
-### Critical points
+# Critical points
 # pts = read_solutions("./results/kuramoto/routing_points.txt") |> real
-pts, res, mon_res = critical_points(∇r)
+pts, res, mon_res = critical_points(r)
 
-### Connected components
-G, idx, failed_info = partition_of_critical_points(∇r, pts)
+# Connected components
+G, idx, failed_info = partition_of_critical_points(r, pts)
 
 # Record computation time
 time_end_round1 = time()
@@ -46,7 +48,7 @@ println("Computation time for round 1: $(time_end_round1 - time_start_round1) se
 include("./analysis.jl");
 M_x = maximum(p -> abs(p[1]), pts) * 1.05
 M_y = maximum(p -> abs(p[2]), pts) * 1.05
-h(x, y) = 314928 * x^8 * y^4 + 1259712 * x^7 * y^5 + 1889568 * x^6 * y^6 + 1259712 * x^5 * y^7 +
+h_symbolic(x, y) = 314928 * x^8 * y^4 + 1259712 * x^7 * y^5 + 1889568 * x^6 * y^6 + 1259712 * x^5 * y^7 +
           314928 * x^4 * y^8 + 139968 * x^10 + 699840 * x^9 * y + 1277208 * x^8 * y^2 +
           909792 * x^7 * y^3 - 279936 * x^6 * y^4 - 1084752 * x^5 * y^5 - 279936 * x^4 * y^6 +
           909792 * x^3 * y^7 + 1277208 * x^2 * y^8 + 699840 * x * y^9 +
@@ -70,8 +72,8 @@ function analyze_and_save_result()
     println("Failed info: $(failed_info)")
     println()
 
-    analyze_result(∇r, pts, G, idx;
-        h=h,
+    analyze_result(r, pts, G, idx;
+        h=h_symbolic,
         root_counting_system=root_counting_system,
         M_x_min=-M_x,
         M_x_max=M_x,
@@ -100,7 +102,7 @@ options = MonodromyOptions(
     parameter_sampler=p -> 100 .* randn(ComplexF64, length(p)), # smaller loops
     max_loops_no_progress=15 # change the stopping criterion
 )
-pts, res, mon_res = critical_points(∇r, solutions(mon_res), parameters(mon_res), options=options)
+pts, res, mon_res = critical_points(r, solutions(mon_res), parameters(mon_res), options=options)
 time_end_round2 = time()
 println("Additional computation time for round 2: $(time_end_round2 - time_start_round2) seconds")
 println("Total computation time for round 1 and 2: $((time_end_round1 - time_start_round1) + (time_end_round2 - time_start_round2)) seconds")

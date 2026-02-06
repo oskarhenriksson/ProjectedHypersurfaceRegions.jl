@@ -11,11 +11,15 @@ include(joinpath(@__DIR__, "..", "src", "functions.jl"))
     
     @var a b x
     F = System([x^2 + a * x + b; 2x + a], variables=[a, b, x])
+    h = ProjectedHypersurface(F, [a, b]);
+
     c = [13, 2]
-    R = RoutingGradient(F, [a, b]; c = c);
-    e = denominator_exponent(R)
+
+    r = RoutingFunction(h; c=c);
+    e = denominator_exponent(r)
     @test e == 2
 
+    ∇r = RoutingGradient(r);
 
     disc = a^2 - 4 * b
     q = 1 + sum(([a;b] - c).^2)
@@ -27,8 +31,8 @@ include(joinpath(@__DIR__, "..", "src", "functions.jl"))
     u1 = evaluate(r_test, [a;b] => p)
     U1 = evaluate(H_test, [a;b] => p)
     u2, u22, U2 = randn(ComplexF64, k), randn(ComplexF64, k), randn(ComplexF64, k, k);
-    evaluate_and_jacobian!(u2, U2, R, p);
-    evaluate!(u22, R, p);
+    evaluate_and_jacobian!(u2, U2, ∇r, p);
+    evaluate!(u22, ∇r, p);
 
     @test norm(u1 - u2) < 1e-12
     @test norm(u1 - u22) < 1e-12
@@ -39,15 +43,18 @@ end
     
     @var a b x
     F = System([x^3 + a * x^2 + b * x + 1; 3 * x^2 + 2 * a * x + b], variables=[a, b, x])
-    c = [10, 5]
-    ∇r = RoutingGradient(F, [a, b]; c=c)
+    h = ProjectedHypersurface(F, [a, b]);
 
-    @test degree(∇r.PWS) == 4
-    @test denominator_exponent(∇r) == 3
+    c = [10, 5]
+    r = RoutingFunction(h; c=c)
+    ∇r = RoutingGradient(r)
+
+    @test degree(h) == 4
+    @test denominator_exponent(r) == 3
 
     # Symbolic routing function
-    h = 4*a^3 - a^2*b^2 - 18*a*b + 4*b^3 + 27
-    r_symbolic = h/((a - c[1])^2 + (b - c[2])^2 + 1)^3
+    h_symbolic = 4*a^3 - a^2*b^2 - 18*a*b + 4*b^3 + 27
+    r_symbolic = h_symbolic/((a - c[1])^2 + (b - c[2])^2 + 1)^3
     ∇r_symbolic = System(differentiate(log(r_symbolic), [a, b]), variables=[a, b]) |> fixed
 
     # Test evaluation and Jacobian
@@ -82,7 +89,7 @@ end
 
     # Check critical points
     options = MonodromyOptions(target_solutions_count = 2)
-    pts, res0, mon_res = critical_points(∇r, start_grid_width=0, options=options)    
+    pts, res0, mon_res = critical_points(r, start_grid_width=0, options=options)    
     @test all(norm.(∇r_symbolic.(solutions(res0))) .< 1e-12)
 
 end;
@@ -92,15 +99,18 @@ end;
     @var a b x
     F = System([x^2 + a * x + b; 2x + a], variables=[a, b, x])
     c = [10, 5]
-    ∇r = RoutingGradient(F, [a, b]; c=c, g=[a, b]);
-    e = denominator_exponent(∇r)
+    h = ProjectedHypersurface(F, [a, b]);
+    r = RoutingFunction(h; c=c, g=[a, b]);
+    ∇r = RoutingGradient(r)
 
-    @test degree(∇r.PWS) == 2
-    @test denominator_exponent(∇r) == 3
+    e = denominator_exponent(r)
+
+    @test degree(h) == 2
+    @test e == 3
 
     # Symbolic routing function
-    h = (a^2 - 4*b)*a*b
-    r_symbolic = h/((a - c[1])^2 + (b - c[2])^2 + 1)^3
+    h_symbolic = (a^2 - 4*b)*a*b
+    r_symbolic = h_symbolic/((a - c[1])^2 + (b - c[2])^2 + 1)^3
     ∇r_symbolic = System(differentiate(log(r_symbolic), [a, b]), variables=[a, b]) |> fixed
 
     # Test evaluation and Jacobian
@@ -117,7 +127,7 @@ end;
 
     # Check critical points
     options = MonodromyOptions(target_solutions_count = 2)
-    pts, res0, mon_res = critical_points(∇r, start_grid_width=0, options=options)   
+    pts, res0, mon_res = critical_points(r, start_grid_width=0, options=options)   
     @test all(norm.(∇r_symbolic.(solutions(res0))) .< 1e-12)
 
 end;
@@ -136,12 +146,14 @@ end;
     F = System([steady_state; detJac], variables=[s; c; w])
 
     C = [1, 1]
-    ∇r = RoutingGradient(F, w; c=C);
+    h = ProjectedHypersurface(F, [w[1], w[2]]);
+    r = RoutingFunction(h; c=C);
+    ∇r = RoutingGradient(r)
 
     # Degree of the discriminant
-    @test degree(∇r.PWS) == 12
+    @test degree(h) == 12
 
-    h = 314928 * w[1]^8 * w[2]^4 + 1259712 * w[1]^7 * w[2]^5 + 1889568 * w[1]^6 * w[2]^6 + 1259712 * w[1]^5 * w[2]^7 +
+    h_symbolic = 314928 * w[1]^8 * w[2]^4 + 1259712 * w[1]^7 * w[2]^5 + 1889568 * w[1]^6 * w[2]^6 + 1259712 * w[1]^5 * w[2]^7 +
           314928 * w[1]^4 * w[2]^8 + 139968 * w[1]^10 + 699840 * w[1]^9 * w[2]  + 1277208 * w[1]^8 * w[2]^2 +
           909792 * w[1]^7 * w[2]^3 - 279936 * w[1]^6 * w[2]^4 - 1084752 * w[1]^5 * w[2]^5 - 279936 * w[1]^4 * w[2]^6 +
           909792 * w[1]^3 * w[2]^7 + 1277208 * w[1]^2 * w[2]^8 + 699840 * w[1]  * w[2]^9 +
@@ -151,7 +163,7 @@ end;
           68040 * w[1]  * w[2]^5 + 22680 * w[2]^6 - 2298 * w[1]^4 - 4596 * w[1]^3 * w[2]  - 6894 * w[1]^2 * w[2]^2 - 4596 * w[1]  * w[2]^3 - 2298 * w[2]^4 +
           96 * w[1]^2 + 96 * w[1]  * w[2]  + 96 * w[2]^2 - 1;
     
-    r_symbolic = h/((w[1] - C[1])^2 + (w[2] - C[2])^2 + 1)^7
+    r_symbolic = h_symbolic/((w[1] - C[1])^2 + (w[2] - C[2])^2 + 1)^7
     ∇r_symbolic = System(differentiate(log(r_symbolic), [w[1], w[2]]), variables=[w[1], w[2]]) |> fixed
 
     p0 = randn(ComplexF64, 2)
@@ -163,8 +175,11 @@ end;
     
     @var a b x
     F = System([x^2 + a * x + b; 2x + a], variables=[a, b, x])
+    h = ProjectedHypersurface(F, [a, b]);
+
     c = [13, 2]
-    ∇r = RoutingGradient(F, [a, b]; c=c);
+    r = RoutingFunction(h; c=c)
+    ∇r = RoutingGradient(r)
 
     pts = [
         [-3.9180890683992278, -6.635887940807433], 
@@ -175,7 +190,7 @@ end;
 
     @test all(norm.(∇r.(pts)) .< 1e-12) 
 
-    G, idx, failed_info = partition_of_critical_points(∇r, pts)
+    G, idx, failed_info = partition_of_critical_points(r, pts)
 
     @test sort(G) == [[1, 2, 4], [3]]
     @test idx == [1, 0, 0, 0]
@@ -190,4 +205,38 @@ end;
     @test_logs match_mode = :any (:warn, "Irreducible component of higher multiplicity detected in the incidence variety.") begin
         PseudoWitnessSet(F, 2)
     end
+end
+
+
+@testset "Hypersurface evaluations for quadratic" begin
+
+    # Set up the system
+    @var a b x
+    F = System([x^2 + a * x + b; 2x + a], variables=[a, b, x])
+    h = ProjectedHypersurface(F, [a, b])
+
+    # Test the degree
+    @test degree(h) == 2
+
+    # Random point
+    p = rand(2)
+
+    # Test the evaluation formula
+    pt = [1, 1]
+    log_abs_h = p -> log(abs(p[1]^2 - 4*p[2]))
+    direction = h.PWS.L.b
+    C = log(abs(direction[1]^2))
+    @test h(pt) + C - log_abs_h(pt) |> abs < 1e-6
+
+    # Test the gradient 
+    pt = [3, 2]
+    ∇log_abs_h = p -> [(2 * p[1])/(p[1]^2 - 4 * p[2]), -4/(p[1]^2 - 4 * p[2])]
+    @test gradient(h, pt) - ∇log_abs_h(pt) |> norm < 1e-6
+
+    # Test the Hessian
+    pt = [11, 7]
+    Hess_log_abs_h = p -> [[2/(p[1]^2 - 4*p[2]) - 4*p[1]^2/(p[1]^2 - 4*p[2])^2 8*p[1]/(p[1]^2 - 4*p[2])^2]; 
+    [8*p[1]/(p[1]^2 - 4*p[2])^2  -16/(p[1]^2 - 4*p[2])^2]]
+    @test Hess_log_abs_h(pt) - gradient_and_hessian(h, pt)[2] |> norm < 1e-6
+
 end

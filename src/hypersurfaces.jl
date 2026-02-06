@@ -1,80 +1,57 @@
-struct RoutingGradient{TQ,TP,TC} <: HC.AbstractSystem
+struct ProjectedHypersurface{TC} <: HC.AbstractSystem
     PWS::PseudoWitnessSet
     projection_vars::Vector{HC.Variable}
     GC::TC
-    e::Int
-    c::Vector
-    ∇logqe::Union{TQ, Nothing}
-    ∇logprodg::Union{TP, Nothing}
 end
-function RoutingGradient(
+function ProjectedHypersurface(
     F,
     projection_vars;
-    e::Union{Int,Nothing} = nothing,
-    c::Union{Vector,Nothing} = nothing,
-    g::Union{Vector{Expression},Vector{Variable},Nothing} = nothing,
+    PWS::Union{Nothing, PseudoWitnessSet} = nothing,
     start_system_for_PWS::Symbol = :polyhedral,
     compile::Union{Bool,Symbol} = :mixed
 )
 
-    all_vars = variables(F)
+    all_vars = ModelKit.variables(F)
     x_vars = setdiff(all_vars, projection_vars)
     F_ordered = System(F.expressions, variables = [projection_vars; x_vars])
     k = length(projection_vars)
-    PWS = PseudoWitnessSet(F_ordered, k; start_system = start_system_for_PWS, compile = compile)
-
-    if isnothing(g) || length(g) == 0
-        ∇logprodg = nothing
-        g_degree = 0
-    else
-        g = Expression.(g)
-        @assert variables(g) ⊆ projection_vars "Variables in g must match projection_vars"
-        ∇logprodg = System(sum([differentiate(log(gi), projection_vars) for gi in g]), variables=projection_vars) |> fixed
-        g_degree = sum(HC.degree.(g))
+    if isnothing(PWS)
+        PWS = PseudoWitnessSet(F_ordered, k; start_system = start_system_for_PWS, compile = compile)
     end
-
-    if isnothing(e)
-        e = div(degree(PWS) + g_degree, 2) + 1
-    end
-    if isnothing(c)
-        c = randn(k)
-    end
-
-    @var α[1:k]
-    q = 1 + sum((α - c) .* (α - c))
-    ∇logqe = System(differentiate(-e * log(q), α), variables = α) |> fixed
-
-    # Use single-slice gradient cache to avoid tracking many lifted lines
     GC = GradientCache(PWS)
 
-    RoutingGradient{typeof(∇logqe), typeof(∇logprodg), typeof(GC)}(PWS, projection_vars, GC, e, c, ∇logqe, ∇logprodg)
+    ProjectedHypersurface{typeof(GC)}(PWS, projection_vars, GC)
 end
 
-denominator_exponent(r::RoutingGradient) = r.e
+degree(h::ProjectedHypersurface) = degree(h.PWS)
 
-import Base.size
-function Base.size(r::RoutingGradient{TQ,TP,TC}) where {TQ,TP,TC}
-    k = length(r.projection_vars)
-    (k, k)
-end
-ModelKit.variables(r::RoutingGradient{TQ,TP,TC}) where {TQ,TP,TC} = r.projection_vars
-
-import HomotopyContinuation.evaluate!
-import HomotopyContinuation.evaluate_and_jacobian!
-import HomotopyContinuation.evaluate
-import HomotopyContinuation.taylor!
-
-function evaluate!(u, r::RoutingGradient{TQ,TP,TC}, x, p = nothing) where {TQ,TP,TC}
+Base.show(io::IO, h::ProjectedHypersurface) = println(io, "Projected hypersurface of degree $(degree(h)) in ambient dimension $(nvariables(h))")
     
+ModelKit.variables(h::ProjectedHypersurface{TC}) where {TC} = h.projection_vars
+ModelKit.nvariables(h::ProjectedHypersurface{TC}) where {TC} = length(h.projection_vars)
 
-    PWS, GC, ∇logqe, ∇logprodg = r.PWS, r.GC, r.∇logqe, r.∇logprodg
+function evaluate(h::ProjectedHypersurface{TC}, x, p = nothing) where {TC}
+    PWS, GC = h.PWS, h.GC
 
-    evaluate!(u, ∇logqe, x)
-    if !isnothing(∇logprodg)
-        ∇logprodg_temp = GC.∇logprodg_temp
-        evaluate!(∇logprodg_temp, ∇logprodg, x)
-        u .+= ∇logprodg_temp
+    S = GC.S
+    Uvals = GC.Uvals
+
+    track!(GC, PWS, x)
+
+    u = 0.0
+
+    get_s_and_Uvals!(Uvals, S, GC, PWS)
+    #@inbounds @simd 
+    for si in S 
+        u += -log(abs(si))
     end
+
+    u
+end
+
+function gradient!(u, h::ProjectedHypersurface{TC}, x, p = nothing) where {TC}
+    
+    PWS, GC = h.PWS, h.GC
 
     # Use cached symbolic objects and arrays
     JsuF = GC.JsuF
@@ -89,6 +66,8 @@ function evaluate!(u, r::RoutingGradient{TQ,TP,TC}, x, p = nothing) where {TQ,TP
 
     N, n = size(PWS.F)
     k = n_projection_variables(PWS)
+
+    u .= zero(eltype(u))
 
     # Track to PWS
     track!(GC, PWS, x)
@@ -176,25 +155,16 @@ function evaluate!(u, r::RoutingGradient{TQ,TP,TC}, x, p = nothing) where {TQ,TP
 
     nothing
 end
-function evaluate(r::RoutingGradient{TQ,TP,TC}, x, p = nothing) where {TQ,TP,TC}
-    m, n = size(r)
-    u = zeros(ComplexF64, m)
-    evaluate!(u, r, x, p)
+function gradient(h::ProjectedHypersurface{TC}, x, p = nothing) where {TC}
+    k = nvariables(h)
+    u = zeros(ComplexF64, k)
+    gradient!(u, h, x, p)
     u
 end
-(r::RoutingGradient{TQ,TP,TC})(x) where {TQ,TP,TC} = evaluate(r, x)
-function evaluate_and_jacobian!(u, U, r::RoutingGradient{TQ,TP,TC}, x, p = nothing) where {TQ,TP,TC}
 
-    PWS, GC, ∇logqe, ∇logprodg = r.PWS, r.GC, r.∇logqe, r.∇logprodg
+function gradient_and_hessian!(u, U, h::ProjectedHypersurface{TC}, x, p = nothing) where {TC}
 
-    evaluate_and_jacobian!(u, U, ∇logqe, x)
-    if !isnothing(∇logprodg)
-        ∇logprodg_temp = GC.∇logprodg_temp
-        Hess_logprodg_temp = GC.Hess_logprodg_temp
-        evaluate_and_jacobian!(∇logprodg_temp, Hess_logprodg_temp, ∇logprodg, x)
-        u .+= ∇logprodg_temp
-        U .+= Hess_logprodg_temp
-    end
+    PWS, GC = h.PWS, h.GC
 
     # Use cached symbolic objects and arrays
     JsuF = GC.JsuF
@@ -225,6 +195,9 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient{TQ,TP,TC}, x, p = nothi
 
     k = n_projection_variables(PWS)
     N, n = size(PWS.F)
+
+    u .= zero(eltype(u))
+    U .= zero(eltype(U))
 
     # Track to PWS
     track!(GC, PWS, x)
@@ -475,19 +448,15 @@ function evaluate_and_jacobian!(u, U, r::RoutingGradient{TQ,TP,TC}, x, p = nothi
 
     nothing
 end
-function evaluate_and_jacobian(r::RoutingGradient{TQ,TP,TC}, x, p = nothing) where {TQ,TP,TC}
 
-    m, n = size(r)
-    u = zeros(ComplexF64, m)
-    U = zeros(ComplexF64, m, n)
-    evaluate_and_jacobian!(u, U, r, x, p)
+
+function gradient_and_hessian(h::ProjectedHypersurface{TC}, x, p = nothing) where {TC}
+
+    k = nvariables(h)
+    u = zeros(ComplexF64, k)
+    U = zeros(ComplexF64, k, k)
+    gradient_and_hessian!(u, U, h, x, p)
     u, U
 end
 
-function taylor!(u, ::Val, F::RoutingGradient{TQ,TP,TC}, x, p) where {TQ,TP,TC}
-    fill!(u, zero(ComplexF64))
-end
-
-## for testing
-_evaluate(r::RoutingGradient{TQ,TP,TC}, p::Vector) where {TQ,TP,TC} = evaluate(r, p)
-_evaluate_evaluate_jacobian(r::RoutingGradient{TQ,TP,TC}, p::Vector) where {TQ,TP,TC} = (r.H)(p)
+hessian(h::ProjectedHypersurface{TC}, x, p = nothing) where {TC} = gradient_and_hessian(h, x, p)[2]

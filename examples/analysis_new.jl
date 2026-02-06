@@ -4,9 +4,10 @@ function analyze_result(
     r::RoutingFunction,
     pts::Vector{Vector{Float64}},
     G::Vector{Vector{Int}},
-    idx::Vector;
+    idx::Vector{Int};
     root_counting_system::Union{System,Nothing}=nothing,
     h::Union{Function,Nothing}=nothing,
+    RR::Union{Function,Nothing}=nothing,
     root_count_condition::Union{Function,Nothing}=nothing,
     arrowstyle=:closed,
     markersize=3,
@@ -40,17 +41,19 @@ function analyze_result(
     end
 
 
-
     isnothing(M_x_max) && (M_x_max = maximum(p -> p[1], pts) * 1.8)
     isnothing(M_x_min) && (M_x_min = minimum(p -> p[1], pts) * 1.8)
     isnothing(M_y_max) && (M_y_max = maximum(p -> p[2], pts) * 1.8)
     isnothing(M_y_min) && (M_y_min = minimum(p -> p[2], pts) * 1.8)
 
+    if isnothing(RR) && !isnothing(h)
+        RR = (x,y) -> log(abs(h(x, y) / (1 + (x - center[1])^2 + (y - center[2])^2)^e))
+    end
+    
     # Plot the result
-    if !isnothing(h)
+    if !isnothing(RR) 
         e = denominator_exponent(r)
         center = r.c
-        RR(x, y) = log(abs(h(x, y) / (1 + (x - center[1])^2 + (y - center[2])^2)^e))
 
         if plot_contour
             contour(
@@ -67,16 +70,19 @@ function analyze_result(
             plot()
         end
 
-        implicit_plot!(
-            h;
-            xlims=(M_x_min, M_x_max),
-            ylims=(M_y_min, M_y_max),
-            linecolor=:black,
-            linewidth=discriminant_linewidth,
-            label="Discriminant",
-            legend=false,
-            resolution=3000
-        )
+        if !isnothing(h)
+
+            implicit_plot!( 
+                h;
+                xlims=(M_x_min, M_x_max),
+                ylims=(M_y_min, M_y_max),
+                linecolor=:black,
+                linewidth=discriminant_linewidth,
+                label="Discriminant",
+                legend=false,
+                resolution=3000
+            )
+        end
     else
         plot()
     end
@@ -113,9 +119,10 @@ function analyze_result(
     end
 
     # Plot the routing points
-    !isempty(idx0) && scatter!(Tuple.(pts[idx0]), markercolor=:green, markersize=markersize, label="Routing point (index 0)")
-    !isempty(idx1) && scatter!(Tuple.(pts[idx1]), markercolor=:green, markersize=markersize, marker=:diamond, label="Routing point (index > 0)")
+    !isempty(idx0) && scatter!(Tuple.(pts[idx0]), markercolor="#66C34F", markersize=markersize, label="Routing point (index 0)")
+    !isempty(idx1) && scatter!(Tuple.(pts[idx1]), markercolor="#66C34F", markersize=markersize, marker=:diamond, label="Routing point (index > 0)")
 
-    plot!(; xlims=(M_x_min, M_x_max), ylims=(M_y_min, M_y_max), legend=legend, dpi=400, legendfontsize=6)
+    pl = plot!(; xlims=(M_x_min, M_x_max), ylims=(M_y_min, M_y_max), legend=legend, dpi=400, legendfontsize=6)
 
+    pl
 end
