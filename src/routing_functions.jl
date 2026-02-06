@@ -1,4 +1,4 @@
-export RoutingFunction, evaluate, gradient, hessian, denominator_exponent, RoutingGradient
+export RoutingFunction, evaluate, evaluate_and_jacobian, gradient, hessian, denominator_exponent, RoutingGradient
 
 struct RoutingFunction{TQ,TP,TC} <: HC.AbstractSystem
     h::ProjectedHypersurface{TC} 
