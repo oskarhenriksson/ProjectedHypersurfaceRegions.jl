@@ -16,8 +16,10 @@ degree(PWS::PseudoWitnessSet) = length(PWS.Wt)
 total_dim(PWS::PseudoWitnessSet) = size(PWS.F, 2)
 n_projection_variables(PWS::PseudoWitnessSet) = PWS.k
 system(PWS::PseudoWitnessSet) = PWS.F
-Base.show(io::IO, PWS::PseudoWitnessSet) = 
-    print(io, "Pseudo-witness set of a hypersurface of degree $(degree(PWS)) in ambient dimension $(PWS.k)")
+
+function Base.show(io::IO, PWS::PseudoWitnessSet)
+    print(io, "PseudoWitnessSet(degree=$(degree(PWS)), vars=$(PWS.k))")
+end
 
 @doc raw"""
     PseudoWitnessSet(F::System, k::Int; linear_subspace_codim::Int, L::LinearSubspace)

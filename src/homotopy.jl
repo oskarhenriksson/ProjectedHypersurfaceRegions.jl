@@ -21,6 +21,10 @@ function RoutingPointsHomotopy(∇r::RoutingGradient, p::AbstractVector, q::Abst
     RoutingPointsHomotopy(∇r, p̂, q̂, Ref(complex(NaN)), pt, taylor_pt)
 end
 
+function Base.show(io::IO, H::RoutingPointsHomotopy)
+    print(io, "RoutingPointsHomotopy(vars=$(length(H.p)))")
+end
+
 Base.size(H::RoutingPointsHomotopy) = size(H.∇r)
 
 import HomotopyContinuation.start_parameters!

@@ -180,4 +180,8 @@ function GradientCache(PWS)
                 )
 end
 
+function Base.show(io::IO, gc::GradientCache)
+    print(io, "GradientCache(degree=$(length(gc.S)), dim=$(size(gc.Uvals, 1)))")
+end
+
 track!(GC::GradientCache, PWS::PseudoWitnessSet, p) = track!(GC.line_hypersurface_intersections, PWS, p) 
