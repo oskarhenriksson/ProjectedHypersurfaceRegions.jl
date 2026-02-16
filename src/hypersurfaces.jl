@@ -26,9 +26,7 @@ end
 
 degree(h::ProjectedHypersurface) = degree(h.PWS)
 
-function Base.show(io::IO, h::ProjectedHypersurface)
-    print(io, "ProjectedHypersurface(degree=$(degree(h)), vars=$(nvariables(h)))")
-end
+Base.show(io::IO, h::ProjectedHypersurface) = println(io, "Projected hypersurface of degree $(degree(h)) in ambient dimension $(nvariables(h))")
     
 ModelKit.variables(h::ProjectedHypersurface{TC}) where {TC} = h.projection_vars
 ModelKit.nvariables(h::ProjectedHypersurface{TC}) where {TC} = length(h.projection_vars)

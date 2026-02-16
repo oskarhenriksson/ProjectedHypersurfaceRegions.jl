@@ -51,7 +51,15 @@ ModelKit.variables(r::RoutingFunction) = r.projection_vars
 ModelKit.nvariables(r::RoutingFunction) = length(r.projection_vars)
 
 function Base.show(io::IO, r::RoutingFunction)
-    print(io, "RoutingFunction(degree=$(degree(r.h)), vars=$(nvariables(r))")
+    header = "Routing function for projected hypersurface"
+    println(io, header) 
+    println(io, "="^(length(header)))
+    println(io, " Variables: ", join(r.h.projection_vars, ", "))
+    print(io, " Numerator: ", r.h)
+    if !isnothing(r.G)
+        println(io, " Additional factors in numerator: ", join(r.G.compiled.system.expressions, ", "))
+    end
+    println(io, " Denominator: ", (r.q)^r.e)
 end
 
 
@@ -158,9 +166,7 @@ struct RoutingGradient <: HC.AbstractSystem
     r::RoutingFunction
 end
 
-function Base.show(io::IO, ∇r::RoutingGradient)
-    print(io, "RoutingGradient(vars=$(nvariables(∇r.r))×$(nvariables(∇r.r))")
-end
+Base.show(io::IO, ∇r::RoutingGradient) = print(io, "Routing gradient")
 
 import Base.size
 function Base.size(∇r::RoutingGradient)
