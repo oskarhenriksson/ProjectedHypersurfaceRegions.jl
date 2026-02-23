@@ -17,8 +17,8 @@ function RoutingFunction(
     g::Union{Vector{Expression},Vector{Variable},Nothing} = nothing
 )
     
-    k = length(unique([variables(h) for h in H]...))
-    projection_vars = unique([h.projection_vars for h in H]...)
+    projection_vars = unique(vcat([h.projection_vars for h in H]...))
+    k = length(projection_vars)
     
     if isnothing(g) || length(g) == 0
         ∇logprodg = nothing
