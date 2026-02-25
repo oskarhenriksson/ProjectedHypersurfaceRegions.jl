@@ -5,16 +5,20 @@ This repository contains code for the project _Computing complements of real hyp
 
 ## Installation
 
-You can install the package directly from the github repository:
+**Once the package is published**, you will be able to install the package directly from the github repository as follows:
 
 ```julia-repl
 julia> using Pkg
 julia> Pkg.add(url="https://github.com/oskarhenriksson/ProjectedHypersurfaceRegions.jl")
 ```
 
+For now, you instead have to download the package manually (either using Git, or by manually downloading it by clicking the green `Code` button at the top of the GitHub page and selecting `Download ZIP`). 
+
 ## Examples of usage
 
-We load the package in a Julia session by running the following command:
+First of all, make sure that you have activated a Julia environment where the package is added. 
+
+You can then load the package in a Julia session by running the following command:
 
 ```julia-repl
 julia> using ProjectedHypersurfaceRegions
