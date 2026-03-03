@@ -16,10 +16,15 @@ function RoutingFunction(
     c::Union{Vector,Nothing} = nothing,
     g::Union{Vector{Expression},Vector{Variable},Nothing} = nothing
 )
-    
-    projection_vars = unique(vcat([h.projection_vars for h in H]...))
+
+    projection_vars = H[1].projection_vars
+
+    for h in H[2:end]
+        @assert h.projection_vars == projection_vars "All hypersurfaces must have the same projection variables"
+    end
+
     k = length(projection_vars)
-    
+
     if isnothing(g) || length(g) == 0
         ∇logprodg = nothing
         g_degree = 0
@@ -57,13 +62,13 @@ function Base.show(io::IO, r::RoutingFunction)
     println(io, header) 
     println(io, "="^(length(header)))
     println(io, " Variables: ", join(r.projection_vars, ", "))
-    if length(r.H) ==1
-        print(io, " Numerator: ", r.H[1])
+    if length(r.H) == 1
+        println(io, " Numerator: ", r.H[1])
     else
-        print(io, " Summands in numerator: ", join(r.H, " + "))
+        println(io, " Summands in numerator: projected hypersurfaces of degrees [", join(degree.(r.H), ", "), "] in ambient dimension ", nvariables(r.H[1]))
     end
     if !isnothing(r.G)
-        println(io, " Additional factors in numerator: ", join(r.G.compiled.system.expressions, ", "))
+        println(io, " Additional summands in numerator: ", join(r.G.compiled.system.expressions, ", "))
     end
     println(io, " Denominator: ", (r.q)^r.e)
 end
@@ -80,7 +85,9 @@ function ModelKit.evaluate(r::RoutingFunction, x, p = nothing)
         u = - e * log(1 + sum((x - c) .* (x - c)))
     end
 
-    u += sum(h(x) for h in H)
+    for h in H
+        u += h(x)
+    end
 
     u
 end
@@ -92,7 +99,7 @@ function gradient!(u, r::RoutingFunction{TQ,TP,TC}, x, p = nothing) where {TQ,TP
     
     H, ∇logqe, ∇logprodg = r.H, r.∇logqe, r.∇logprodg
 
-    gradient_temp = zeros(ComplexF64, length(r.projection_vars))
+    gradient_temp = H[1].GC.gradient_temp
 
     # Denomiator
     evaluate!(u, ∇logqe, x)
@@ -129,14 +136,10 @@ end
 function gradient_and_hessian!(u, U, r::RoutingFunction{TQ,TP,TC}, x, p = nothing) where {TQ,TP,TC}
 
     H, ∇logqe, ∇logprodg = r.H, r.∇logqe, r.∇logprodg
-    if length(H) ==1
-        GC = H[1].GC
-        gradient_temp = GC.gradient_temp
-        Hess_temp = GC.Hess_temp
-    else    
-        gradient_temp = zeros(ComplexF64, length(r.projection_vars))
-        Hess_temp = zeros(ComplexF64, length(r.projection_vars), length(r.projection_vars))
-    end
+    GC = H[1].GC
+    gradient_temp = GC.gradient_temp
+    Hess_temp = GC.Hess_temp
+
 
     # Denominator
     evaluate_and_jacobian!(u, U, ∇logqe, x)
