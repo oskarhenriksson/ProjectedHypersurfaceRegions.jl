@@ -101,7 +101,7 @@ function gradient!(u, r::RoutingFunction{TQ,TP,TC}, x, p = nothing) where {TQ,TP
 
     gradient_temp = H[1].GC.gradient_temp
 
-    # Denomiator
+    # Denominator
     evaluate!(u, ∇logqe, x)
 
     # Known numerator
