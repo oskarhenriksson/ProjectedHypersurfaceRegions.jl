@@ -150,7 +150,7 @@ end;
     @var a b x z
     F1 = System([x^3 + a * x^2 + b * x + 1; 3 * x^2 + 2 * a * x + b], variables=[a, b, x])
     h1 = ProjectedHypersurface(F1, [a; b])
-    F2 = System([z^2 + a * z + b; 2*z + a], variables=[a, z, b])
+    F2 = System([z^2 + a * z - b; 2*z + a], variables=[a, z, b])
     h2 = ProjectedHypersurface(F2, [a; b])
     c = [7, 3]
     r = RoutingFunction([h1, h2]; c=c);
@@ -160,7 +160,7 @@ end;
     @test e == 4
 
     # Test evaluation
-    h_symbolic = (a^2 - 4*b)*(4*a^3 - a^2*b^2 - 18*a*b + 4*b^3 + 27)
+    h_symbolic = (-a^2 - 4*b)*(4*a^3 - a^2*b^2 - 18*a*b + 4*b^3 + 27)
     r_symbolic = h_symbolic/((a - c[1])^2 + (b - c[2])^2 + 1)^e
     ∇r_symbolic = System(differentiate(log(r_symbolic), [a, b]), variables=[a, b]) |> fixed
     p0 = [1, 3]
