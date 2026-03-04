@@ -33,10 +33,8 @@ function critical_points(
         monodromy_at_zero = monodromy_at_zero,
         options = options,
     )
-    # Step 2a: Expand start solutions via Newton's method
-    new_pts = _newtons(∇r, rhs0)
 
-    # Step 2: Expand start solutions via gradient flow
+    # Step 2: Expand start solutions via Newton's method and gradient flow
     S0, new_pts = _expand_start_solutions(
         ∇r, H, S0, rhs0, k;
         verbose = verbose,
@@ -52,29 +50,6 @@ function critical_points(
         monodromy_at_zero = monodromy_at_zero,
         start_grid_width = start_grid_width,
     )
-end
-
-function _newtons(
-    ∇r::RoutingGradient,
-    rhs0::AbstractVector{<:Number}
-)
-    k = size(∇r, 2) # number of variables
-    initial_guesses = [randn(ComplexF64, k) for _ in 1:10]
-
-    pts = Vector{ComplexF64}[]
-
-    verbose && println("Attempting to find critical points via Newton's method...")
-    success_count = 0
-    for guess in initial_guesses
-        # Perform Newton's method on each initial guess
-        result = newton(∇r, guess) |> solution
-        if norm(evaluate(∇r, result)) < 1e-10
-            success_count += 1
-            push!(pts, result + rhs0)
-        end
-    end
-    println("Found $success_count critical points via Newton's method.")
-    return pts
 end
 
 """
@@ -149,13 +124,38 @@ function _expand_start_solutions(
     rhs0::AbstractVector{<:Number},
     k::Int;
     verbose = true,
+    newton_guesses = 10,
     start_grid_width = 5,
     start_grid_stepsize = 0.2,
     start_grid_center = nothing,
     monodromy_at_zero = false,
 )
     new_pts = Vector{ComplexF64}[]
+
+
+    # First we try to find start solutions via blindly applying Newton's method to ∇r=0.
+    verbose && println("Expanding start solutions via Newton's method...")
+
+    initial_guesses = [randn(Float64, k) for _ in 1:newton_guesses]
+
+    verbose && println("Attempting to find critical points via Newton's method...")
+    newton_success_count = 0
+    for guess in initial_guesses
+        try
+            # Newton's method on each initial guess
+            pt = newton(∇r, guess) |> solution
+            if norm(evaluate(∇r, pt)) < 1e-10
+                newton_success_count += 1
+                push!(new_pts, pt)
+            end
+        catch e
+            continue
+        end
+    end
+    verbose && println("Successful Newton's method attempts: $(newton_success_count) out of $(newton_guesses) ($(round(newton_success_count / (newton_guesses ) * 100, digits=2))%)")
+    verbose && println("Found $newton_success_count routing points via Newton's method.")
     
+    # Now we try gradient flow
     if start_grid_width <= 0
         return S0, new_pts
     end
@@ -166,7 +166,7 @@ function _expand_start_solutions(
     if isnothing(start_grid_center)
         start_grid_center = zeros(k)
     end
-
+    
     verbose && println("Expanding the set of start solutions via gradient flow...")
 
     w = (start_grid_width / 2)
