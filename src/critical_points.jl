@@ -124,7 +124,7 @@ function _expand_start_solutions(
     rhs0::AbstractVector{<:Number},
     k::Int;
     verbose = true,
-    newton_guesses = 10,
+    newton_guesses = 100,
     start_grid_width = 5,
     start_grid_stepsize = 0.2,
     start_grid_center = nothing,
@@ -152,8 +152,14 @@ function _expand_start_solutions(
             continue
         end
     end
+
+    if length(new_pts) > 0
+        new_pts = HC.unique_points(new_pts)
+        num_newton_pts = length(new_pts)
+    end
+
     verbose && println("Successful Newton's method attempts: $(newton_success_count) out of $(newton_guesses) ($(round(newton_success_count / (newton_guesses ) * 100, digits=2))%)")
-    verbose && println("Found $newton_success_count routing points via Newton's method.")
+    verbose && println("Found $num_newton_pts routing points via Newton's method.")
     
     # Now we try gradient flow
     if start_grid_width <= 0
@@ -174,7 +180,7 @@ function _expand_start_solutions(
         (start_grid_center[i]-w):start_grid_stepsize:(start_grid_center[i]+w) for
         i = 1:k
     ]
-    success_count = 0
+    gradient_success_count = 0
     ProgressMeter.@showprogress for start_point in Iterators.product(grid...)
         try
             prob = ODEProblem(g, collect(start_point), tspan)
@@ -182,7 +188,7 @@ function _expand_start_solutions(
             convergence_point = last(sol.u)
             improved_point = newton(∇r, convergence_point) |> solution
             push!(new_pts, improved_point)
-            success_count += 1                
+            gradient_success_count += 1                
         catch e
             continue
         end
@@ -190,8 +196,8 @@ function _expand_start_solutions(
     if length(new_pts) > 0
         new_pts = HC.unique_points(new_pts)
     end
-    verbose && println("Successful gradient flow attempts: $(success_count) out of $(length(grid[1])^k) ($(round(success_count / (length(grid[1])^k) * 100, digits=2))%)")
-    verbose && println("Found $(length(new_pts)) routing points via gradient flow.")
+    verbose && println("Successful gradient flow attempts: $(gradient_success_count) out of $(length(grid[1])^k) ($(round(gradient_success_count / (length(grid[1])^k) * 100, digits=2))%)")
+    verbose && println("Found $(length(new_pts)-num_newton_pts) routing points via gradient flow. (Total routing points found: $(length(new_pts)))")
 
     if !monodromy_at_zero
         start_parameters!(H, zeros(ComplexF64, length(rhs0)))
