@@ -26,12 +26,15 @@ function critical_points(
 
     ∇r = RoutingGradient(r)
 
+
     # Step 1: Setup monodromy solver
     MS, H, S0, rhs0, k = _setup_monodromy_solver(
         ∇r, S0, rhs0;
         monodromy_at_zero = monodromy_at_zero,
         options = options,
     )
+    # Step 2a: Expand start solutions via Newton's method
+    new_pts = _newtons(∇r, rhs0)
 
     # Step 2: Expand start solutions via gradient flow
     S0, new_pts = _expand_start_solutions(
@@ -51,6 +54,28 @@ function critical_points(
     )
 end
 
+function _newtons(
+    ∇r::RoutingGradient,
+    rhs0::AbstractVector{<:Number}
+)
+    k = size(∇r, 2) # number of variables
+    initial_guesses = [randn(ComplexF64, k) for _ in 1:10]
+
+    pts = Vector{ComplexF64}[]
+
+    verbose && println("Attempting to find critical points via Newton's method...")
+    success_count = 0
+    for guess in initial_guesses
+        # Perform Newton's method on each initial guess
+        result = newton(∇r, guess) |> solution
+        if norm(evaluate(∇r, result)) < 1e-10
+            success_count += 1
+            push!(pts, result + rhs0)
+        end
+    end
+    println("Found $success_count critical points via Newton's method.")
+    return pts
+end
 
 """
     _setup_monodromy_solver(∇r, S0, rhs0; monodromy_at_zero, options)
@@ -167,7 +192,7 @@ function _expand_start_solutions(
     end
     verbose && println("Successful gradient flow attempts: $(success_count) out of $(length(grid[1])^k) ($(round(success_count / (length(grid[1])^k) * 100, digits=2))%)")
     verbose && println("Found $(length(new_pts)) routing points via gradient flow.")
-    
+
     if !monodromy_at_zero
         start_parameters!(H, zeros(ComplexF64, length(rhs0)))
         target_parameters!(H, rhs0)
