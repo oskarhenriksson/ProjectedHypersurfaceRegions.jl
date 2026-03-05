@@ -124,7 +124,6 @@ function _expand_start_solutions(
     rhs0::AbstractVector{<:Number},
     k::Int;
     verbose = true,
-    newton_guesses = 100,
     start_grid_width = 5,
     start_grid_stepsize = 0.2,
     start_grid_center = nothing,
@@ -132,54 +131,52 @@ function _expand_start_solutions(
 )
     new_pts = Vector{ComplexF64}[]
 
-
-    # First we try to find start solutions via blindly applying Newton's method to ∇r=0.
-    verbose && println("Expanding start solutions via Newton's method...")
-
-    initial_guesses = [randn(Float64, k) for _ in 1:newton_guesses]
-
-    verbose && println("Attempting to find critical points via Newton's method...")
-    newton_success_count = 0
-    for guess in initial_guesses
-        try
-            # Newton's method on each initial guess
-            pt = newton(∇r, guess) |> solution
-            if norm(evaluate(∇r, pt)) < 1e-10
-                newton_success_count += 1
-                push!(new_pts, pt)
-            end
-        catch e
-            continue
-        end
-    end
-
-    if length(new_pts) > 0
-        new_pts = HC.unique_points(new_pts)
-        num_newton_pts = length(new_pts)
-    end
-
-    verbose && println("Successful Newton's method attempts: $(newton_success_count) out of $(newton_guesses) ($(round(newton_success_count / (newton_guesses ) * 100, digits=2))%)")
-    verbose && println("Found $num_newton_pts routing points via Newton's method.")
-    
-    # Now we try gradient flow
+    # Setting up grid
     if start_grid_width <= 0
         return S0, new_pts
     end
 
-    g(x, param, t) = real(evaluate(∇r, x))
-    tspan = (0.0, 1e4)
-
     if isnothing(start_grid_center)
         start_grid_center = zeros(k)
     end
-    
-    verbose && println("Expanding the set of start solutions via gradient flow...")
 
+    verbose && println("Expanding start solutions via Newton's method...")
     w = (start_grid_width / 2)
     grid = [
         (start_grid_center[i]-w):start_grid_stepsize:(start_grid_center[i]+w) for
         i = 1:k
     ]
+
+    # First we try to find start solutions via blindly applying Newton's method to ∇r=0.
+    verbose && println("Expanding start solutions via Newton's method...")
+    newton_success_count = 0
+    start_pt = zeros(ComplexF64, k)
+    ProgressMeter.@showprogress for start_point in Iterators.product(grid...)
+            start_pt .= start_point # this avoids allocations from splatting the tuple into the newton function
+            # Newton's method on each initial guess
+            pt = newton(∇r, start_pt) |> solution
+            if norm(evaluate(∇r, pt)) < 1e-10
+                newton_success_count += 1
+                push!(new_pts, pt)
+            end
+  
+    end
+
+    num_newton_pts = 0
+    if length(new_pts) > 0
+        new_pts = HC.unique_points(new_pts)
+        num_newton_pts += length(new_pts)
+    end
+
+    verbose && println("Successful Newton's method attempts: $(newton_success_count) out of $(length(grid[1])^k) ($(round(newton_success_count / (length(grid[1])^k) * 100, digits=2))%)")
+    verbose && println("Found $num_newton_pts routing points via Newton's method.")
+    
+    # Now we try gradient flow
+    g(x, param, t) = real(evaluate(∇r, x))
+    tspan = (0.0, 1e4)
+    
+    verbose && println("Expanding the set of start solutions via gradient flow...")
+
     gradient_success_count = 0
     ProgressMeter.@showprogress for start_point in Iterators.product(grid...)
         try
