@@ -153,8 +153,8 @@ function _expand_start_solutions(
     ProgressMeter.@showprogress for start_point in Iterators.product(grid...)
             start_pt .= start_point # this avoids allocations from splatting the tuple into the newton function
             # Newton's method on each initial guess
-            pt = newton(∇r, start_pt) |> solution
-            if norm(evaluate(∇r, pt)) < 1e-10
+            pt = newton(∇r, start_pt, rhs0; max_iters = 100) |> solution
+            if norm(evaluate(∇r, pt, rhs0)) < 1e-10
                 newton_success_count += 1
                 push!(new_pts, pt)
             end
