@@ -140,7 +140,6 @@ function _expand_start_solutions(
         start_grid_center = zeros(k)
     end
 
-    verbose && println("Expanding start solutions via Newton's method...")
     w = (start_grid_width / 2)
     grid = [
         (start_grid_center[i]-w):start_grid_stepsize:(start_grid_center[i]+w) for
@@ -178,9 +177,11 @@ function _expand_start_solutions(
     verbose && println("Expanding the set of start solutions via gradient flow...")
 
     gradient_success_count = 0
+    start_pt = zeros(k)
     ProgressMeter.@showprogress for start_point in Iterators.product(grid...)
         try
-            prob = ODEProblem(g, collect(start_point), tspan)
+            start_pt .= start_point # this avoids allocations from splatting the tuple into the ODEProblem
+            prob = ODEProblem(g, start_pt, tspan)
             sol = DE.solve(prob, reltol = 1e-6, abstol = 1e-6)
             convergence_point = last(sol.u)
             improved_point = newton(∇r, convergence_point) |> solution
