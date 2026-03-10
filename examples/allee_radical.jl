@@ -66,81 +66,18 @@ d = degree(h)
 # Test evaluation
 r([0.01,0.1]) #approximately -94.77
 
-function generate_plot(r::RoutingFunction, pts::Vector{Vector{Float64}}; 
-        xlims=(0.0, 1.4), ylims=(0.0, 0.5), contour_stepsize = 5e-4, markersize=6, include_root_counts=true)
+# System used for certified root counting
+FP_allee = System(steady_state, variables = x, parameters = [a; b])
 
-    # Contour plot of the routing function
-    println("Generating contour plot...")
-    RR = (a,b) -> r([a, b])
-    pl = contour(
-        (xlims[1]):contour_stepsize:(xlims[2]),
-        (ylims[1]):contour_stepsize:(ylims[2]),
-        RR,
-        levels=60,
-        color=:plasma,
-        clabels=false,
-        cbar=false,
-        lw=1
-    )
-
-    # Routing gradient
-    println("Computing routing gradient...")
-    ∇r = RoutingGradient(r)
-
-    # Plot the routing points
-    println("Adding routing points and flows...")
-    for pt in pts
-        _, U = evaluate_and_jacobian(∇r, pt)
-        E = eigen(real(U))
-        unstable_indices = findall(v->v>0, E.values)
-        if all(v->v<0, E.values)
-            scatter!(pl, (pt[1], pt[2]); color="#66C34F", markersize=markersize, label="Routing point (index 0)")
-        else
-            scatter!(pl, (pt[1], pt[2]); color="#66C34F", markersize=markersize, marker=:diamond, label="Routing point (index > 0)")
-            g(x, param, t) = real(evaluate(∇r, x))
-            tspan = (0.0, 1e4)
-            jac = real(evaluate_and_jacobian(∇r, pt)[2])
-            eigen_data = LinearAlgebra.eigen(jac)
-            eigenvalues = eigen_data.values
-            eigenvectors = eigen_data.vectors
-            positive_directions = [i for (i, λ) in enumerate(eigenvalues) if real(λ) > 0]
-            j = first(positive_directions)
-            v = eigenvectors[:, j]
-            prob = ODEProblem(g, pt + 0.01 * v, tspan)
-            sol = DE.solve(prob, reltol=1e-6, abstol=1e-6)
-            flow = Tuple.(sol.u)
-            l = length(flow)
-            k = div(l, 2)
-            plot!(flow[1:k], linecolor=:steelblue, linewidth=2, label=false, arrow=:closed)
-            plot!(flow[k:end], linecolor=:steelblue, linewidth=2, label=false)
-            prob = ODEProblem(g, pt - 0.01 * v, tspan)
-            sol = DE.solve(prob, reltol=1e-6, abstol=1e-6)
-            flow = Tuple.(sol.u)
-            l = length(flow)
-            k = div(l, 2)
-            plot!(flow[1:k], linecolor=:steelblue, linewidth=2, label=false, arrow=:closed)
-            plot!(flow[k:end], linecolor=:steelblue, linewidth=2, label=false)
-
-        end
-    end
-
-    # Add root counts
-    if include_root_counts
-        println("Adding root counts...")
-        FP = System(steady_state, variables = x, parameters = [a; b])
-        NReal = map(pts) do pt # pts are the routing points
-            S = HomotopyContinuation.solve(FP; target_parameters = pt)
-            certify(FP, S; target_parameters = pt)
-        end
-        ann = [text(string(n), 4) for n in ndistinct_real_certified.(NReal)]
-        annotate!(first.(pts), last.(pts), ann)
-    end
-    
-    # Change plot limits
-    plot!(pl, xlims=xlims, ylims=ylims, legend=false)
-    return pl
-
+# Certified real root count at a parameter point
+allee_root_count_fn = pt -> begin
+    solutions = HomotopyContinuation.solve(FP_allee; target_parameters = pt)
+    certificate = certify(FP_allee, solutions; target_parameters = pt)
+    ndistinct_real_certified(certificate)
 end
+
+# Number of unstable eigenvalues of the Hessian at each routing point
+allee_idx(r, pts) = [count(>(0), eigvals(real(evaluate_and_jacobian(RoutingGradient(r), pt)[2]))) for pt in pts]
 
 # ORIGINAL ROUTING FUNCTION
 
@@ -153,12 +90,20 @@ pts_original = [[1.2648270055555684, 0.23668758954766242],
     [0.05913176450416948, 0.46985465616956895]
 ]
 
-# pl_original = generate_plot(r_original, pts_original; contour_stepsize=1e-3, include_root_counts=false)
+# pl_original = generate_plot(r_original, pts_original, [collect(eachindex(pts_original))], allee_idx(r_original, pts_original); contour_stepsize=1e-3, contour_levels=60, markersize=6, legend=false, xlims=(0.0, 1.4), ylims=(0.0, 0.5), annotate_root_counts=false)
 # savefig("figures/allee_original_full.png")
 # savefig("figures/allee_original_full.pdf")
 # savefig("figures/allee_original_full.svg")
 
-pl_original_smaller = generate_plot(r_original, pts_original; xlims=(0, 0.09), ylims=(0, 0.5))
+pl_original_smaller = generate_plot(
+    r_original, pts_original,
+    [collect(eachindex(pts_original))],
+    allee_idx(r_original, pts_original);
+    contour_stepsize = 5e-4, contour_levels = 60, markersize = 6, legend = false,
+    xlims = (0, 0.09), ylims = (0, 0.5),
+    root_count_fn = allee_root_count_fn,
+    annotate_root_counts = true, annotation_textsize = 4,
+)
 savefig("figures/allee_original_zoomed_in.png")
 savefig("figures/allee_original_zoomed_in.pdf")
 savefig("figures/allee_original_zoomed_in.svg")
@@ -179,12 +124,20 @@ pts = [
 # Check that all points are critical
 ∇r.(pts)
 
-# pl_radical = generate_plot(r, pts; contour_stepsize=5e-3, include_root_counts=false)
+# pl_radical = generate_plot(r, pts, [collect(eachindex(pts))], allee_idx(r, pts); contour_stepsize=5e-3, contour_levels=60, markersize=6, legend=false, xlims=(0.0, 1.4), ylims=(0.0, 0.5), annotate_root_counts=false)
 # savefig("figures/allee_radical_full.png")
 # savefig("figures/allee_radical_full.pdf")
 # savefig("figures/allee_radical_full.svg")
 
-pl_radical_smaller = generate_plot(r, pts; xlims=(0, 0.09), ylims=(0, 0.5))
+pl_radical_smaller = generate_plot(
+    r, pts,
+    [collect(eachindex(pts))],
+    allee_idx(r, pts);
+    contour_stepsize = 5e-4, contour_levels = 60, markersize = 6, legend = false,
+    xlims = (0, 0.09), ylims = (0, 0.5),
+    root_count_fn = allee_root_count_fn,
+    annotate_root_counts = true, annotation_textsize = 4,
+)
 savefig("figures/allee_radical_zoomed_in.png")
 savefig("figures/allee_radical_zoomed_in.pdf")
 savefig("figures/allee_radical_zoomed_in.svg")

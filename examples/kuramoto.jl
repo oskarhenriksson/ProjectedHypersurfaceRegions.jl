@@ -42,8 +42,6 @@ G, idx, failed_info = partition_of_critical_points(r, pts)
 time_end_round1 = time()
 println("Computation time for round 1: $(time_end_round1 - time_start_round1) seconds")
 
-# Analyze result
-include("./analysis.jl");
 M_x = maximum(p -> abs(p[1]), pts) * 1.05
 M_y = maximum(p -> abs(p[2]), pts) * 1.05
 h_symbolic(x, y) = 314928 * x^8 * y^4 + 1259712 * x^7 * y^5 + 1889568 * x^6 * y^6 + 1259712 * x^5 * y^7 +
@@ -70,7 +68,7 @@ function analyze_and_save_result()
     println("Failed info: $(failed_info)")
     println()
 
-    analyze_result(r, pts, G, idx;
+    generate_plot(r, pts, G, idx;
         h=h_symbolic,
         root_counting_system=root_counting_system,
         M_x_min=-M_x,

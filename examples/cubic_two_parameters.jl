@@ -1,5 +1,5 @@
 
-using Random, ProjectedHypersurfaceRegions
+using Random, Plots, ProjectedHypersurfaceRegions
 mkpath("./results/cubic_two_parameters");
 
 Random.seed!(0x8b868320)
@@ -42,11 +42,9 @@ println()
 
 write("./results/cubic_two_parameters/connected_components.txt", string(G))
 
-# Analyzw result
-include("./analysis.jl");
 M_x = maximum(p -> abs(p[1]), pts) + 6
 M_y = maximum(p -> abs(p[2]), pts) + 6
-analyze_result(r, pts, G, idx;
+generate_plot(r, pts, G, idx;
     h = (x,y) -> 4 * x^3 - x^2 * y^2 - 18 * x * y + 4 * y^3 + 27,
     markersize=7,
     arrowstyle=:simple,

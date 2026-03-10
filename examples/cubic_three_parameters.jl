@@ -1,4 +1,4 @@
-using Random, ProjectedHypersurfaceRegions
+using Random, Plots, ProjectedHypersurfaceRegions
 
 Random.seed!(0x8b868320)
 
@@ -21,7 +21,7 @@ println("Degree of discriminant: $d")
 
 # Routing gradient
 c = 10 .* randn(k)
-∇r = RoutingFunction(h; c=c)
+r = RoutingFunction(h; c=c)
 
 # Critical points
 pts, res, mon_res = critical_points(r)
@@ -33,6 +33,8 @@ println("Indicies: $(idx)")
 println("Failed info: $(failed_info)")
 println()
 
-analyze_result(r, pts, G, idx;
+generate_plot(r, pts, G, idx;
     root_counting_system=System([x^3 + a * x^2 + b * x + γ], variables=[x], parameters=[a; b; γ])
 )
+
+savefig("./figures/testcubic.pdf")

@@ -1,6 +1,5 @@
-using Random, ProjectedHypersurfaceRegions
+using Random, Plots, ProjectedHypersurfaceRegions
 
-include("./analysis.jl");
 mkpath("./results/quadratic");
 
 Random.seed!(12345)
@@ -43,7 +42,7 @@ write("./results/quadratic/connected_components.txt", string(G))
 # Analyze root counts and plot result
 M_x = maximum(p -> abs(p[1]), pts) + 4
 M_y = maximum(p -> abs(p[2]), pts) + 3
-analyze_result(r, pts, G, idx;
+generate_plot(r, pts, G, idx;
     h=(a, b) -> (a^2 - 4 * b),
     markersize=7,
     arrowstyle=:simple,
