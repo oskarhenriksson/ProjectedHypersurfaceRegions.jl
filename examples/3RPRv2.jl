@@ -1,7 +1,7 @@
 # This is case 0 of Example 5.2 in the overleaf file
 # Reference: https://arxiv.org/pdf/1903.06126
 
-using Random, ProjectedHypersurfaceRegions
+using Random, LinearAlgebra, ProjectedHypersurfaceRegions
 mkpath("./results/3RPRv2")
 
 Random.seed!(12345)

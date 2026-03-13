@@ -1,7 +1,7 @@
 # This is case 0 of Example 5.2 in the overleaf file
 # Reference: https://arxiv.org/pdf/1903.06126
 
-using Plots, ImplicitPlots, Random, ProjectedHypersurfaceRegions
+using Plots, ImplicitPlots, Random, LinearAlgebra, ProjectedHypersurfaceRegions
 include("../src/functions.jl");
 mkpath("./results/3RPRv0")
 
