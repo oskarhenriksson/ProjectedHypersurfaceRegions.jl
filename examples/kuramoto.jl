@@ -27,9 +27,10 @@ d = degree(h)
 println("Degree of discriminant: $d")
 
 # Routing gradient
-C = rand(2) / 2
+C = [0.4723952824712583, 0.4334474432194565]
 write_parameters("./results/kuramoto/center.txt", C)
-∇r = RoutingGradient(F, w, c=C);
+r = RoutingFunction(h; c=C)
+∇r = RoutingGradient(r)
 
 # Critical points
 # pts = read_solutions("./results/kuramoto/routing_points.txt") |> real
