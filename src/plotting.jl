@@ -1,4 +1,4 @@
-export generate_plot, root_counts_at_points
+export generate_plot
 
 using Plots, ImplicitPlots
 
@@ -177,9 +177,7 @@ function generate_plot(
     contour_color = :plasma,
     contour_linewidth = 1,
     xlims = nothing,
-    ylims = nothing,
-    bounds_padding_ratio = 0.15,
-    bounds_min_padding = 0.05,
+    ylims = nothing
 )
     ∇r = RoutingGradient(r)
 
