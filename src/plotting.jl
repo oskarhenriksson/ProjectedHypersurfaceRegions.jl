@@ -2,71 +2,6 @@ export generate_plot, root_counts_at_points
 
 using Plots, ImplicitPlots
 
-_routing_function(r::RoutingFunction) = r
-_routing_function(∇r::RoutingGradient) = ∇r.r
-
-_routing_gradient(r::RoutingFunction) = RoutingGradient(r)
-_routing_gradient(∇r::RoutingGradient) = ∇r
-
-function _default_axis_limits(
-    pts::AbstractVector{<:AbstractVector{<:Real}},
-    axis::Int;
-    padding_ratio::Real = 0.15,
-    min_padding::Real = 0.05,
-)
-    values = getindex.(pts, axis)
-    min_value, max_value = extrema(values)
-    reference_scale = max(max_value - min_value, abs(min_value), abs(max_value), 1.0)
-    padding = max(min_padding, padding_ratio * reference_scale)
-    (min_value - padding, max_value + padding)
-end
-
-function _plot_limits(
-    pts::AbstractVector{<:AbstractVector{<:Real}};
-    xlims = nothing,
-    ylims = nothing,
-    M_x_max = nothing,
-    M_x_min = nothing,
-    M_y_max = nothing,
-    M_y_min = nothing,
-    bounds_padding_ratio::Real = 0.15,
-    bounds_min_padding::Real = 0.05,
-)
-    resolved_xlims = if !isnothing(xlims)
-        xlims
-    elseif !isnothing(M_x_min) || !isnothing(M_x_max)
-        (
-            something(M_x_min, minimum(p -> p[1], pts)),
-            something(M_x_max, maximum(p -> p[1], pts)),
-        )
-    else
-        _default_axis_limits(
-            pts,
-            1;
-            padding_ratio = bounds_padding_ratio,
-            min_padding = bounds_min_padding,
-        )
-    end
-
-    resolved_ylims = if !isnothing(ylims)
-        ylims
-    elseif !isnothing(M_y_min) || !isnothing(M_y_max)
-        (
-            something(M_y_min, minimum(p -> p[2], pts)),
-            something(M_y_max, maximum(p -> p[2], pts)),
-        )
-    else
-        _default_axis_limits(
-            pts,
-            2;
-            padding_ratio = bounds_padding_ratio,
-            min_padding = bounds_min_padding,
-        )
-    end
-
-    resolved_xlims, resolved_ylims
-end
-
 function _default_contour_function(r::RoutingFunction, h::Function)
     exponent = denominator_exponent(r)
     center = r.c
@@ -208,9 +143,13 @@ function _annotate_root_counts!(
     annotate!(pl, first.(pts) .+ dx, last.(pts) .+ dy, annotations)
 end
 
+
+
+
+
 function generate_plot(
-    routing_data::Union{RoutingFunction, RoutingGradient},
-    pts::AbstractVector{<:AbstractVector{<:Real}},
+    r::RoutingFunction,
+    routing_points::AbstractVector{<:AbstractVector{<:Real}},
     G::AbstractVector{<:AbstractVector{<:Integer}},
     idx::AbstractVector{<:Integer};
     root_counting_system::Union{System, Nothing} = nothing,
@@ -239,26 +178,10 @@ function generate_plot(
     contour_linewidth = 1,
     xlims = nothing,
     ylims = nothing,
-    M_x_max = nothing,
-    M_x_min = nothing,
-    M_y_max = nothing,
-    M_y_min = nothing,
     bounds_padding_ratio = 0.15,
     bounds_min_padding = 0.05,
 )
-    r = _routing_function(routing_data)
-    ∇r = _routing_gradient(routing_data)
-    resolved_xlims, resolved_ylims = _plot_limits(
-        pts;
-        xlims = xlims,
-        ylims = ylims,
-        M_x_max = M_x_max,
-        M_x_min = M_x_min,
-        M_y_max = M_y_max,
-        M_y_min = M_y_min,
-        bounds_padding_ratio = bounds_padding_ratio,
-        bounds_min_padding = bounds_min_padding,
-    )
+    ∇r = RoutingGradient(r)
 
     has_root_count_source = !isnothing(root_count_fn) || !isnothing(root_counting_system)
     should_annotate = isnothing(annotate_root_counts) ? has_root_count_source : annotate_root_counts
@@ -268,13 +191,13 @@ function generate_plot(
     if has_root_count_source
         component_counts = _component_root_counts(
             G,
-            pts;
+            routing_points;
             root_count_fn = root_count_fn,
             root_counting_system = root_counting_system,
             root_count_condition = root_count_condition,
         )
         point_counts = root_counts_at_points(
-            pts;
+            routing_points;
             root_count_fn = root_count_fn,
             root_counting_system = root_counting_system,
             root_count_condition = root_count_condition,
@@ -293,8 +216,8 @@ function generate_plot(
     contour_function = _contour_function(r; h = h, RR = RR)
     pl = if plot_contour
         contour(
-            resolved_xlims[1]:contour_stepsize:resolved_xlims[2],
-            resolved_ylims[1]:contour_stepsize:resolved_ylims[2],
+            xlims[1]:contour_stepsize:xlims[2],
+            ylims[1]:contour_stepsize:ylims[2],
             contour_function,
             levels = contour_levels,
             color = contour_color,
@@ -310,8 +233,8 @@ function generate_plot(
         implicit_plot!(
             pl,
             h;
-            xlims = resolved_xlims,
-            ylims = resolved_ylims,
+            xlims = xlims,
+            ylims = ylims,
             linecolor = :black,
             linewidth = discriminant_linewidth,
             label = "Discriminant",
@@ -323,7 +246,7 @@ function generate_plot(
     _plot_unstable_flows!(
         pl,
         ∇r,
-        pts,
+        routing_points,
         idx;
         arrowstyle = arrowstyle,
         flow_linewidth = flow_linewidth,
@@ -335,13 +258,13 @@ function generate_plot(
 
     idx0 = findall(iszero, idx)
     idx1 = findall(!iszero, idx)
-    !isempty(idx0) && scatter!(pl, Tuple.(pts[idx0]), markercolor = "#66C34F", markersize = markersize, label = "Routing point (index 0)")
-    !isempty(idx1) && scatter!(pl, Tuple.(pts[idx1]), markercolor = "#66C34F", markersize = markersize, marker = :diamond, label = "Routing point (index > 0)")
+    !isempty(idx0) && scatter!(pl, Tuple.(routing_points[idx0]), markercolor = "#66C34F", markersize = markersize, label = "Routing point (index 0)")
+    !isempty(idx1) && scatter!(pl, Tuple.(routing_points[idx1]), markercolor = "#66C34F", markersize = markersize, marker = :diamond, label = "Routing point (index > 0)")
 
     if should_annotate
         _annotate_root_counts!(
             pl,
-            pts,
+            routing_points,
             point_counts;
             annotation_formatter = annotation_formatter,
             annotation_offset = annotation_offset,
@@ -352,8 +275,8 @@ function generate_plot(
 
     plot!(
         pl;
-        xlims = resolved_xlims,
-        ylims = resolved_ylims,
+        xlims = xlims,
+        ylims = ylims,
         legend = legend,
         dpi = 400,
         legendfontsize = 6,

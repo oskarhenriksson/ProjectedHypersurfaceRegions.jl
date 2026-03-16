@@ -53,10 +53,8 @@ generate_plot(r, pts, G, idx;
     legend=:bottomright,
     root_counting_system=System([x^3 + a * x^2 + b * x + 1], variables=[x], parameters=[a; b]),
     contour_stepsize=0.1,
-    M_x_max=M_x,
-    M_x_min=-M_x,
-    M_y_max=M_y,
-    M_y_min=-M_y,
+    xlims=(-M_x, M_x),
+    ylims=(-M_y, M_y),
 )
 
 savefig("./figures/cubic.pdf")

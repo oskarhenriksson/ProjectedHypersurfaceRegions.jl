@@ -77,10 +77,8 @@ function analyze_and_save_result()
     generate_plot(r, pts, G, idx;
         h=h_symbolic,
         root_counting_system=root_counting_system,
-        M_x_max=12,
-        M_x_min=-10,
-        M_y_max=12,
-        M_y_min=-10,
+        xlims=(-10, 12),
+        ylims=(-10, 12)
     )
 
     savefig("./figures/3RPR.pdf")

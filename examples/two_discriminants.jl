@@ -20,6 +20,7 @@ c = [7, 3]
 r = RoutingFunction([h1, h2]; c=c)
 
 # Critical points
+# pts = read_solutions("./results/two_discriminants/routing_points.txt") |> real
 pts, res, mon_res = critical_points(r)
 
 write_parameters("./results/two_discriminants/monodromy_parameters.txt", parameters(mon_res))
@@ -46,10 +47,8 @@ generate_plot(r, pts, G, idx;
     discriminant_linewidth=4,
     legend=:bottomright,
     contour_stepsize=0.1,
-    M_x_max=M_x,
-    M_x_min=-M_x,
-    M_y_max=M_y,
-    M_y_min=-M_y,
+    xlims=(-M_x, M_x),
+    ylims=(-M_y, M_y),
 )
 
 savefig("./figures/two_discriminants.pdf")
