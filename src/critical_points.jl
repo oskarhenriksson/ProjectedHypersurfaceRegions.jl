@@ -144,12 +144,17 @@ function _expand_start_solutions(
         (start_grid_center[i]-w):start_grid_stepsize:(start_grid_center[i]+w) for
         i = 1:k
     ]
+    newton_w = 10*w
+    newton_grid = [
+        (start_grid_center[i]-newton_w):start_grid_stepsize:(start_grid_center[i]+newton_w) for
+        i = 1:k
+    ]
 
     # First we try to find start solutions via blindly applying Newton's method to ∇r=0.
     verbose && println("Expanding start solutions via Newton's method...")
     newton_success_count = 0
     start_pt = zeros(ComplexF64, k)
-    ProgressMeter.@showprogress for start_point in Iterators.product(grid...)
+    ProgressMeter.@showprogress for start_point in Iterators.product(newton_grid...)
             start_pt .= start_point # this avoids allocations from splatting the tuple into the newton function
             # Newton's method on each initial guess
             try
@@ -177,8 +182,8 @@ function _expand_start_solutions(
         empty!(new_pts)
     end
 
-    verbose && println("Successful Newton's method attempts: $(newton_success_count) out of $(length(grid[1])^k) ($(round(newton_success_count / (length(grid[1])^k) * 100, digits=2))%)")
-    verbose && println("Found $num_newton_pts solutions to ∇r(pt)=rhs0.")
+    verbose && println("Successful Newton's method attempts: $(newton_success_count) out of $(length(newton_grid[1])^k) ($(round(newton_success_count / (length(newton_grid[1])^k) * 100, digits=2))%)")
+    verbose && println("Found $num_newton_pts solutions to ∇r(z)=rhs0.")
     
     # Now we try gradient flow
     g(x, param, t) = real(evaluate(∇r, x))
