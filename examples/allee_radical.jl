@@ -76,9 +76,6 @@ allee_root_count_fn = pt -> begin
     ndistinct_real_certified(certificate)
 end
 
-# Number of unstable eigenvalues of the Hessian at each routing point
-allee_idx(r, pts) = [count(>(0), eigvals(real(evaluate_and_jacobian(RoutingGradient(r), pt)[2]))) for pt in pts]
-
 # ORIGINAL ROUTING FUNCTION
 
 # Previously computed routing points
