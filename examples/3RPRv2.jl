@@ -1,7 +1,7 @@
 # This is case 0 of Example 5.2 in the overleaf file
 # Reference: https://arxiv.org/pdf/1903.06126
 
-using Random, ProjectedHypersurfaceRegions
+using Random, LinearAlgebra, ProjectedHypersurfaceRegions
 mkpath("./results/3RPRv2")
 
 Random.seed!(12345)
@@ -39,7 +39,7 @@ println("Degree of discriminant: $d")
 # Set up routing function
 center = 5 * rand(length(projection_variables))
 write_parameters("./results/3RPRv2/center.txt", center)
-∇r = RoutingGradient(h; c=center);
+r = RoutingFunction(h; c=center);
 
 # Routing points
 # pts = read_solutions("./results/3RPRv2/routing_points.txt") |> real
@@ -51,7 +51,6 @@ G, idx, failed_info = partition_of_critical_points(r, pts)
 time_end_round1 = time()
 println("Computation time for round 1: $(time_end_round1 - time_start_round1) seconds")
 
-include("./analysis.jl");
 function analyze_and_save_result()
     write_parameters("./results/3RPRv2/monodromy_parameters.txt", parameters(mon_res))
     write_solutions("./results/3RPRv2/monodromy_result.txt", solutions(mon_res))
@@ -64,7 +63,7 @@ function analyze_and_save_result()
     println("Failed info: $(failed_info)")
     println()
 
-    analyze_result(∇r, pts, G, idx;
+    generate_plot(r, pts, G, idx;
         root_counting_system=System(f, variables=vcat(p, φ), parameters=projection_variables)
     )
 end

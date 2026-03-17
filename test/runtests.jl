@@ -104,6 +104,20 @@ end
     pts, res0, mon_res = critical_points(r, start_grid_width=0, options=options)    
     @test all(norm.(∇r_symbolic.(solutions(res0))) .< 1e-12)
 
+    pl = generate_plot(
+        r,
+        [[0.0, 0.0]],
+        [[1]],
+        [0];
+        h = (a, b) -> a^2 - 4 * b,
+        root_counting_system = System([x^2 + a * x + b], variables = [x], parameters = [a; b]),
+        annotate_root_counts = true,
+        contour_stepsize = 0.5,
+        xlims = (-1.0, 1.0),
+        ylims = (-1.0, 1.0),
+    )
+    @test !isnothing(pl)
+
 end;
 
 @testset "Quadratic discriminant with lines" begin

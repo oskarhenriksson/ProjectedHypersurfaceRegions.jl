@@ -1,5 +1,4 @@
-using Random, ProjectedHypersurfaceRegions
-include("./analysis.jl");
+using Random, Plots, ProjectedHypersurfaceRegions
 mkpath("./results/quadratic_discriminant_with_lines");
 
 Random.seed!(12345)
@@ -37,7 +36,7 @@ write("./results/quadratic_discriminant_with_lines/connected_components.txt", st
 ##### Plotting 
 M_x = maximum(p -> abs(p[1]), pts) + 10
 M_y = maximum(p -> abs(p[2]), pts) + 10
-analyze_result(r, pts, G, idx;
+generate_plot(r, pts, G, idx;
     h=(a, b) -> (a^2 - 4 * b)*a*b,
     markersize=7,
     arrowstyle=:simple,
@@ -46,10 +45,8 @@ analyze_result(r, pts, G, idx;
     root_counting_system=System([x^2 + a * x + b], variables=[x], parameters=[a; b]),
     legend=:bottomright,
     contour_stepsize=0.1,
-    M_x_max=M_x,
-    M_x_min=-M_x,
-    M_y_max=M_y,
-    M_y_min=-M_y,
+    xlims=(-M_x, M_x),
+    ylims=(-M_y, M_y),
 )
 
 savefig("./figures/quadratic_discriminant_with_lines.png")

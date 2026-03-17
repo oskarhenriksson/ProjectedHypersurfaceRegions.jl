@@ -1,7 +1,7 @@
 # Algebraic formulation of the Kuramoto model with three oscillators
 # See, e.g., https://doi.org/10.1063/1.4919696
 
-using Random, Plots, ImplicitPlots, ProjectedHypersurfaceRegions
+using Random, Plots, LinearAlgebra, ImplicitPlots, ProjectedHypersurfaceRegions
 mkpath("./results/kuramoto");
 
 Random.seed!(12345)
@@ -27,9 +27,10 @@ d = degree(h)
 println("Degree of discriminant: $d")
 
 # Routing gradient
-C = rand(2) / 2
+C = [0.4723952824712583, 0.4334474432194565]
 write_parameters("./results/kuramoto/center.txt", C)
-∇r = RoutingGradient(F, w, c=C);
+r = RoutingFunction(h; c=C)
+∇r = RoutingGradient(r)
 
 # Critical points
 # pts = read_solutions("./results/kuramoto/routing_points.txt") |> real
@@ -42,8 +43,6 @@ G, idx, failed_info = partition_of_critical_points(r, pts)
 time_end_round1 = time()
 println("Computation time for round 1: $(time_end_round1 - time_start_round1) seconds")
 
-# Analyze result
-include("./analysis.jl");
 M_x = maximum(p -> abs(p[1]), pts) * 1.05
 M_y = maximum(p -> abs(p[2]), pts) * 1.05
 h_symbolic(x, y) = 314928 * x^8 * y^4 + 1259712 * x^7 * y^5 + 1889568 * x^6 * y^6 + 1259712 * x^5 * y^7 +
@@ -70,19 +69,25 @@ function analyze_and_save_result()
     println("Failed info: $(failed_info)")
     println()
 
-    analyze_result(r, pts, G, idx;
+    generate_plot(r, pts, G, idx;
         h=h_symbolic,
-        root_counting_system=root_counting_system,
-        M_x_min=-M_x,
-        M_x_max=M_x,
-        M_y_min=-M_y,
-        M_y_max=M_y
+        xlims=(-M_x, M_x),
+        ylims=(-M_y, M_y),
     )
 
     plot!(; xlims=(-M_x, M_x), ylims=(-M_y, M_y), legend=false, dpi=400)
     savefig("./figures/kuramoto.pdf")
     savefig("./figures/kuramoto.svg")
     savefig("./figures/kuramoto.png")
+
+    generate_plot(r, pts, G, idx;
+        h=h_symbolic,
+        root_counting_system=root_counting_system,
+        markersize=5,
+        annotation_textsize=4,
+        xlims=(-M_x, M_x),
+        ylims=(-M_y, M_y),
+    )
 
     plot!(; xlims=(-0.8, 0.8), ylims=(-0.8, 0.8), legend=false, dpi=400)
     savefig("./figures/kuramoto_zoomed_in.pdf")

@@ -1,5 +1,5 @@
 
-using Random, ProjectedHypersurfaceRegions
+using Random, Plots, ProjectedHypersurfaceRegions
 mkpath("./results/two_discriminants");
 
 Random.seed!(1234)
@@ -20,6 +20,7 @@ c = [7, 3]
 r = RoutingFunction([h1, h2]; c=c)
 
 # Critical points
+# pts = read_solutions("./results/two_discriminants/routing_points.txt") |> real
 pts, res, mon_res = critical_points(r)
 
 write_parameters("./results/two_discriminants/monodromy_parameters.txt", parameters(mon_res))
@@ -36,11 +37,9 @@ println()
 
 write("./results/two_discriminants/connected_components.txt", string(G))
 
-# Analyzw result
-include("./analysis.jl");
 M_x = maximum(p -> abs(p[1]), pts) + 6
 M_y = maximum(p -> abs(p[2]), pts) + 6
-analyze_result(r, pts, G, idx;
+generate_plot(r, pts, G, idx;
     h = (a,b) -> (-4*b-a^2)*(4*a^3 - a^2*b^2 - 18*a*b + 4*b^3 + 27),
     markersize=7,
     arrowstyle=:simple,
@@ -48,10 +47,8 @@ analyze_result(r, pts, G, idx;
     discriminant_linewidth=4,
     legend=:bottomright,
     contour_stepsize=0.1,
-    M_x_max=M_x,
-    M_x_min=-M_x,
-    M_y_max=M_y,
-    M_y_min=-M_y,
+    xlims=(-M_x, M_x),
+    ylims=(-M_y, M_y),
 )
 
 savefig("./figures/two_discriminants.pdf")
