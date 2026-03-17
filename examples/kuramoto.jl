@@ -71,17 +71,23 @@ function analyze_and_save_result()
 
     generate_plot(r, pts, G, idx;
         h=h_symbolic,
-        root_counting_system=root_counting_system,
-        M_x_min=-M_x,
-        M_x_max=M_x,
-        M_y_min=-M_y,
-        M_y_max=M_y
+        xlims=(-M_x, M_x),
+        ylims=(-M_y, M_y),
     )
 
     plot!(; xlims=(-M_x, M_x), ylims=(-M_y, M_y), legend=false, dpi=400)
     savefig("./figures/kuramoto.pdf")
     savefig("./figures/kuramoto.svg")
     savefig("./figures/kuramoto.png")
+
+    generate_plot(r, pts, G, idx;
+        h=h_symbolic,
+        root_counting_system=root_counting_system,
+        markersize=5,
+        annotation_textsize=4,
+        xlims=(-M_x, M_x),
+        ylims=(-M_y, M_y),
+    )
 
     plot!(; xlims=(-0.8, 0.8), ylims=(-0.8, 0.8), legend=false, dpi=400)
     savefig("./figures/kuramoto_zoomed_in.pdf")

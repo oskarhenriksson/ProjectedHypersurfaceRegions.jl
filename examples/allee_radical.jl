@@ -90,15 +90,12 @@ pts_original = [[1.2648270055555684, 0.23668758954766242],
     [0.05913176450416948, 0.46985465616956895]
 ]
 
-# pl_original = generate_plot(r_original, pts_original, [collect(eachindex(pts_original))], allee_idx(r_original, pts_original); contour_stepsize=1e-3, contour_levels=60, markersize=6, legend=false, xlims=(0.0, 1.4), ylims=(0.0, 0.5), annotate_root_counts=false)
-# savefig("figures/allee_original_full.png")
-# savefig("figures/allee_original_full.pdf")
-# savefig("figures/allee_original_full.svg")
+G_original, idx_original, failed_info_original = partition_of_critical_points(r_original, pts_original)
 
 pl_original_smaller = generate_plot(
     r_original, pts_original,
-    [collect(eachindex(pts_original))],
-    allee_idx(r_original, pts_original);
+    G_original,
+    idx_original;
     contour_stepsize = 5e-4, contour_levels = 60, markersize = 6, legend = false,
     xlims = (0, 0.09), ylims = (0, 0.5),
     root_count_fn = allee_root_count_fn,
@@ -124,15 +121,12 @@ pts = [
 # Check that all points are critical
 ∇r.(pts)
 
-# pl_radical = generate_plot(r, pts, [collect(eachindex(pts))], allee_idx(r, pts); contour_stepsize=5e-3, contour_levels=60, markersize=6, legend=false, xlims=(0.0, 1.4), ylims=(0.0, 0.5), annotate_root_counts=false)
-# savefig("figures/allee_radical_full.png")
-# savefig("figures/allee_radical_full.pdf")
-# savefig("figures/allee_radical_full.svg")
+G, idx, failed_info = partition_of_critical_points(r, pts)
 
 pl_radical_smaller = generate_plot(
     r, pts,
-    [collect(eachindex(pts))],
-    allee_idx(r, pts);
+    G,
+    idx;
     contour_stepsize = 5e-4, contour_levels = 60, markersize = 6, legend = false,
     xlims = (0, 0.09), ylims = (0, 0.5),
     root_count_fn = allee_root_count_fn,

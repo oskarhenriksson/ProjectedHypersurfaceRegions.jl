@@ -45,6 +45,7 @@ M_y = maximum(p -> abs(p[2]), pts) + 3
 generate_plot(r, pts, G, idx;
     h=(a, b) -> (a^2 - 4 * b),
     markersize=7,
+    annotation_textsize=6,
     arrowstyle=:simple,
     flow_linewidth=3,
     discriminant_linewidth=4,

@@ -159,7 +159,7 @@ function generate_plot(
     root_count_condition::Union{Function, Nothing} = nothing,
     annotate_root_counts::Union{Bool, Nothing} = nothing,
     annotation_formatter::Function = (count, pt, index) -> string(count),
-    annotation_textsize::Integer = 8,
+    annotation_textsize::Integer = 6,
     annotation_offset = (0.0, 0.0),
     annotation_color = :black,
     arrowstyle = :closed,
