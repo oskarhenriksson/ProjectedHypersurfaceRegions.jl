@@ -2,7 +2,7 @@ using Pkg
 Pkg.activate(joinpath(@__DIR__, ".."))
 Pkg.instantiate()
 
-using Test, Random, ProjectedHypersurfaceRegions, LinearAlgebra
+using Test, Random, ProjectedHypersurfaceRegions, LinearAlgebra, Logging
 
 
 
@@ -243,8 +243,13 @@ end;
     Random.seed!(1234)
     @var a b x
     F = System([(x - a) * (x - b); 2 * x - (a + b)], variables=[a, b, x])
-    @test_logs match_mode = :any (:warn, r"(Irreducible component of higher multiplicity detected in the incidence variety\.|None of the provided solutions is a valid start solution \(Newton's method did not converge\)\.)") begin
+    PseudoWitnessSet(F, 2) 
+    Logging.with_logger(Test.TestLogger(; min_level=Logging.Debug)) do
+        logger = Logging.current_logger()
         PseudoWitnessSet(F, 2)
+        @test any(r -> r.level == Logging.Warn &&
+                       contains(r.message, "Irreducible component of higher multiplicity detected in the incidence variety."),
+                  logger.logs)
     end
 end
 
