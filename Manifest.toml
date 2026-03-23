@@ -1,8 +1,8 @@
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.12.4"
+julia_version = "1.12.5"
 manifest_format = "2.0"
-project_hash = "1b9bd339af92648de45dc519dccf96ec0bad77a4"
+project_hash = "3c24b15dfd60703764182f9bac0108f6b30c2513"
 
 [[deps.ADTypes]]
 git-tree-sha1 = "8be2ae325471fc20b11c27bb34b518541d07dd3a"
@@ -2024,7 +2024,7 @@ uuid = "92933f4c-e287-5a05-a399-4b506db050ca"
 version = "1.11.0"
 
 [[deps.ProjectedHypersurfaceRegions]]
-deps = ["DifferentialEquations", "HomotopyContinuation", "ImplicitPlots", "LightGraphs", "LinearAlgebra", "Plots", "ProgressMeter"]
+deps = ["DifferentialEquations", "HomotopyContinuation", "ImplicitPlots", "LightGraphs", "LinearAlgebra", "Plots", "ProgressMeter", "Reexport"]
 path = "."
 uuid = "ac67312b-5207-45cb-9b9f-8631313b0b45"
 version = "0.1.0"

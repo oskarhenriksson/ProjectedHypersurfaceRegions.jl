@@ -26,6 +26,7 @@ function critical_points(
 
     ∇r = RoutingGradient(r)
 
+
     # Step 1: Setup monodromy solver
     MS, H, S0, rhs0, k = _setup_monodromy_solver(
         ∇r, S0, rhs0;
@@ -33,7 +34,7 @@ function critical_points(
         options = options,
     )
 
-    # Step 2: Expand start solutions via gradient flow
+    # Step 2: Expand start solutions via Newton's method and gradient flow
     S0, new_pts = _expand_start_solutions(
         ∇r, H, S0, rhs0, k;
         verbose = verbose,
@@ -50,7 +51,6 @@ function critical_points(
         start_grid_width = start_grid_width,
     )
 end
-
 
 """
     _setup_monodromy_solver(∇r, S0, rhs0; monodromy_at_zero, options)
@@ -130,34 +130,78 @@ function _expand_start_solutions(
     monodromy_at_zero = false,
 )
     new_pts = Vector{ComplexF64}[]
-    
+    # Setting up grid
     if start_grid_width <= 0
         return S0, new_pts
     end
 
-    g(x, param, t) = real(evaluate(∇r, x))
-    tspan = (0.0, 1e4)
-
     if isnothing(start_grid_center)
         start_grid_center = zeros(k)
     end
-
-    verbose && println("Expanding the set of start solutions via gradient flow...")
 
     w = (start_grid_width / 2)
     grid = [
         (start_grid_center[i]-w):start_grid_stepsize:(start_grid_center[i]+w) for
         i = 1:k
     ]
-    success_count = 0
+    newton_w = 10*w
+    newton_grid = [
+        (start_grid_center[i]-newton_w):start_grid_stepsize:(start_grid_center[i]+newton_w) for
+        i = 1:k
+    ]
+
+    # First we try to find start solutions via blindly applying Newton's method to ∇r=0.
+    verbose && println("Expanding start solutions via Newton's method...")
+    newton_success_count = 0
+    start_pt = zeros(ComplexF64, k)
+    ProgressMeter.@showprogress for start_point in Iterators.product(newton_grid...)
+            start_pt .= start_point # this avoids allocations from splatting the tuple into the newton function
+            # Newton's method on each initial guess
+            try
+                pt = newton(∇r, start_pt, rhs0; max_iters = 200) |> solution
+                if norm(evaluate(∇r, pt, rhs0)) < 1e-10
+                    newton_success_count += 1
+                    push!(new_pts, pt)
+                end
+            catch e
+                continue
+            end
+
+    end
+
+    num_newton_pts = 0
+    if length(new_pts) > 0
+        new_pts = HC.unique_points(new_pts)
+        num_newton_pts += length(new_pts)
+    end
+
+    # since the points obtained via Newton's method are already solutions to ∇r=rhs0, we can directly add them to S0 if monodromy_at_zero is false
+    if !monodromy_at_zero
+        S0 = HC.unique_points([S0; new_pts])
+        # to avoid redundant work later, we remove the points found via Newton's method from new_pts so that we aren't tracing them using monodromy
+        empty!(new_pts)
+    end
+
+    verbose && println("Successful Newton's method attempts: $(newton_success_count) out of $(length(newton_grid[1])^k) ($(round(newton_success_count / (length(newton_grid[1])^k) * 100, digits=2))%)")
+    verbose && println("Found $num_newton_pts solutions to ∇r(z)=rhs0.")
+    
+    # Now we try gradient flow
+    g(x, param, t) = real(evaluate(∇r, x))
+    tspan = (0.0, 1e4)
+    
+    verbose && println("Expanding the set of start solutions via gradient flow...")
+
+    gradient_success_count = 0
+    start_pt = zeros(k)
     ProgressMeter.@showprogress for start_point in Iterators.product(grid...)
         try
-            prob = ODEProblem(g, collect(start_point), tspan)
+            start_pt .= start_point # this avoids allocations from splatting the tuple into the ODEProblem
+            prob = ODEProblem(g, start_pt, tspan)
             sol = DE.solve(prob, reltol = 1e-6, abstol = 1e-6)
             convergence_point = last(sol.u)
             improved_point = newton(∇r, convergence_point) |> solution
             push!(new_pts, improved_point)
-            success_count += 1                
+            gradient_success_count += 1                
         catch e
             continue
         end
@@ -165,9 +209,9 @@ function _expand_start_solutions(
     if length(new_pts) > 0
         new_pts = HC.unique_points(new_pts)
     end
-    verbose && println("Successful gradient flow attempts: $(success_count) out of $(length(grid[1])^k) ($(round(success_count / (length(grid[1])^k) * 100, digits=2))%)")
+    verbose && println("Successful gradient flow attempts: $(gradient_success_count) out of $(length(grid[1])^k) ($(round(gradient_success_count / (length(grid[1])^k) * 100, digits=2))%)")
     verbose && println("Found $(length(new_pts)) routing points via gradient flow.")
-    
+
     if !monodromy_at_zero
         start_parameters!(H, zeros(ComplexF64, length(rhs0)))
         target_parameters!(H, rhs0)
