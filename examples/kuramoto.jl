@@ -30,7 +30,6 @@ println("Degree of discriminant: $d")
 C = [0.4723952824712583, 0.4334474432194565]
 write_parameters("./results/kuramoto/center.txt", C)
 r = RoutingFunction(h; c=C)
-∇r = RoutingGradient(r)
 
 # Critical points
 # pts = read_solutions("./results/kuramoto/routing_points.txt") |> real
@@ -83,8 +82,9 @@ function analyze_and_save_result()
     generate_plot(r, pts, G, idx;
         h=h_symbolic,
         root_counting_system=root_counting_system,
-        markersize=5,
-        annotation_textsize=4,
+        markersize=6,
+        annotation_textsize=5,
+        contour_stepsize = 0.005,
         xlims=(-M_x, M_x),
         ylims=(-M_y, M_y),
     )

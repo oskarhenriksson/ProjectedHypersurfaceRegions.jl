@@ -1,4 +1,3 @@
-
 using Random, Plots, ProjectedHypersurfaceRegions
 mkpath("./results/cubic_two_parameters");
 
@@ -46,18 +45,18 @@ M_x = maximum(p -> abs(p[1]), pts) + 6
 M_y = maximum(p -> abs(p[2]), pts) + 6
 generate_plot(r, pts, G, idx;
     h = (x,y) -> 4 * x^3 - x^2 * y^2 - 18 * x * y + 4 * y^3 + 27,
-    markersize=7,
-    annotation_textsize=6,
+    markersize=6,
+    annotation_textsize=5,
     arrowstyle=:simple,
-    flow_linewidth=3,
-    discriminant_linewidth=4,
-    legend=:bottomright,
-    root_counting_system=System([x^3 + a * x^2 + b * x + 1], variables=[x], parameters=[a; b]),
+    flow_linewidth=0,
+    discriminant_linewidth=0,
+    legend=false,
+    #root_counting_system=System([x^3 + a * x^2 + b * x + 1], variables=[x], parameters=[a; b]),
     contour_stepsize=0.1,
     xlims=(-M_x, M_x),
     ylims=(-M_y, M_y),
 )
 
 savefig("./figures/cubic.pdf")
-savefig("./figures/cubic.svg")
+savefig("./figures/cubic_no_flow.svg")
 savefig("./figures/cubic.png")

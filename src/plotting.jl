@@ -211,6 +211,9 @@ function generate_plot(
         end
     end
 
+    Δx = xlims[2] - xlims[1]
+    Δy = ylims[2] - ylims[1]
+
     contour_function = _contour_function(r; h = h, RR = RR)
     pl = if plot_contour
         contour(
@@ -222,6 +225,7 @@ function generate_plot(
             clabels = false,
             cbar = false,
             lw = contour_linewidth,
+            size = (600, 600*(Δy/Δx)),
         )
     else
         plot()

@@ -49,7 +49,7 @@ generate_plot(r, pts, G, idx;
     arrowstyle=:simple,
     flow_linewidth=3,
     discriminant_linewidth=4,
-    root_counting_system=System([x^2 + a * x + b], variables=[x], parameters=[a; b]),
+    #root_counting_system=System([x^2 + a * x + b], variables=[x], parameters=[a; b]),
     legend=:bottomright,
     contour_stepsize=0.1,
     xlims=(-M_x, M_x),
