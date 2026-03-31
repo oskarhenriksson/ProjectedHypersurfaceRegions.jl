@@ -5,7 +5,7 @@ This repository contains code for the project _Computing complements of real hyp
 
 ## Installation
 
-**Once the package is published**, you will be able to install the package directly from the github repository as follows:
+You can install the package directly from the github repository as follows:
 
 ```julia-repl
 julia> using Pkg
