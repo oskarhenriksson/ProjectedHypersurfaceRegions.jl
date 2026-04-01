@@ -72,12 +72,18 @@ end
 witness_points(PWS::PseudoWitnessSet) = [w[1:end-1] for w in PWS.Wt]
 
 function track!(u::Vector, PWS::PseudoWitnessSet, p)
+    "u vector of complex intersection points 
+    PWS pseudowitness set
+    p target point for homotopy"
     tracker = PWS.tracker
     target_parameters!(tracker, p)
     for (l, w) in enumerate(PWS.Wt)
             HC.track!(tracker, w, 1)
             u[l] .= tracker.tracker.state.x
-            PWS.track_report[l] = all(isfinite, u[l]) # note if the track was successful or not
+            PWS.track_report[l] = all(isfinite, u[l]) # note if the track was successful or not(NaN or Inf)
+            if !(PWS.track_report[l])
+                @warn "Track Failure"
+            end
     end
 
     nothing
