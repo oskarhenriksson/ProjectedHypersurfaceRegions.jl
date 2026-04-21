@@ -84,7 +84,20 @@ function PseudoWitnessSet(
     )
 end
 
-witness_points(PWS::PseudoWitnessSet) = [w[1:end-1] for w in PWS.Wt]
+function witness_points(PWS::PseudoWitnessSet)
+    k = n_projection_variables(PWS)
+    p = PWS.L.p
+    b = PWS.L.b
+    map(PWS.Wt) do tw
+        t = tw[1]
+        w = tw[2:end]
+        v = similar(p, ComplexF64, k)
+        @inbounds for i = 1:k
+            v[i] = p[i] + t * b[i]
+        end
+        ComplexF64[v; w]
+    end
+end
 
 function track!(u::Vector{Vector{ComplexF64}}, PWS::PseudoWitnessSet, p::AbstractVector)
     tracker = PWS.tracker

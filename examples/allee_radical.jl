@@ -45,7 +45,7 @@ sort(log.(norm.(F.(witness_points(h_sq.PWS))))) |> plot
 tol = 1e-6
 
 # Filter out the relevant solutions and build a new routing function
-filter = findall(pt->norm(F(pt[1:end-1]))<tol, h_sq.PWS.Wt)
+filter = findall(pt->norm(F(pt))<tol, witness_points(h_sq.PWS))
 PWS_new = PseudoWitnessSet(
     PWS_sq.F, 
     PWS_sq.k, 
