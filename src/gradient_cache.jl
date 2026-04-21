@@ -90,7 +90,7 @@ function _store_track_state!(cache, p, u, track_report, S, Uvals)
     for i = 1:length(entries)
         if _same_parameters(entries[i].p, p)
             entries[i] = TrackStateCacheEntry(
-                copy(p),
+                ComplexF64.(p),
                 [copy(ui) for ui in u],
                 copy(track_report),
                 copy(S),
@@ -101,7 +101,13 @@ function _store_track_state!(cache, p, u, track_report, S, Uvals)
     end
     push!(
         entries,
-        TrackStateCacheEntry(copy(p), [copy(ui) for ui in u], copy(track_report), copy(S), copy(Uvals)),
+        TrackStateCacheEntry(
+            ComplexF64.(p),
+            [copy(ui) for ui in u],
+            copy(track_report),
+            copy(S),
+            copy(Uvals),
+        ),
     )
     nothing
 end
