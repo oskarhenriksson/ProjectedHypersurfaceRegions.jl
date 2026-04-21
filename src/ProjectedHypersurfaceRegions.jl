@@ -1,6 +1,5 @@
 module ProjectedHypersurfaceRegions
 using HomotopyContinuation, LinearAlgebra, OrdinaryDiffEq, SciMLBase, LightGraphs, ProgressMeter
-# Reuse the same LRU-style caching pattern as HomotopyContinuation for repeated parameter queries.
 using LRUCache: LRU
 
 const HC = HomotopyContinuation
