@@ -30,6 +30,9 @@ mutable struct GradientCache{T}
     JPF_temp::Matrix{T}
     JBF_temp::Matrix{T}
     Jtu_temp::Matrix{T} # Temporary storage for evaluating JsuF
+    JsuF_lu::Array{T,3}
+    JsuF_ipiv::Matrix{LinearAlgebra.LAPACK.BlasInt}
+    JsuF_lu_success::Vector{Bool}
     HF_temp::Array{T, 3} # Temporary storage for evaluating HF
     JxB_temp::Array{T, 3} # Temporary storage for evaluating JxB
     JxP_temp::Array{T, 3} # Temporary storage for evaluating JxP
@@ -135,6 +138,9 @@ function GradientCache(PWS)
     JPF_temp = zeros(ComplexF64, N, k)
     JBF_temp = zeros(ComplexF64, k, N)
     Jtu_temp = zeros(ComplexF64, N, 1+n-k) # TODO: Maybe can reuse Jsu_temp....
+    JsuF_lu = zeros(ComplexF64, d, N, N)
+    JsuF_ipiv = Matrix{LinearAlgebra.LAPACK.BlasInt}(undef, d, N)
+    JsuF_lu_success = zeros(Bool, d)
     HF_temp = zeros(ComplexF64, N, N, N)
     JxB_temp = zeros(ComplexF64, N, N, k)
     JxP_temp = zeros(ComplexF64, N, N, k)
@@ -187,6 +193,9 @@ function GradientCache(PWS)
                     JPF_temp, 
                     JBF_temp, 
                     Jtu_temp, 
+                    JsuF_lu,
+                    JsuF_ipiv,
+                    JsuF_lu_success,
                     HF_temp, 
                     JxB_temp, 
                     JxP_temp, 

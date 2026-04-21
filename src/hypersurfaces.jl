@@ -240,6 +240,9 @@ function gradient_and_hessian!(u, U, h::ProjectedHypersurface{TC}, x, p = nothin
     JPB = GC.JPB
 
     # preallocate small temporaries to avoid allocating SubArray views inside inner loop
+    JsuF_lu = GC.JsuF_lu
+    JsuF_ipiv = GC.JsuF_ipiv
+    JsuF_lu_success = GC.JsuF_lu_success
     temp_Hi = GC.temp_Hi
     temp_Jxpi = GC.temp_Jxpi
     temp_Jxbi = GC.temp_Jxbi
@@ -293,6 +296,13 @@ function gradient_and_hessian!(u, U, h::ProjectedHypersurface{TC}, x, p = nothin
         rhs1 .*= -1
         # In-place linear solving with pre-allocated pivot vector
         _, ipiv, info = LinearAlgebra.LAPACK.getrf!(JsuF_temp, GC.ipiv)
+        JsuF_lu_success[i] = (info == 0)
+        @inbounds for row = 1:N, col = 1:N
+            JsuF_lu[i, row, col] = JsuF_temp[row, col]
+        end
+        @inbounds for jj = 1:N
+            JsuF_ipiv[i, jj] = ipiv[jj]
+        end
         if info == 0  # this indicates successful factorization
             LinearAlgebra.LAPACK.getrs!('N', JsuF_temp, ipiv, rhs1)
         else
@@ -323,7 +333,6 @@ function gradient_and_hessian!(u, U, h::ProjectedHypersurface{TC}, x, p = nothin
         HF_nrows, HF_ncols = N, N
         _evaluate_fused_tensor!(HF_temp, HF_vals, HF, v0, N, HF_nrows, HF_ncols)
 
-        # Evaluate JxB using evaluate! with indexed loops
         JxB_temp = GC.JxB_temp
         JxB_nrows, JxB_ncols = N, k
         _evaluate_fused_tensor!(JxB_temp, JxB_vals, JxB, v0, N, JxB_nrows, JxB_ncols)
@@ -336,10 +345,9 @@ function gradient_and_hessian!(u, U, h::ProjectedHypersurface{TC}, x, p = nothin
         JPB_nrows, JPB_ncols = k, k
         _evaluate_fused_tensor!(JPB_temp, JPB_vals, JPB, v0, N, JPB_nrows, JPB_ncols)
 
+        _fill_M1_M2!(M1, M2, SP, SB, UP, UB, j)
 
         for i = 1:N
-
-            _fill_M1_M2!(M1, M2, SP, SB, UP, UB, j)
 
             # copy slices into temporaries (avoids allocating SubArray objects)
             @inbounds for r = 1:HF_nrows, c = 1:HF_ncols
@@ -382,20 +390,21 @@ function gradient_and_hessian!(u, U, h::ProjectedHypersurface{TC}, x, p = nothin
     for j = 1:length(S)
         
         !PWS.track_report[j] && continue # skip if j-th track failed
-
-        _fill_v0!(v0, S, Uvals, x, j)
+        !JsuF_lu_success[j] && continue
 
 
         Jtu = GC.Jtu_temp
-        _evaluate_fused_columns!(Jtu, JsuF_vals, JsuF, v0, N, N)
-        _, ipiv, info = LinearAlgebra.LAPACK.getrf!(Jtu, GC.ipiv)
+        @inbounds for row = 1:N, col = 1:N
+            Jtu[row, col] = JsuF_lu[j, row, col]
+        end
+        @inbounds for jj = 1:N
+            GC.ipiv[jj] = JsuF_ipiv[j, jj]
+        end
         for a = 1:k, b = 1:k
             for i = 1:N
                 rhs2[i] = A[j, i, a, b]
             end
-            if info == 0  # this indicates successful factorization
-                LinearAlgebra.LAPACK.getrs!('N', Jtu, ipiv, rhs2)
-            end
+            LinearAlgebra.LAPACK.getrs!('N', Jtu, GC.ipiv, rhs2)
             M[a, b] += rhs2[1]
         end
     end
