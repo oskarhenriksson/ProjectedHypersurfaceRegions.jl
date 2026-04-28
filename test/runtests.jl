@@ -310,14 +310,11 @@ end
     F = System([z-x^2, y], variables = [x,y, z])
     h = ProjectedHypersurface(F, [y, z])
 
-    @test degree(h)==1
-    @test length(h.PWS.Wt) == 2
-
+    @test degree(h)==1 # the downstairs degree should be 1
+    @test length(h.PWS.Wt) == 1 # we should only keep one witness point upstairs
 
     # h(y,z) = y (up to a constant)
-
     # gradient(h, [y, z]) = [1/y, 0]
-    gradient(h, [2, 3]) 
-
+    @test gradient(h, [2, 3]) - [1/2, 0] |> norm < 1e-6
 
 end
