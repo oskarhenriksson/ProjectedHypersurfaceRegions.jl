@@ -16,6 +16,7 @@ struct PseudoWitnessSet{TF<:System,T<:Number,TT}
     F::TF
     k::Int
     L::Line{T}
+    generic_witness_set::WitnessSet # WitnessSet for the upsrairs variety
     W::Vector{Vector{ComplexF64}} # Unprojected witness points
     πW::Vector{Vector{ComplexF64}} # Projections of the upstairs witness points (without duplicates)
     tZ::Vector{Vector{ComplexF64}} # Restricted coordinates of the witness points used for tracking (one per fiber)
@@ -49,44 +50,73 @@ function PseudoWitnessSet(
     start_system::Symbol = :total_degree,
     compile::Union{Bool,Symbol} = :mixed 
 )
- 
-    if isnothing(L)
-        L = Line(randn(ComplexF64, k), randn(ComplexF64, k))
-    end
+
+    n = size(F, 2)
+    L_generic = rand_subspace(size(F, 2); codim = k - 1)
+    generic_witness_result = HC.solve(F, target_subspace = L_generic, start_system)
+    generic_witness_set = WitnessSet(CompiledSystem(F), L_generic, solutions(generic_witness_result))
     
-    # Restrict the ambient system to F([p + t * L.direction; w]) with p as the parameter.
-    F_L = RestrictionToLineSystem(F, L.direction, k; compile = compile)
-
-    # Intersect with random linear subspace
-    # we want to use G = [F.expressions; p + t .* L.direction - v[1:k]] instead of F_L to be able to use polyhedral/total_degree
-    v = variables(F)
-    p = F_L.parameters
-    t = F_L.t
-    G = System([F.expressions; p + t .* L.direction - v[1:k]], variables = [t; v], parameters = p)
-
-    # Trace the nonsingular solutions
-    E = HC.solve(G; start_system = start_system,
-                    target_parameters = L.point)
-
-     # Check for singular solutions
-    if nsingular(E) > 0
+    # Check for singular solutions
+    if nsingular(generic_witness_result) > 0
         @warn "Irreducible component of higher multiplicity detected in the incidence variety."
     end
 
-    # Repopulate the solution set via monodromy (safetey feature if solutions were lost)
-    # TODO: Make a trace test here?
-    M = monodromy_solve(G, solutions(E), L.point)
-    n = length(v)
+    # Intersect with lifting of a random linear subspace downstairs
+    if isnothing(L)
+        L = Line(randn(ComplexF64, k), randn(ComplexF64, k))
+    end
 
-    tW = solutions(M)
+    # Track the generic witness points to the pseudo-witness points
+    lifted_linear_subspace = LinearSubspace(hcat(L.linear_subspace.extrinsic.A, zeros(k-1, n-k)), L.linear_subspace.extrinsic.b)
+    E = HC.solve(F, solutions(generic_witness_result), start_subspace = L_generic, target_subspace = lifted_linear_subspace)
+    
+    # Check for singular solutions again
+    if nsingular(E) > 0
+        @warn "Singular points in the pseudo-witness set dectected."
+    end
+
+    # Unprojected pseudo-witness points
+    W = solutions(E)
+
+    # Compute the t coordinates (so that w = [L.point + t * L.direction; w[k+1:end]] for each w in W)
+    idx = argmax(abs.(L.direction))
+    tW = map(W) do w
+        p = w[1:k]
+        t = (p - L.point)[idx] / L.direction[idx]
+        [t; w]
+    end
+
+    # Restrict the ambient system to F([p + t * L.direction; w]) with p as the parameter.
+    F_L = RestrictionToLineSystem(F, L.direction, k; compile = compile)
+
+    # # Note: we want to use G = [F.expressions; p + t .* L.direction - v[1:k]] instead of F_L to be able to use polyhedral/total_degree
+    # v = variables(F)
+    # p = F_L.parameters
+    # t = F_L.t
+    # G = System([F.expressions; p + t .* L.direction - v[1:k]], variables = [t; v], parameters = p)
+
+    # # Trace the nonsingular solutions
+    # E = HC.solve(G; start_system = start_system,
+    #                 target_parameters = L.point)
+
+    #  # Check for singular solutions
+    # if nsingular(E) > 0
+    #     @warn "Irreducible component of higher multiplicity detected in the incidence variety."
+    # end
+
+    # # Repopulate the solution set via monodromy (safetey feature if solutions were lost)
+    # M = monodromy_solve(G, solutions(E), L.point)
+    # n = length(v)
+
+    # tW = solutions(M)
+
+    # # The full set of unprojected witness points
+    # W = [tw[2:end] for tw in tW]
 
     # Raise exception if we didn't find any witness points
     if length(tW) == 0
         error("No witness points found.")
     end
-
-    # The full set of unprojected witness points
-    W = [tw[2:end] for tw in tW]
 
     # Form πW (the projections of the upstairs witness points without dublicates)
     # For each unique downstairs point, keep one fiber representative in in tZ
@@ -103,13 +133,14 @@ function PseudoWitnessSet(
 
     # Set up tracker 
     tracker = Tracker(ParameterHomotopy(F_L, L.point, L.point))
-    track_report = zeros(Bool, length(solutions(M))) # for keeping track of which paths are successful
+    track_report = zeros(Bool, length(solutions(tZ))) # for keeping track of which paths are successful
 
     # Return the pseudo-witness set
     PseudoWitnessSet{typeof(F),ComplexF64,typeof(EndgameTracker(tracker))}(
         F,
         k,
         L,
+        generic_witness_set,
         W,
         πW,
         tZ,
