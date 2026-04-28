@@ -1,8 +1,8 @@
-export PseudoWitnessSet, degree, total_dim, system, witness_points
+export PseudoWitnessSet, degree, total_dim, system
 struct Line{T<:Number}
     point::Vector{T}
-    direction::Vector{T},
-    linear_subspace::LinearSubspace,
+    direction::Vector{T}
+    linear_subspace::LinearSubspace
 end
 
 function Line(point::Vector{T}, direction::Vector{T}) where T<:Number
@@ -16,11 +16,13 @@ struct PseudoWitnessSet{TF<:System,T<:Number,TT}
     F::TF
     k::Int
     L::Line{T}
-    tW::Vector{Vector{ComplexF64}}
+    W::WitnessSet # WitnessSet for the upstairs variety
+    πW::Vector{Vector{ComplexF64}} # Projections of the upstairs witness points (without duplicates)
+    tZ::Vector{Vector{ComplexF64}} # Restricted coordinates of the witness points used for tracking (one per fiber)
     tracker::TT
     track_report::Vector{Bool}
 end
-degree(PWS::PseudoWitnessSet) = length(PWS.tW)
+degree(PWS::PseudoWitnessSet) = length(PWS.πW)
 total_dim(PWS::PseudoWitnessSet) = size(PWS.F, 2)
 n_projection_variables(PWS::PseudoWitnessSet) = PWS.k
 system(PWS::PseudoWitnessSet) = PWS.F
@@ -62,9 +64,9 @@ function PseudoWitnessSet(
     t = F_L.t
     G = System([F.expressions; p + t .* L.direction - v[1:k]], variables = [t; v], parameters = p)
 
-    # Trace the nonsingular solutions 
+    # Trace the nonsingular solutions
     E = HC.solve(G; start_system = start_system,
-                    target_parameters = L.p)
+                    target_parameters = L.point)
 
      # Check for singular solutions
     if nsingular(E) > 0
@@ -75,43 +77,52 @@ function PseudoWitnessSet(
     # TODO: Make a trace test here?
     M = monodromy_solve(G, solutions(E), L.point)
     n = length(v)
-    # Keep only the restricted coordinates [t; w] used by the restricted tracker.
-    tW = map(s -> ComplexF64[s[1]; s[(k+2):end]], solutions(M))
+
+    tW = solutions(M)
+
+    # Raise exception if we didn't find any witness points
+    if length(tW) == 0
+        error("No witness points found.")
+    end
+
+    # Witness set for the upstairs variety
+    W = WitnessSet(CompiledSystem(F), L.linear_subspace, [tw[2:end] for tw in tW])
+
+    # Form πW (the projections of the upstairs witness points without dublicates)
+    # For each unique downstairs point, keep one fiber representative in in tZ
+    unique_points = UniquePoints(first(tW)[2:k+1], 1)
+    πW = Vector{Vector{ComplexF64}}()
+    tZ = Vector{Vector{ComplexF64}}()
+    for (i, tw) in enumerate(tW)
+        _, new_point = add!(unique_points, tw[2:k+1], i)
+        if new_point
+            push!(πW, tw[2:k+1])
+            push!(tZ, [tw[1]; tw[k+2:end]])
+        end
+    end
 
     # Set up tracker 
     tracker = Tracker(ParameterHomotopy(F_L, L.point, L.point))
     track_report = zeros(Bool, length(solutions(M))) # for keeping track of which paths are successful
 
+    # Return the pseudo-witness set
     PseudoWitnessSet{typeof(F),ComplexF64,typeof(EndgameTracker(tracker))}(
         F,
         k,
         L,
-        tW,
+        W,
+        πW,
+        tZ,
         EndgameTracker(tracker),
         track_report,
     )
-end
-
-function witness_points(PWS::PseudoWitnessSet)
-    k = n_projection_variables(PWS)
-    p = PWS.L.p
-    b = PWS.L.b
-    map(PWS.tW) do tw
-        t = tw[1]
-        w = tw[2:end]
-        v = similar(p, ComplexF64, k)
-        @inbounds for i = 1:k
-            v[i] = p[i] + t * b[i]
-        end
-        ComplexF64[v; w]
-    end
 end
 
 function track!(u::Vector{Vector{ComplexF64}}, PWS::PseudoWitnessSet, p::AbstractVector)
     tracker = PWS.tracker
     target_parameters!(tracker, p)
     # Update one tracker instance in place for each target parameter.
-    for (l, w) in enumerate(PWS.tW)
+    for (l, w) in enumerate(PWS.tZ)
             HC.track!(tracker, w, 1)
             copyto!(u[l], tracker.tracker.state.x)
             PWS.track_report[l] = all(isfinite, u[l]) # note if the track was successful or not
