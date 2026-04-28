@@ -1,7 +1,15 @@
 export PseudoWitnessSet, degree, total_dim, system, witness_points
 struct Line{T<:Number}
-    p::Vector{T}
-    b::Vector{T}
+    point::Vector{T}
+    direction::Vector{T},
+    linear_subspace::LinearSubspace,
+end
+
+function Line(point::Vector{T}, direction::Vector{T}) where T<:Number
+    A = transpose(direction) |> nullspace |> transpose
+    b = A * point
+    L = LinearSubspace(A, b)
+    Line(point, direction, L)
 end
 
 struct PseudoWitnessSet{TF<:System,T<:Number,TT}
@@ -44,15 +52,15 @@ function PseudoWitnessSet(
         L = Line(randn(ComplexF64, k), randn(ComplexF64, k))
     end
     
-    # Restrict the ambient system to F([p + t * L.b; w]) with p as the parameter.
-    F_L = RestrictionToLineSystem(F, L.b, k; compile = compile)
+    # Restrict the ambient system to F([p + t * L.direction; w]) with p as the parameter.
+    F_L = RestrictionToLineSystem(F, L.direction, k; compile = compile)
 
     # Intersect with random linear subspace
-    # we want to use G = [F.expressions; p + t .* L.b - v[1:k]] instead of F_L to be able to use polyhedral/total_degree
+    # we want to use G = [F.expressions; p + t .* L.direction - v[1:k]] instead of F_L to be able to use polyhedral/total_degree
     v = variables(F)
     p = F_L.parameters
     t = F_L.t
-    G = System([F.expressions; p + t .* L.b - v[1:k]], variables = [t; v], parameters = p)
+    G = System([F.expressions; p + t .* L.direction - v[1:k]], variables = [t; v], parameters = p)
 
     # Trace the nonsingular solutions 
     E = HC.solve(G; start_system = start_system,
@@ -64,14 +72,14 @@ function PseudoWitnessSet(
     end
 
     # Repopulate the solution set via monodromy (safetey feature if solutions were lost)
-    M = monodromy_solve(G, solutions(E), L.p)
+    # TODO: Make a trace test here?
+    M = monodromy_solve(G, solutions(E), L.point)
     n = length(v)
     # Keep only the restricted coordinates [t; w] used by the restricted tracker.
     tW = map(s -> ComplexF64[s[1]; s[(k+2):end]], solutions(M))
 
     # Set up tracker 
-    
-    tracker = Tracker(ParameterHomotopy(F_L, L.p, L.p))
+    tracker = Tracker(ParameterHomotopy(F_L, L.point, L.point))
     track_report = zeros(Bool, length(solutions(M))) # for keeping track of which paths are successful
 
     PseudoWitnessSet{typeof(F),ComplexF64,typeof(EndgameTracker(tracker))}(

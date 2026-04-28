@@ -284,7 +284,7 @@ end
     # Test the evaluation formula
     pt = [1, 1]
     log_abs_h = p -> log(abs(p[1]^2 - 4*p[2]))
-    direction = h.PWS.L.b
+    direction = h.PWS.L.direction
     C = log(abs(direction[1]^2))
     @test h(pt) + C - log_abs_h(pt) |> abs < 1e-6
 
