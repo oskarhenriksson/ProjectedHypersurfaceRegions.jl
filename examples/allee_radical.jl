@@ -39,7 +39,7 @@ h_sq = ProjectedHypersurface(F_sq, [a, b])
 PWS_sq = h_sq.PWS
 
 # Check which witness points solve the original systems 
-sort(log.(norm.(F.(solutions(h_sq.PWS.W))))) |> plot
+sort(log.(norm.(F.(h_sq.PWS.W)))) |> plot
 
 # Pick a tolerance
 tol = 1e-6

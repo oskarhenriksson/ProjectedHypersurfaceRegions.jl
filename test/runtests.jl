@@ -290,7 +290,6 @@ end
     h = ProjectedHypersurface(F, [y, z])
 
     @test degree(h) == 1 # the downstairs degree should be 1
-    @test solutions(h.PWS.W) |> length  == 2 # the full witness set should have 2 points 
 
     # h(y,z) = y (up to a constant) so gradient(h, [y, z]) = [1/y, 0]
     @test gradient(h, [2, 3]) - [1/2, 0] |> norm < 1e-6

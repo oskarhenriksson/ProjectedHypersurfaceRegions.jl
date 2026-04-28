@@ -16,7 +16,7 @@ struct PseudoWitnessSet{TF<:System,T<:Number,TT}
     F::TF
     k::Int
     L::Line{T}
-    W::WitnessSet # WitnessSet for the upstairs variety
+    W::Vector{Vector{ComplexF64}} # Unprojected witness points
     πW::Vector{Vector{ComplexF64}} # Projections of the upstairs witness points (without duplicates)
     tZ::Vector{Vector{ComplexF64}} # Restricted coordinates of the witness points used for tracking (one per fiber)
     tracker::TT
@@ -85,8 +85,8 @@ function PseudoWitnessSet(
         error("No witness points found.")
     end
 
-    # Witness set for the upstairs variety
-    W = WitnessSet(CompiledSystem(F), L.linear_subspace, [tw[2:end] for tw in tW])
+    # The full set of unprojected witness points
+    W = [tw[2:end] for tw in tW]
 
     # Form πW (the projections of the upstairs witness points without dublicates)
     # For each unique downstairs point, keep one fiber representative in in tZ
