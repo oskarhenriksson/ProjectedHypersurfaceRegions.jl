@@ -1,18 +1,18 @@
 export PseudoWitnessSet, degree, total_dim, system, witness_points
-struct Line 
-    p::Vector
-    b::Vector 
+struct Line{T<:Number}
+    p::Vector{T}
+    b::Vector{T}
 end
 
-struct PseudoWitnessSet
-    F::System
+struct PseudoWitnessSet{TF<:System,T<:Number,TT}
+    F::TF
     k::Int
-    L::Line
-    Wt::Vector
-    tracker::EndgameTracker
+    L::Line{T}
+    tW::Vector{Vector{ComplexF64}}
+    tracker::TT
     track_report::Vector{Bool}
 end
-degree(PWS::PseudoWitnessSet) = length(PWS.Wt)
+degree(PWS::PseudoWitnessSet) = length(PWS.tW)
 total_dim(PWS::PseudoWitnessSet) = size(PWS.F, 2)
 n_projection_variables(PWS::PseudoWitnessSet) = PWS.k
 system(PWS::PseudoWitnessSet) = PWS.F
@@ -36,7 +36,7 @@ function PseudoWitnessSet(
     F::System,
     k::Int;
     L::Union{Line, Nothing} = nothing,
-    start_system::Symbol = :polyhedral,
+    start_system::Symbol = :total_degree,
     compile::Union{Bool,Symbol} = :mixed 
 )
  
@@ -44,13 +44,18 @@ function PseudoWitnessSet(
         L = Line(randn(ComplexF64, k), randn(ComplexF64, k))
     end
     
+    # Restrict the ambient system to F([p + t * L.b; w]) with p as the parameter.
+    F_L = RestrictionToLineSystem(F, L.b, k; compile = compile)
+
     # Intersect with random linear subspace
-    @unique_var t, p[1:k]
+    # we want to use G = [F.expressions; p + t .* L.b - v[1:k]] instead of F_L to be able to use polyhedral/total_degree
     v = variables(F)
-    F_L = System([F.expressions; p + t .* L.b - v[1:k]], variables = [v; t], parameters = p)
+    p = F_L.parameters
+    t = F_L.t
+    G = System([F.expressions; p + t .* L.b - v[1:k]], variables = [t; v], parameters = p)
 
     # Trace the nonsingular solutions 
-    E = HC.solve(F_L; start_system = start_system,
+    E = HC.solve(G; start_system = start_system,
                     target_parameters = L.p)
 
      # Check for singular solutions
@@ -59,24 +64,48 @@ function PseudoWitnessSet(
     end
 
     # Repopulate the solution set via monodromy (safetey feature if solutions were lost)
-    M = monodromy_solve(F_L, solutions(E), L.p)
-    Wt = solutions(M)
+    M = monodromy_solve(G, solutions(E), L.p)
+    n = length(v)
+    # Keep only the restricted coordinates [t; w] used by the restricted tracker.
+    tW = map(s -> ComplexF64[s[1]; s[(k+2):end]], solutions(M))
 
     # Set up tracker 
-    tracker = Tracker(ParameterHomotopy(fixed(F_L; compile = compile), L.p, L.p))
+    
+    tracker = Tracker(ParameterHomotopy(F_L, L.p, L.p))
     track_report = zeros(Bool, length(solutions(M))) # for keeping track of which paths are successful
 
-    PseudoWitnessSet(F, k, L, Wt, EndgameTracker(tracker), track_report)
+    PseudoWitnessSet{typeof(F),ComplexF64,typeof(EndgameTracker(tracker))}(
+        F,
+        k,
+        L,
+        tW,
+        EndgameTracker(tracker),
+        track_report,
+    )
 end
 
-witness_points(PWS::PseudoWitnessSet) = [w[1:end-1] for w in PWS.Wt]
+function witness_points(PWS::PseudoWitnessSet)
+    k = n_projection_variables(PWS)
+    p = PWS.L.p
+    b = PWS.L.b
+    map(PWS.tW) do tw
+        t = tw[1]
+        w = tw[2:end]
+        v = similar(p, ComplexF64, k)
+        @inbounds for i = 1:k
+            v[i] = p[i] + t * b[i]
+        end
+        ComplexF64[v; w]
+    end
+end
 
-function track!(u::Vector, PWS::PseudoWitnessSet, p)
+function track!(u::Vector{Vector{ComplexF64}}, PWS::PseudoWitnessSet, p::AbstractVector)
     tracker = PWS.tracker
     target_parameters!(tracker, p)
-    for (l, w) in enumerate(PWS.Wt)
+    # Update one tracker instance in place for each target parameter.
+    for (l, w) in enumerate(PWS.tW)
             HC.track!(tracker, w, 1)
-            u[l] .= tracker.tracker.state.x
+            copyto!(u[l], tracker.tracker.state.x)
             PWS.track_report[l] = all(isfinite, u[l]) # note if the track was successful or not
     end
 
@@ -92,15 +121,12 @@ function get_s_and_Uvals!(Uvals, S, GC, PWS)
         !PWS.track_report[j] && continue # skip if j-th track failed
         @assert all(!isnan, sol) "NaN entries in intersection points: $sol"
 
-        S[j] = 1 / sol[end] # We need S[j] = s = 1 / t, where t = sol[end]
+        S[j] = 1 / sol[1] # We need S[j] = s = 1 / t, where t = sol[1]
 
          for idx in 1:n-k
-            Uvals[idx, j] = sol[idx+k] 
+            Uvals[idx, j] = sol[idx+1] 
         end
     end
 
     nothing
 end
-
-
-

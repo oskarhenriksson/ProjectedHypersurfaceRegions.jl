@@ -88,6 +88,7 @@ function _setup_monodromy_solver(
         HomotopyContinuation.MonodromyLoop{P}[],
         unique_points,
         ReentrantLock(),
+        nothing,
         options,
         HomotopyContinuation.MonodromyStatistics(),
         trace,
@@ -196,7 +197,7 @@ function _expand_start_solutions(
     ProgressMeter.@showprogress for start_point in Iterators.product(grid...)
         try
             start_pt .= start_point # this avoids allocations from splatting the tuple into the ODEProblem
-            prob = ODEProblem(g, start_pt, tspan)
+            prob = SciMLBase.ODEProblem(g, start_pt, tspan)
             sol = DE.solve(prob, reltol = 1e-6, abstol = 1e-6)
             convergence_point = last(sol.u)
             improved_point = newton(∇r, convergence_point) |> solution

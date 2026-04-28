@@ -14,7 +14,7 @@ function RoutingFunction(
     H::Vector{<:ProjectedHypersurface};
     e::Union{Int,Nothing} = nothing,
     c::Union{Vector,Nothing} = nothing,
-    g::Union{Vector{Expression},Vector{Variable},Nothing} = nothing
+    g::Union{Vector{Expression},Vector{Variable},Nothing} = nothing,
 )
 
     projection_vars = H[1].projection_vars

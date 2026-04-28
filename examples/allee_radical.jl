@@ -45,12 +45,12 @@ sort(log.(norm.(F.(witness_points(h_sq.PWS))))) |> plot
 tol = 1e-6
 
 # Filter out the relevant solutions and build a new routing function
-filter = findall(pt->norm(F(pt[1:end-1]))<tol, h_sq.PWS.Wt)
+filter = findall(pt->norm(F(pt))<tol, witness_points(h_sq.PWS))
 PWS_new = PseudoWitnessSet(
     PWS_sq.F, 
     PWS_sq.k, 
     PWS_sq.L, 
-    PWS_sq.Wt[filter], 
+    PWS_sq.tW[filter], 
     PWS_sq.tracker,
     PWS_sq.track_report[filter]
 )
@@ -129,6 +129,7 @@ pl_radical_smaller = generate_plot(
     root_count_fn = allee_root_count_fn,
     annotate_root_counts = true, annotation_textsize = 4,
 )
+plot!(; size=(600,400))
 savefig("figures/allee_radical_zoomed_in.png")
 savefig("figures/allee_radical_zoomed_in.pdf")
 savefig("figures/allee_radical_zoomed_in.svg")
