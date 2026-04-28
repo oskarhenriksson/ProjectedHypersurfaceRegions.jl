@@ -216,9 +216,3 @@ function GradientCache(PWS)
                     Hess_temp
                 )
 end
-
-function track!(GC::GradientCache, PWS::PseudoWitnessSet, p)
-    track!(GC.line_hypersurface_intersections, PWS, p)
-    get_s_and_Uvals!(GC.Uvals, GC.S, GC, PWS)
-    nothing
-end

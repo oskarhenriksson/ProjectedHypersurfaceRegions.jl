@@ -1,101 +1,5 @@
 export ProjectedHypersurface, evaluate, gradient, hessian, degree
 
-# Helpers for the fused derivative systems in GradientCache. They unpack one flat evaluation
-# buffer into the matrix and tensor layouts used by the local linear algebra.
-@inline function _fill_v0!(v0, S, Uvals, x, idx)
-    v0[1] = S[idx]
-    @inbounds for ii = 1:size(Uvals, 1)
-        v0[1 + ii] = Uvals[ii, idx]
-    end
-    @inbounds for ii = 1:length(x)
-        v0[1 + size(Uvals, 1) + ii] = x[ii]
-    end
-    v0
-end
-
-@inline function _unpack_fused_columns!(dest, vals, nrows, ncols)
-    for col = 1:ncols
-        offset = (col - 1) * nrows
-        @inbounds for row = 1:nrows
-            dest[row, col] = vals[offset + row]
-        end
-    end
-    dest
-end
-
-@inline function _unpack_fused_tensor!(dest, vals, nout, nrows, ncols)
-    for col = 1:ncols
-        for row = 1:nrows
-            offset = ((col - 1) * nrows + (row - 1)) * nout
-            @inbounds for out = 1:nout
-                dest[out, row, col] = vals[offset + out]
-            end
-        end
-    end
-    dest
-end
-
-@inline function _evaluate_fused_columns!(dest, vals, F, x, nrows, ncols)
-    evaluate!(vals, F, x)
-    _unpack_fused_columns!(dest, vals, nrows, ncols)
-end
-
-@inline function _evaluate_fused_tensor!(dest, vals, F, x, nout, nrows, ncols)
-    evaluate!(vals, F, x)
-    _unpack_fused_tensor!(dest, vals, nout, nrows, ncols)
-end
-
-@inline function _fill_rhs1!(rhs1, JPF_temp, JBF_temp)
-    for col = 1:size(JPF_temp, 2)
-        @inbounds for row = 1:size(rhs1, 1)
-            rhs1[row, col] = JPF_temp[row, col]
-        end
-    end
-    for idx = 1:size(JBF_temp, 1)
-        col = size(JPF_temp, 2) + idx
-        @inbounds for row = 1:size(rhs1, 1)
-            rhs1[row, col] = JBF_temp[idx, row]
-        end
-    end
-    rhs1
-end
-
-@inline function _copy_rhs1_blocks!(SP, SB, UP, UB, rhs1, idx)
-    @inbounds @simd for jj = 1:size(SP, 2)
-        SP[idx, jj] = rhs1[1, jj]
-        SB[idx, jj] = rhs1[1, size(SP, 2) + jj]
-    end
-    @inbounds for ii = 1:size(rhs1, 1) - 1
-        for jj = 1:size(SP, 2)
-            UP[idx, ii, jj] = rhs1[1 + ii, jj]
-            UB[idx, ii, jj] = rhs1[1 + ii, size(SP, 2) + jj]
-        end
-    end
-    nothing
-end
-
-@inline function _fill_M1_M2!(M1, M2, SP, SB, UP, UB, idx)
-    k = size(SP, 2)
-    N = size(M2, 1)
-    for a = 1:k
-        M1[a, 1] = SP[idx, a]
-    end
-    for a = 1:k
-        for b = 2:N
-            M1[a, b] = UP[idx, b - 1, a]
-        end
-    end
-    for b = 1:k
-        M2[1, b] = SB[idx, b]
-    end
-    for b = 1:k
-        for a = 2:N
-            M2[a, b] = UB[idx, a - 1, b]
-        end
-    end
-    nothing
-end
-
 struct ProjectedHypersurface{TC} <: HC.AbstractSystem
     PWS::PseudoWitnessSet
     projection_vars::Vector{HC.Variable}
@@ -425,3 +329,101 @@ function gradient_and_hessian(h::ProjectedHypersurface{TC}, x, p = nothing) wher
 end
 
 hessian(h::ProjectedHypersurface{TC}, x, p = nothing) where {TC} = gradient_and_hessian(h, x, p)[2]
+
+
+
+# Helpers for the fused derivative systems in GradientCache. They unpack one flat evaluation
+# buffer into the matrix and tensor layouts used by the local linear algebra.
+@inline function _fill_v0!(v0, S, Uvals, x, idx)
+    v0[1] = S[idx]
+    @inbounds for ii = 1:size(Uvals, 1)
+        v0[1 + ii] = Uvals[ii, idx]
+    end
+    @inbounds for ii = 1:length(x)
+        v0[1 + size(Uvals, 1) + ii] = x[ii]
+    end
+    v0
+end
+
+@inline function _unpack_fused_columns!(dest, vals, nrows, ncols)
+    for col = 1:ncols
+        offset = (col - 1) * nrows
+        @inbounds for row = 1:nrows
+            dest[row, col] = vals[offset + row]
+        end
+    end
+    dest
+end
+
+@inline function _unpack_fused_tensor!(dest, vals, nout, nrows, ncols)
+    for col = 1:ncols
+        for row = 1:nrows
+            offset = ((col - 1) * nrows + (row - 1)) * nout
+            @inbounds for out = 1:nout
+                dest[out, row, col] = vals[offset + out]
+            end
+        end
+    end
+    dest
+end
+
+@inline function _evaluate_fused_columns!(dest, vals, F, x, nrows, ncols)
+    evaluate!(vals, F, x)
+    _unpack_fused_columns!(dest, vals, nrows, ncols)
+end
+
+@inline function _evaluate_fused_tensor!(dest, vals, F, x, nout, nrows, ncols)
+    evaluate!(vals, F, x)
+    _unpack_fused_tensor!(dest, vals, nout, nrows, ncols)
+end
+
+@inline function _fill_rhs1!(rhs1, JPF_temp, JBF_temp)
+    for col = 1:size(JPF_temp, 2)
+        @inbounds for row = 1:size(rhs1, 1)
+            rhs1[row, col] = JPF_temp[row, col]
+        end
+    end
+    for idx = 1:size(JBF_temp, 1)
+        col = size(JPF_temp, 2) + idx
+        @inbounds for row = 1:size(rhs1, 1)
+            rhs1[row, col] = JBF_temp[idx, row]
+        end
+    end
+    rhs1
+end
+
+@inline function _copy_rhs1_blocks!(SP, SB, UP, UB, rhs1, idx)
+    @inbounds @simd for jj = 1:size(SP, 2)
+        SP[idx, jj] = rhs1[1, jj]
+        SB[idx, jj] = rhs1[1, size(SP, 2) + jj]
+    end
+    @inbounds for ii = 1:size(rhs1, 1) - 1
+        for jj = 1:size(SP, 2)
+            UP[idx, ii, jj] = rhs1[1 + ii, jj]
+            UB[idx, ii, jj] = rhs1[1 + ii, size(SP, 2) + jj]
+        end
+    end
+    nothing
+end
+
+@inline function _fill_M1_M2!(M1, M2, SP, SB, UP, UB, idx)
+    k = size(SP, 2)
+    N = size(M2, 1)
+    for a = 1:k
+        M1[a, 1] = SP[idx, a]
+    end
+    for a = 1:k
+        for b = 2:N
+            M1[a, b] = UP[idx, b - 1, a]
+        end
+    end
+    for b = 1:k
+        M2[1, b] = SB[idx, b]
+    end
+    for b = 1:k
+        for a = 2:N
+            M2[a, b] = UB[idx, a - 1, b]
+        end
+    end
+    nothing
+end
