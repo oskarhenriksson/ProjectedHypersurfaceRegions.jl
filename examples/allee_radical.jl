@@ -39,18 +39,18 @@ h_sq = ProjectedHypersurface(F_sq, [a, b])
 PWS_sq = h_sq.PWS
 
 # Check which witness points solve the original systems 
-sort(log.(norm.(F.(witness_points(h_sq.PWS))))) |> plot
+sort(log.(norm.(F.(solutions(h_sq.PWS.W))))) |> plot
 
 # Pick a tolerance
 tol = 1e-6
 
 # Filter out the relevant solutions and build a new routing function
-filter = findall(pt->norm(F(pt))<tol, witness_points(h_sq.PWS))
+filter = findall(pt->norm(F(pt))<tol, solutions(h_sq.PWS.W))
 PWS_new = PseudoWitnessSet(
     PWS_sq.F, 
     PWS_sq.k, 
     PWS_sq.L, 
-    PWS_sq.tW[filter], 
+    PWS_sq.tz[filter], 
     PWS_sq.tracker,
     PWS_sq.track_report[filter]
 )
