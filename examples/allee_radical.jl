@@ -101,19 +101,6 @@ pts = [[0.055589798001425106, 0.20458114869092572]
 # Check that all points are critical
 ∇r.(pts)
 
-g(x, param, t) = real(evaluate(∇r, x))
-tspan = (0.0, 1e4)
-map(pts) do pt
-    start_pt .= pt
-    prob = SciMLBase.ODEProblem(g, start_pt, tspan)
-    sol = DE.solve(prob, reltol = 1e-6, abstol = 1e-6)
-    last(sol.u)
-end
-
-scatter!(Tuple.(improved_pts))
-
-
-
 G, idx, failed_info = partition_of_critical_points(r, pts)
 
 pl_radical_smaller = generate_plot(
