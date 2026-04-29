@@ -47,7 +47,8 @@ function PseudoWitnessSet(
     k::Int;
     L::Union{Line, Nothing} = nothing,
     start_system::Symbol = :total_degree,
-    compile::Union{Bool,Symbol} = :mixed 
+    compile::Union{Bool,Symbol} = :mixed,
+    filter_condition::Union{Function,Nothing} = nothing,
 )
  
     if isnothing(L)
@@ -80,12 +81,15 @@ function PseudoWitnessSet(
 
     tW = solutions(M)
 
+    if !isnothing(filter_condition)
+        tW = filter(tw -> filter_condition(tw[2:end]), tW)
+    end
+
     # Raise exception if we didn't find any witness points
     if length(tW) == 0
         error("No witness points found.")
     end
 
-    # The full set of unprojected witness points
     W = [tw[2:end] for tw in tW]
 
     # Form πW (the projections of the upstairs witness points without dublicates)
