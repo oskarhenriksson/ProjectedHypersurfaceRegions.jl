@@ -89,9 +89,36 @@ end
 
     # Test that the expansion of start solutions works
     ∇r = RoutingGradient(r)
-    MS, H, S0, rhs0, k = ProjectedHypersurfaceRegions._setup_monodromy_solver(∇r)
+    MS, H, S0_initial, rhs0, k = ProjectedHypersurfaceRegions._setup_monodromy_solver(∇r)
+    S0_skip, new_pts_skip = ProjectedHypersurfaceRegions._expand_start_solutions(
+        ∇r, H, S0_initial, rhs0, k;
+        start_grid_width = 10,
+        start_grid_stepsize = 1,
+        expand_start_solutions = false,
+    )
+    @test S0_skip == S0_initial
+    @test isempty(new_pts_skip)
+
+    S0_no_gradient, new_pts_no_gradient = ProjectedHypersurfaceRegions._expand_start_solutions(
+        ∇r, H, S0_initial, rhs0, k;
+        start_grid_width = 1,
+        start_grid_stepsize = 1,
+        expand_start_solutions_gradient_flow = false,
+    )
+    @test all(norm(∇r(z)-rhs0) < 1e-10 for z in S0_no_gradient)
+    @test isempty(new_pts_no_gradient)
+
+    S0_no_newton, new_pts_no_newton = ProjectedHypersurfaceRegions._expand_start_solutions(
+        ∇r, H, S0_initial, rhs0, k;
+        start_grid_width = 1,
+        start_grid_stepsize = 1,
+        expand_start_solutions_newton = false,
+    )
+    @test all(norm(∇r(z)-rhs0) < 1e-10 for z in S0_no_newton)
+    @test all(norm(∇r(z)) < 1e-6 for z in new_pts_no_newton)
+
     S0, new_pts = ProjectedHypersurfaceRegions._expand_start_solutions(
-        ∇r, H, S0, rhs0, k;
+        ∇r, H, S0_initial, rhs0, k;
         start_grid_width = 10,
         start_grid_stepsize = 1,
     )
@@ -101,8 +128,21 @@ end
 
     # Check critical points
     options = MonodromyOptions(target_solutions_count = 2)
-    pts, res0, mon_res = critical_points(r, start_grid_width=0, options=options)    
+    pts, res0, mon_res = critical_points(r, expand_start_solutions=false, options=options)
     @test all(norm.(∇r_symbolic.(solutions(res0))) .< 1e-12)
+
+    empty_start_solutions = Vector{Vector{ComplexF64}}()
+    empty_routing_points, empty_result, empty_mon_res = ProjectedHypersurfaceRegions._solve_and_trace(
+        MS,
+        H,
+        empty_start_solutions,
+        rhs0,
+        Vector{Vector{ComplexF64}}();
+        expand_start_solutions = false,
+    )
+    @test isempty(empty_routing_points)
+    @test !isnothing(empty_result)
+    @test isempty(solutions(empty_result))
 
     pl = generate_plot(
         r,
