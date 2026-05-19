@@ -8,10 +8,21 @@ on:
       - 'Project.toml'
       - 'Manifest.toml'
       - '.github/workflows/**'
+
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/**'
+      - 'test/**'
+      - 'Project.toml'
+      - 'Manifest.toml'
+      - '.github/workflows/**'
+
   workflow_dispatch:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -45,8 +56,8 @@ jobs:
 
       - name: Instantiate and precompile
         run: |
-          julia --project=. -e "using Pkg; Pkg.instantiate(); Pkg.precompile()"
+          julia --color=yes --project=. -e 'using Pkg; Pkg.instantiate(); Pkg.precompile()'
 
       - name: Run tests
         run: |
-          julia --project=. test/runtests.jl
+          julia --color=yes --project=. -e 'using Pkg; Pkg.test()'
