@@ -16,8 +16,6 @@ julia> using Pkg
 julia> Pkg.add(url="https://github.com/oskarhenriksson/ProjectedHypersurfaceRegions.jl")
 ```
 
-For now, you instead have to download the package manually (either using Git, or by manually downloading it by clicking the green `Code` button at the top of the GitHub page and selecting `Download ZIP`). 
-
 ## Examples of usage
 
 First of all, make sure that you have activated a Julia environment where the package is added. 
@@ -43,7 +41,7 @@ julia> h = ProjectedHypersurface(F, [a, b])
 Projected hypersurface of degree 2 in ambient dimension 2
 ```
 
-We can use `h` to evaluate (up to a constant) the logarithm of the defining polynomial of the discriminant, as well ot the gradient and Hessian. 
+We can use `h` to evaluate (up to a constant) the logarithm of the defining polynomial of the discriminant, as well as the gradient and Hessian. 
 
 ```julia-repl
 julia> p = [1, 1];
