@@ -8,7 +8,7 @@ export return_code,
     nregions
 
 export Region,
-    critical_points,
+    routing_points,
     euler_characteristic,
     number
 
@@ -264,7 +264,7 @@ end
 Return the connected components as vectors of routing point indices.
 
 See also [`regions`](@ref), which wraps each component in a [`Region`](@ref)
-carrying the critical point coordinates, Morse indices and Euler characteristic.
+carrying the routing point coordinates, Morse indices and Euler characteristic.
 """
 components(R::PartitionResult) = R.components
 
@@ -320,23 +320,24 @@ of critical points as computed by [`partition_of_critical_points`](@ref).
 Modelled after the `Region` struct in
 [HypersurfaceRegions.jl](https://github.com/JuliaAlgebra/HypersurfaceRegions.jl).
 
-A `Region` bundles the critical points lying in the region together with their
+A `Region` bundles the routing points lying in the region together with their
 Morse indices, the Euler characteristic of the region, and a region number. The
-routing function `r` is stored so that a point in the parameter space can be
-flowed to a critical point in a membership test.
+routing points are the **real** critical points of `r` (a subset of its complex
+critical points). The routing function `r` is stored so that a point in the
+parameter space can be flowed to a routing point in a membership test.
 
 # Fields
-- `critical_points::Vector{Vector{Float64}}`: the critical points in the region.
-- `morse_indices::Vector{Int}`: the Morse index of each critical point.
+- `routing_points::Vector{Vector{Float64}}`: the routing points in the region.
+- `morse_indices::Vector{Int}`: the Morse index of each routing point.
 - `χ::Int`: the Euler characteristic of the region, `∑ᵢ (-1)^μᵢ`.
-- `r::RoutingFunction`: the routing function whose critical points these are.
+- `r::RoutingFunction`: the routing function whose routing points these are.
 - `region_number::Int`: the index of this region within the partition.
 
-See also [`critical_points`](@ref), [`morse_indices`](@ref),
+See also [`routing_points`](@ref), [`morse_indices`](@ref),
 [`euler_characteristic`](@ref) and [`number`](@ref).
 """
 struct Region
-    critical_points::Vector{Vector{Float64}}
+    routing_points::Vector{Vector{Float64}}
     morse_indices::Vector{Int}
     χ::Int
     r::RoutingFunction
@@ -344,21 +345,21 @@ struct Region
 end
 
 @doc raw"""
-    Region(critical_points, morse_indices, r::RoutingFunction, region_number)
+    Region(routing_points, morse_indices, r::RoutingFunction, region_number)
 
-Construct a [`Region`](@ref) from its critical points and their Morse indices,
+Construct a [`Region`](@ref) from its routing points and their Morse indices,
 computing the Euler characteristic `χ = ∑ᵢ (-1)^μᵢ` automatically.
 """
 function Region(
-    critical_points::AbstractVector{<:AbstractVector{<:Real}},
+    routing_points::AbstractVector{<:AbstractVector{<:Real}},
     morse_indices::AbstractVector{<:Integer},
     r::RoutingFunction,
     region_number::Integer,
 )
-    @assert length(critical_points) == length(morse_indices) "There must be one Morse index per critical point"
+    @assert length(routing_points) == length(morse_indices) "There must be one Morse index per routing point"
     χ = sum(μ -> (-1)^μ, morse_indices; init = 0)
     Region(
-        [Float64.(c) for c in critical_points],
+        [Float64.(c) for c in routing_points],
         collect(Int, morse_indices),
         χ,
         r,
@@ -367,11 +368,12 @@ function Region(
 end
 
 @doc raw"""
-    critical_points(C::Region)
+    routing_points(C::Region)
 
-Return the critical points of the routing function that lie in the region `C`.
+Return the routing points (real critical points) of the routing function that
+lie in the region `C`.
 """
-critical_points(C::Region) = C.critical_points
+routing_points(C::Region) = C.routing_points
 
 @doc raw"""
     morse_indices(C::Region)
@@ -398,7 +400,7 @@ function Base.show(io::IO, C::Region)
     header = "Region $(number(C))"
     println(io, header)
     println(io, "="^length(header))
-    println(io, "• $(length(critical_points(C))) critical point(s)")
+    println(io, "• $(length(routing_points(C))) routing point(s)")
     println(io, "• morse_indices → ", morse_indices(C))
     print(io, "• χ → ", euler_characteristic(C))
 end
@@ -410,7 +412,7 @@ Build the vector of [`Region`](@ref) objects described by a [`PartitionResult`](
 `R`, which must have been obtained from `partition_of_critical_points(r, crit_pts)`.
 
 Each connected component of `R` becomes one `Region`, carrying the coordinates of
-its critical points (taken from `crit_pts`), their Morse indices, the Euler
+its routing points (taken from `crit_pts`), their Morse indices, the Euler
 characteristic, and the routing function `r`. The routing function is stored on
 each region so that the resulting vector is self-contained and can be passed
 directly to [`membership`](@ref).
@@ -441,12 +443,12 @@ end
 Determine which [`Region`](@ref) a point `p` in the parameter space belongs to.
 
 The point `p` is flowed by gradient ascent of the routing function until it
-reaches a critical point; the region whose critical points contain that limit is
+reaches a routing point; the region whose routing points contain that limit is
 returned. All regions in `regions` are assumed to come from the same partition,
 i.e. to share a common routing function (the one stored on the first region).
 
 Returns `nothing` if `regions` is empty or if the gradient flow does not converge
-to one of the known critical points.
+to one of the known routing points.
 
 Options:
 * `reltol = 1e-6`, `abstol = 1e-9`: parameters for the accuracy of the ODE solver.
@@ -463,19 +465,19 @@ function membership(
     ∇r = RoutingGradient(r)
     ode_log! = set_up_ode(∇r)
 
-    # flatten the critical points of all regions into a single list
-    all_critical_points = reduce(vcat, critical_points(C) for C in regions)
+    # flatten the routing points of all regions into a single list
+    all_routing_points = reduce(vcat, routing_points(C) for C in regions)
 
-    critical_point_index, _ =
-        limit_critical_point(ode_log!, Float64.(p), all_critical_points, reltol, abstol)
+    routing_point_index, _ =
+        limit_critical_point(ode_log!, Float64.(p), all_routing_points, reltol, abstol)
 
-    if critical_point_index == -1
+    if routing_point_index == -1
         return nothing
     end
 
-    end_critical_point = all_critical_points[critical_point_index]
+    end_routing_point = all_routing_points[routing_point_index]
     for C in regions
-        if end_critical_point in critical_points(C)
+        if end_routing_point in routing_points(C)
             return C
         end
     end

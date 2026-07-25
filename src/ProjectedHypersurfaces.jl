@@ -25,8 +25,8 @@ include("routing_functions.jl")
 include("homotopy.jl")
 include("critical_points.jl")
 include("ode_solving.jl")
-include("plotting.jl")
 include("regions.jl")
+include("plotting.jl")
 
 
 

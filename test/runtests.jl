@@ -287,7 +287,7 @@ end;
     # Direct construction computes the Euler characteristic χ = ∑ᵢ (-1)^μᵢ
     C0 = Region([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]], [0, 1, 2], r, 7)
     @test C0 isa Region
-    @test critical_points(C0) isa Vector{Vector{Float64}}
+    @test routing_points(C0) isa Vector{Vector{Float64}}
     @test morse_indices(C0) == [0, 1, 2]
     @test euler_characteristic(C0) == 1
     @test number(C0) == 7
@@ -311,12 +311,12 @@ end;
     @test number.(Rs) == collect(1:length(Rs))
 
     # Every routing point lands in exactly one region
-    @test sum(length(critical_points(C)) for C in Rs) == length(pts)
+    @test sum(length(routing_points(C)) for C in Rs) == length(pts)
 
     # Each region carries the data of its connected component
     idx = morse_indices(partition_result)
     for (C, component) in zip(Rs, components(partition_result))
-        @test critical_points(C) == [pts[j] for j in component]
+        @test routing_points(C) == [pts[j] for j in component]
         @test morse_indices(C) == [idx[j] for j in component]
         @test euler_characteristic(C) == sum(mu -> (-1)^mu, morse_indices(C); init=0)
     end
@@ -326,7 +326,7 @@ end;
 
     # membership: each index-0 critical point flows back to its own region
     for C in Rs
-        for (cp, mu) in zip(critical_points(C), morse_indices(C))
+        for (cp, mu) in zip(routing_points(C), morse_indices(C))
             mu == 0 || continue
             M = membership(Rs, cp)
             @test M isa Region
@@ -340,8 +340,8 @@ end;
     # latter, all other routing points in the former.
     @test pts[3][1]^2 - 4 * pts[3][2] < 0
     @test all(p[1]^2 - 4 * p[2] > 0 for p in pts[[1, 2, 4]])
-    inside = only(C for C in Rs if pts[3] in critical_points(C))
-    outside = only(C for C in Rs if pts[2] in critical_points(C))
+    inside = only(C for C in Rs if pts[3] in routing_points(C))
+    outside = only(C for C in Rs if pts[2] in routing_points(C))
 
     # (a, b) = (0, 5): a^2 - 4b = -20 < 0, so the same region as pts[3]
     M_in = membership(Rs, [0.0, 5.0])
