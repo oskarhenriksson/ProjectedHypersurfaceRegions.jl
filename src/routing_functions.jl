@@ -18,16 +18,14 @@ end
 
 @doc raw"""
     RoutingFunction(
-    H::Vector{ProjectedHypersurface};
-    e::Union{Int,Nothing} = nothing,
-    c::Union{Vector,Nothing} = nothing,
-    g::Union{Vector{Expression},Vector{Variable},Nothing} = nothing,
-)
+        H::Vector{ProjectedHypersurface};
+        e::Union{Int,Nothing} = nothing,
+        c::Union{Vector,Nothing} = nothing,
+        g::Union{Vector{Expression},Vector{Variable},Nothing} = nothing,
+    )
 
 Construct a routing function for a collection of projected hypersurfaces `H`. The routing function is defined as
-$$
-r(x) = \frac{\prod_{h \in H} h(x) \prod_{g \in G} g(x)}{(1 + \|x - c\|^2)^e}
-$$
+$$r(x) = \frac{\prod_{h \in H} h(x) \prod_{g \in G} g(x)}{(1 + \|x - c\|^2)^e}$$
 where $G$ is a collection of additional polynomials and $c$ is a vector in the ambient space. 
 The denominator exponent `e` is automatically set so that the denominator has higher degree than the numerator.
 

@@ -40,10 +40,10 @@ end
 
 @doc raw"""
     interpolate(
-    h::ProjectedHypersurface;
-    tol::Float64=1e-8,
-    oversampling_factor=1.5
-)
+        h::ProjectedHypersurface;
+        tol::Float64=1e-8,
+        oversampling_factor=1.5
+    )
 
 Interpolate the projected hypersurface `h` to obtain a polynomial representation of the discriminant. 
 The interpolation is performed by sampling points on the hypersurface via [`sample_points`](@ref) 
