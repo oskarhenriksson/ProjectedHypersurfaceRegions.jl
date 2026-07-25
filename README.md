@@ -113,12 +113,12 @@ julia> F = System([f, differentiate(f, x)], variables=[a, b, x]);
 julia> h = ProjectedHypersurface(F, [a, b])
 Projected hypersurface of degree 6 in ambient dimension 2
 
-julia> components = decompose(h)
+julia> comps = decompose(h)
 2-element Vector{ProjectedHypersurface}:
  Projected hypersurface of degree 4 in ambient dimension 2
  Projected hypersurface of degree 2 in ambient dimension 2
 
-julia> polynomial.(interpolate.(components))
+julia> polynomial.(interpolate.(comps))
 2-element Vector{Expression}:
                             -4*b + a^2
  27 - 18*a*b - a^2*b^2 + 4*a^3 + 4*b^3
@@ -177,10 +177,10 @@ Finally, we connect the critical points that belong to the same component of the
 julia> partition_result = partition_of_critical_points(r, routing_result);
 ```
 
-The regions describe the connected components. We see that the first, third and fourth critical points belong to the same connected component, and that the second one belongs to its own component:
+The regions describe the connected components, which we access with `components(::PartitionResult)`. We see that the first, third and fourth critical points belong to the same connected component, and that the second one belongs to its own component:
 
 ```julia-repl
-julia> regions(partition_result)
+julia> components(partition_result)
 2-element Vector{Vector{Int64}}:
  [1, 3, 4]
  [2]

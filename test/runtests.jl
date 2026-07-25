@@ -260,11 +260,11 @@ end;
         partition_of_critical_points(r, RoutingPointsResult(pts, nothing, nothing))
 
     @test partition_result isa PartitionResult
-    @test sort(regions(partition_result)) == [[1, 2, 4], [3]]
+    @test sort(components(partition_result)) == [[1, 2, 4], [3]]
     @test morse_indices(partition_result) == [1, 0, 0, 0]
     @test isempty(failed_info(partition_result))
     @test return_code(partition_result) == :success
-    @test regions(partition_result_from_routing_result) == regions(partition_result)
+    @test components(partition_result_from_routing_result) == components(partition_result)
     @test !applicable(iterate, partition_result)
     partition_display = sprint(show, partition_result)
     @test !isempty(partition_display)
@@ -307,7 +307,7 @@ end;
     # Build the Region objects from the partition
     Rs = regions(partition_result, r, pts)
     @test Rs isa Vector{Region}
-    @test length(Rs) == length(regions(partition_result))
+    @test length(Rs) == length(components(partition_result))
     @test number.(Rs) == collect(1:length(Rs))
 
     # Every routing point lands in exactly one region
@@ -315,7 +315,7 @@ end;
 
     # Each region carries the data of its connected component
     idx = morse_indices(partition_result)
-    for (C, component) in zip(Rs, regions(partition_result))
+    for (C, component) in zip(Rs, components(partition_result))
         @test critical_points(C) == [pts[j] for j in component]
         @test morse_indices(C) == [idx[j] for j in component]
         @test euler_characteristic(C) == sum(mu -> (-1)^mu, morse_indices(C); init=0)

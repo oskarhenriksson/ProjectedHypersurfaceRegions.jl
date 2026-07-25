@@ -2,6 +2,7 @@ export partition_of_critical_points
 
 export return_code,
     regions,
+    components,
     morse_indices,
     failed_info,
     nregions
@@ -245,22 +246,25 @@ partition_of_critical_points(
     PartitionResult
 
 Result returned by [`partition_of_critical_points`](@ref). Use
-[`regions`](@ref) for connected components, [`morse_indices`](@ref) for the
+[`components`](@ref) for connected components, [`morse_indices`](@ref) for the
 critical point indices, and [`failed_info`](@ref) for failed connection attempts.
 """
 struct PartitionResult{P,I,F}
-    regions::P
+    components::P
     morse_indices::I # TODO: this is a strange output to expose to users, since it is indexing yet another list you must reference. Considering changing this to a Dict or something.
     failed_info::F
     return_code::Symbol
 end
 
 """
-    regions(result::PartitionResult)
+    components(result::PartitionResult)
 
 Return the connected components as vectors of routing point indices.
+
+See also [`regions`](@ref), which wraps each component in a [`Region`](@ref)
+carrying the critical point coordinates, Morse indices and Euler characteristic.
 """
-regions(R::PartitionResult) = R.regions
+components(R::PartitionResult) = R.components
 
 @doc raw"""
     morse_indices(result::PartitionResult)
@@ -289,7 +293,7 @@ return_code(R::PartitionResult) = R.return_code
 
 Return the number of connected components in the partition result.
 """
-nregions(R::PartitionResult) = length(regions(R))
+nregions(R::PartitionResult) = length(components(R))
 
 function Base.show(io::IO, R::PartitionResult)
     npars = nregions(R)
@@ -409,8 +413,6 @@ characteristic, and the routing function `r`. The routing function is stored on
 each region so that the resulting vector is self-contained and can be passed
 directly to [`membership`](@ref).
 
-This differs from [`regions(R::PartitionResult)`](@ref), which returns the
-connected components as vectors of critical point indices.
 """
 function regions(
     R::PartitionResult,
@@ -418,7 +420,7 @@ function regions(
     crit_pts::AbstractVector{<:AbstractVector{<:Real}},
 )
     mi = morse_indices(R)
-    components = regions(R)
+    components = R.components
     if isnothing(mi)
         @assert isempty(components) "Cannot build regions: Morse indices were not computed"
         return Region[]
