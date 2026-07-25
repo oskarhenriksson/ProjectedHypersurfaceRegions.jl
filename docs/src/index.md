@@ -31,10 +31,10 @@ Private = false
 Order = [:type, :function]
 ```
 
-## Routing functions and gradient roadmats
+## Routing functions and gradient roadmaps
 
 ```@autodocs
 Modules = [ProjectedHypersurfaces]
-Pages = ["routing_functions.jl", "critical_points.jl", "graph.jl", "membership.jl"]
+Pages = ["routing_functions.jl", "critical_points.jl","regions.jl"]
 Order = [:type, :function]
 ```
