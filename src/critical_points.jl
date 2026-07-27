@@ -2,7 +2,6 @@
 export critical_points
 
 export RoutingPointsResult,
-    PartitionResult,
     routing_points,
     complex_critical_points,
     result,

@@ -27,7 +27,7 @@ res = result(routing_result)
 mon_res = monodromy_result(routing_result)
 
 # Connect the critical points
-partition_result = partition_of_critical_points(r, routing_result)
-G = components(partition_result)
-idx = morse_indices(partition_result)
-failures = failed_info(partition_result)
+roadmap = gradient_roadmap(r, routing_result)
+G = components(roadmap)
+idx = morse_indices(roadmap)
+failures = failed_info(roadmap)

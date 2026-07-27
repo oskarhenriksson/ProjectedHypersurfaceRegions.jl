@@ -174,16 +174,33 @@ julia> routing_points(routing_result)
 Finally, we connect the critical points that belong to the same component of the complement, to obtain a *gradient roadmap* of the complement of the hypersurface.
 
 ```julia-repl
-julia> partition_result = partition_of_critical_points(r, routing_result);
+julia> roadmap = gradient_roadmap(r, routing_result);
 ```
 
-The regions describe the connected components, which we access with `components(::PartitionResult)`. We see that the first, third and fourth critical points belong to the same connected component, and that the second one belongs to its own component:
+The regions describe the connected components, which we access with `components(::GradientRoadmap)`. We see that the first, third and fourth critical points belong to the same connected component, and that the second one belongs to its own component:
 
 ```julia-repl
-julia> components(partition_result)
+julia> components(roadmap)
 2-element Vector{Vector{Int64}}:
  [1, 3, 4]
  [2]
+```
+
+Each component is also available as a `Region`, which bundles the routing points with their Morse indices and the Euler characteristic of the region:
+
+```julia-repl
+julia> regions(roadmap)
+2-element Vector{Region}:
+ Region 1
+========
+• 3 routing point(s)
+• morse_indices → [0, 1, 0]
+• χ → 1
+ Region 2
+========
+• 1 routing point(s)
+• morse_indices → [0]
+• χ → 1
 ```
 
 The resulting roadmap is illustrated by the following picture.

@@ -255,21 +255,21 @@ end;
 
     @test all(norm.(∇r.(pts)) .< 1e-12) 
 
-    partition_result = partition_of_critical_points(r, pts)
-    partition_result_from_routing_result =
-        partition_of_critical_points(r, RoutingPointsResult(pts, nothing, nothing))
+    roadmap = gradient_roadmap(r, pts)
+    roadmap_from_routing_result =
+        gradient_roadmap(r, RoutingPointsResult(pts, nothing, nothing))
 
-    @test partition_result isa PartitionResult
-    @test sort(components(partition_result)) == [[1, 2, 4], [3]]
-    @test morse_indices(partition_result) == [1, 0, 0, 0]
-    @test isempty(failed_info(partition_result))
-    @test return_code(partition_result) == :success
-    @test components(partition_result_from_routing_result) == components(partition_result)
-    @test !applicable(iterate, partition_result)
-    partition_display = sprint(show, partition_result)
-    @test !isempty(partition_display)
-    @test occursin("return_code → :success", partition_display)
-    @test !occursin("::success", partition_display)
+    @test roadmap isa GradientRoadmap
+    @test sort(components(roadmap)) == [[1, 2, 4], [3]]
+    @test morse_indices(roadmap) == [1, 0, 0, 0]
+    @test isempty(failed_info(roadmap))
+    @test return_code(roadmap) == :success
+    @test components(roadmap_from_routing_result) == components(roadmap)
+    @test !applicable(iterate, roadmap)
+    roadmap_display = sprint(show, roadmap)
+    @test !isempty(roadmap_display)
+    @test occursin("return_code → :success", roadmap_display)
+    @test !occursin("::success", roadmap_display)
 
 end;
 
@@ -291,8 +291,17 @@ end;
     @test morse_indices(C0) == [0, 1, 2]
     @test euler_characteristic(C0) == 1
     @test number(C0) == 7
+    # Standalone construction numbers the routing points 1:n
+    @test routing_point_indices(C0) == [1, 2, 3]
+    # ...but the indices can be given explicitly
+    C1 = Region([[1.0, 2.0], [3.0, 4.0]], [0, 1], r, 2; routing_point_indices = [4, 7])
+    @test routing_point_indices(C1) == [4, 7]
     # There must be one Morse index per critical point
     @test_throws AssertionError Region([[1.0, 2.0]], [0, 1], r, 1)
+    # ...and one routing point index per critical point
+    @test_throws AssertionError Region(
+        [[1.0, 2.0]], [0], r, 1; routing_point_indices = [1, 2],
+    )
 
     # Same fixed routing points as in "Connect points" (deterministic partition)
     pts = [
@@ -302,20 +311,25 @@ end;
         [-12.339018441254076, -2.1071368134982302]
     ]
 
-    partition_result = partition_of_critical_points(r, pts)
+    roadmap = gradient_roadmap(r, pts)
 
-    # Build the Region objects from the partition
-    Rs = regions(partition_result, r, pts)
+    # The Region objects are stored on the roadmap itself
+    Rs = regions(roadmap)
     @test Rs isa Vector{Region}
-    @test length(Rs) == length(components(partition_result))
+    @test length(Rs) == length(components(roadmap))
+    @test nregions(roadmap) == length(Rs)
     @test number.(Rs) == collect(1:length(Rs))
 
     # Every routing point lands in exactly one region
     @test sum(length(routing_points(C)) for C in Rs) == length(pts)
 
+    # `components` is derived from the regions' routing point indices
+    @test components(roadmap) == [routing_point_indices(C) for C in Rs]
+
     # Each region carries the data of its connected component
-    idx = morse_indices(partition_result)
-    for (C, component) in zip(Rs, components(partition_result))
+    idx = morse_indices(roadmap)
+    for (C, component) in zip(Rs, components(roadmap))
+        @test routing_point_indices(C) == component
         @test routing_points(C) == [pts[j] for j in component]
         @test morse_indices(C) == [idx[j] for j in component]
         @test euler_characteristic(C) == sum(mu -> (-1)^mu, morse_indices(C); init=0)
@@ -351,6 +365,10 @@ end;
     M_out = membership(Rs, [0.0,-5.0])
     @test M_out isa Region
     @test number(M_out) == number(outside)
+
+    # membership can be called on the roadmap directly
+    @test number(membership(roadmap, [0.0, 5.0])) == number(inside)
+    @test number(membership(roadmap, [0.0, -5.0])) == number(outside)
 
     # membership on an empty vector of regions returns nothing
     @test membership(Region[], [0.0, 0.0]) === nothing

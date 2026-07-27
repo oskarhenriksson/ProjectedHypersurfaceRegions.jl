@@ -30,16 +30,16 @@ res = result(routing_result)
 mon_res = monodromy_result(routing_result)
 
 # Connecting critical points
-partition_result = partition_of_critical_points(r, routing_result)
-G = components(partition_result)
-idx = morse_indices(partition_result)
-failures = failed_info(partition_result)
+roadmap = gradient_roadmap(r, routing_result)
+G = components(roadmap)
+idx = morse_indices(roadmap)
+failures = failed_info(roadmap)
 println("Connected components: $(G)")
 println("Indicies: $(idx)")
 println("Failed info: $(failures)")
 println()
 
-generate_plot(r, routing_result, partition_result;
+generate_plot(r, routing_result, roadmap;
     root_counting_system=System([x^3 + a * x^2 + b * x + γ], variables=[x], parameters=[a; b; γ])
 )
 
