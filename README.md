@@ -113,12 +113,12 @@ julia> F = System([f, differentiate(f, x)], variables=[a, b, x]);
 julia> h = ProjectedHypersurface(F, [a, b])
 Projected hypersurface of degree 6 in ambient dimension 2
 
-julia> comps = decompose(h)
+julia> irreducible_components = decompose(h)
 2-element Vector{ProjectedHypersurface}:
  Projected hypersurface of degree 4 in ambient dimension 2
  Projected hypersurface of degree 2 in ambient dimension 2
 
-julia> polynomial.(interpolate.(comps))
+julia> polynomial.(interpolate.(irreducible_components))
 2-element Vector{Expression}:
                             -4*b + a^2
  27 - 18*a*b - a^2*b^2 + 4*a^3 + 4*b^3
@@ -161,9 +161,10 @@ Routing function for projected hypersurface
 We find the critical points via the `critical_points` function:
 
 ```julia-repl   
-julia> routing_result = critical_points(r);
+julia> routing_result = critical_points(r)
+Routing points result with 4 routing point(s)
 
-julia> routing_points(routing_result)
+julia> pts = routing_points(routing_result)
 4-element Vector{Vector{Float64}}:
  [13.040296300414134, 1.993819726256856]
  [3.2168112092392143, 8.082538361382136]
@@ -174,6 +175,7 @@ julia> routing_points(routing_result)
 Finally, we connect the critical points that belong to the same component of the complement, to obtain a *gradient roadmap* of the complement of the hypersurface.
 
 ```julia-repl
+<<<<<<< Updated upstream
 julia> roadmap = gradient_roadmap(r, routing_result);
 ```
 
@@ -181,11 +183,61 @@ The regions describe the connected components, which we access with `components(
 
 ```julia-repl
 julia> components(roadmap)
+=======
+julia> roadmap = gradient_roadmap(r, pts)
+Gradient roadmap of a hypersurface complement
+=============================================
+• 2 connected component(s)
+• 4 routing point(s)
+• return_code → :success
+```
+
+The gradient roadmap represents each connected component as a `Region` object.
+
+```julia-repl
+julia> connected_comps = regions(roadmap)
+2-element Vector{Region}:
+ Region 1
+========
+• 3 routing point(s)
+• morse_indices → [0, 1, 0]
+• χ → 1
+ Region 2
+========
+• 1 routing point(s)
+• morse_indices → [0]
+• χ → 1
+```
+
+We can obtain the routing points for each region via the `routing_points` command:
+
+```julia-repl
+julia> C1 = connected_comps[1];
+
+julia> routing_points(C1)
+3-element Vector{Vector{Float64}}:
+ [13.040296300414134, 1.993819726256856]
+ [-12.339018441254096, -2.1071368134982267]
+ [-3.9180890683992433, -6.635887940807435]
+
+julia> C2 = connected_comps[2];
+
+julia> routing_points(C2)
+1-element Vector{Vector{Float64}}:
+ [3.2168112092392134, 8.082538361382136]
+```
+
+We see that the first, third and fourth critical points belong to the same connected component, and that the second one belongs to its own component. We can obtain this partition via the `partition` command:
+
+```julia-repl
+julia> parition(roadmap)
+>>>>>>> Stashed changes
 2-element Vector{Vector{Int64}}:
  [1, 3, 4]
  [2]
 ```
 
+<<<<<<< Updated upstream
 Each component is also available as a `Region`, which bundles the routing points with their Morse indices and the Euler characteristic of the region:
 
 ```julia-repl
@@ -197,6 +249,13 @@ julia> regions(roadmap)
 • morse_indices → [0, 1, 0]
 • χ → 1
  Region 2
+=======
+The roadmap also allows a *membership test* for points in the complement by tracing it via gradient flow and determining which cluster of routing points it converges to.
+
+```julia-repl
+membership(roadmap, [1, 1])
+Region 2
+>>>>>>> Stashed changes
 ========
 • 1 routing point(s)
 • morse_indices → [0]

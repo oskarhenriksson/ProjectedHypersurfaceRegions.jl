@@ -51,7 +51,7 @@ function critical_points(
 
     # Step 3: Solve and trace to critical points
     return _solve_and_trace(
-        MS, H, S0, rhs0, new_pts;
+        ∇r, MS, H, S0, rhs0, new_pts;
         monodromy_at_zero = monodromy_at_zero,
         start_grid_width = start_grid_width,
     )
@@ -241,6 +241,7 @@ Perform monodromy solving and trace solutions to ∇r=0.
 Returns a [`RoutingPointsResult`](@ref).
 """
 function _solve_and_trace(
+    ∇r::RoutingGradient,
     MS::HomotopyContinuation.MonodromySolver,
     H::RoutingPointsHomotopy,
     S0::AbstractVector{<:AbstractVector{<:Number}},
@@ -267,10 +268,10 @@ function _solve_and_trace(
         if start_grid_width > 0
             routing_points = HC.unique_points([routing_points; real.(new_pts)])
         end
-        return RoutingPointsResult(routing_points, result, mon_result)
+        return RoutingPointsResult(routing_points, result, mon_result, ∇r.r)
     else
         routing_points = real_solutions(results(mon_result))
-        return RoutingPointsResult(routing_points, mon_result, mon_result)
+        return RoutingPointsResult(routing_points, mon_result, mon_result, ∇r.r)
     end
 end
 
@@ -290,6 +291,7 @@ struct RoutingPointsResult{P,T,M}
     routing_points::P
     result::T
     monodromy_result::M
+    r::RoutingFunction
 end
 
 @doc raw"""
@@ -323,5 +325,5 @@ monodromy_result(R::RoutingPointsResult) = R.monodromy_result
 
 function Base.show(io::IO, R::RoutingPointsResult)
     npts = length(routing_points(R))
-    println(io, "RoutingPointsResult with $npts routing point(s) and $(length(complex_critical_points(R))) complex critical point(s)")
+    println(io, "Routing points result with $npts routing point(s)")
 end

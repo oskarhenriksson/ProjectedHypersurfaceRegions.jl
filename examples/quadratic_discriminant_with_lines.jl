@@ -29,7 +29,7 @@ write_solutions("./results/quadratic_discriminant_with_lines/routing_points.txt"
 
 # Connect the critical points
 roadmap = gradient_roadmap(r, routing_result)
-G = components(roadmap)
+G = partition(roadmap)
 idx = morse_indices(roadmap)
 failures = failed_info(roadmap)
 println("Connected components: $(G)")

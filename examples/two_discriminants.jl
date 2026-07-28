@@ -33,7 +33,7 @@ write_solutions("./results/two_discriminants/routing_points.txt", pts)
 
 # Connecting 
 roadmap = gradient_roadmap(r, routing_result)
-G = components(roadmap)
+G = partition(roadmap)
 idx = morse_indices(roadmap)
 failures = failed_info(roadmap)
 println("Connected components: $(G)")

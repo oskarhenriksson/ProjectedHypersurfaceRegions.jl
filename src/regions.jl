@@ -3,7 +3,7 @@ export GradientRoadmap,
 
 export return_code,
     regions,
-    components,
+    partition,
     morse_indices,
     failed_info,
     nregions
@@ -200,13 +200,14 @@ end
     GradientRoadmap
 
 Result returned by [`gradient_roadmap`](@ref). Use [`regions`](@ref) for the
-[`Region`](@ref) objects, [`components`](@ref) for the connected components as
-routing point indices, [`morse_indices`](@ref) for the critical point indices,
+[`Region`](@ref) objects, [`partition`](@ref) for the partition of routing point indices,
 and [`failed_info`](@ref) for failed connection attempts.
 """
-struct GradientRoadmap{I,F}
+struct GradientRoadmap{F}
     regions::Vector{Region}
-    morse_indices::I # TODO: this is a strange output to expose to users, since it is indexing yet another list you must reference. Considering changing this to a Dict or something.
+    routing_function::RoutingFunction
+    routing_points::Vector{Vector{Float64}}
+    morse_indices::Vector{Int}
     failed_info::F
     return_code::Symbol
 end
@@ -222,16 +223,30 @@ self-contained and can be passed directly to [`membership`](@ref).
 """
 regions(R::GradientRoadmap) = R.regions
 
-"""
-    components(result::GradientRoadmap)
+@doc raw"""
+    routing_points(R::GradientRoadmap)
 
-Return the connected components as vectors of routing point indices.
-
-See also [`regions`](@ref), which returns the same components wrapped in
-[`Region`](@ref) objects carrying the routing point coordinates, Morse indices
-and Euler characteristic.
+Return the routing points (real critical points) of the routing function that
+lie in the region `R`.
 """
-components(R::GradientRoadmap) = [routing_point_indices(C) for C in regions(R)]
+routing_points(R::GradientRoadmap) = R.routing_points
+
+@doc raw"""
+    routing_function(R::GradientRoadmap)
+
+Return the routing function of the gradient roadmap `R`.
+"""
+routing_function(R::GradientRoadmap) = R.routing_function
+
+@doc raw"""
+    partition(R::GradientRoadmap)
+
+Return the partition of the indices of the routing points induced by the regions.
+
+The ordering of the blocks of the partition is the same as the ordering of the regions
+in the output of [`regions`](@ref).
+"""
+partition(R::GradientRoadmap) = [routing_point_indices(C) for C in regions(R)]
 
 @doc raw"""
     morse_indices(result::GradientRoadmap)
@@ -242,35 +257,37 @@ roadmap failed before indices were available.
 morse_indices(R::GradientRoadmap) = R.morse_indices
 
 @doc raw"""
-    failed_info(result::GradientRoadmap)
+    failed_info(R::GradientRoadmap)
 
 Return information collected from failed connection attempts.
+
 """
 failed_info(R::GradientRoadmap) = R.failed_info
 
 @doc raw"""
-    return_code(result::GradientRoadmap)
+    return_code(R::GradientRoadmap)
 
-Return a symbolic status code for a gradient roadmap.
+Return a symbolic status code for a gradient roadmap. It can take two values:
+* `:success` if all connection attempts succeeded
+* `:partial_success` if some connection attempts failed
+
 """
 return_code(R::GradientRoadmap) = R.return_code
 
 @doc raw"""
-    nregions(result::GradientRoadmap)
+    nregions(R::GradientRoadmap)
 
 Return the number of connected components in the gradient roadmap.
 """
 nregions(R::GradientRoadmap) = length(regions(R))
 
 function Base.show(io::IO, R::GradientRoadmap)
-    npars = nregions(R)
-    nfailures = length(failed_info(R))
-    header = "GradientRoadmap with $npars connected components"
+    header = "Gradient roadmap of a hypersurface complement"
     println(io, header)
     println(io, "="^length(header))
+    println(io, "• $(nregions(R)) connected component(s)")
+    println(io, "• $(length(routing_points(R))) routing point(s)")
     println(io, "• return_code → :$(return_code(R))")
-    println(io, "• $(nfailures) failed path(s)")
-    print(io, "• morse_indices → ", isnothing(morse_indices(R)) ? "not computed" : length(morse_indices(R)))
 end
 
 # Wrap each connected component (a vector of indices into `crit_pts`) in a `Region`.
@@ -316,10 +333,8 @@ function gradient_roadmap(
 
     index_list, unstable_eigenvector_list, flag_prime = _index_list(∇r, crit_pts)
     if flag_prime == true
-        @warn "The Hessian is almost singular for some critical points"
-        return GradientRoadmap(Region[], nothing, [], :singular_hessian)
+        error("The Hessian is almost singular for some critical points")
     end
-
 
     ode_log! = set_up_ode(∇r)
 
@@ -334,6 +349,8 @@ function gradient_roadmap(
         # we do not need to do any path tracking in this case
         return GradientRoadmap(
             _regions_from_components([critical_points_indices], index_list, r, crit_pts),
+            r,
+            crit_pts,
             index_list,
             [],
             :success,
@@ -455,6 +472,8 @@ function gradient_roadmap(
     code = isempty(failed_info_list) ? :success : :partial_success
     return GradientRoadmap(
         _regions_from_components(partition_critical_point_indices, index_list, r, crit_pts),
+        r,
+        crit_pts,
         index_list,
         failed_info_list,
         code,

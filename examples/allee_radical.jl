@@ -76,7 +76,7 @@ pts_original = [[1.2648270055555684, 0.23668758954766242],
 ]
 
 roadmap_original = gradient_roadmap(r_original, pts_original)
-G_original = components(roadmap_original)
+G_original = partition(roadmap_original)
 idx_original = morse_indices(roadmap_original)
 failures_original = failed_info(roadmap_original)
 
@@ -108,7 +108,7 @@ pts = [[0.055589798000619875, 0.2045811486869807],
 ∇r.(pts)
 
 roadmap = gradient_roadmap(r, pts)
-G = components(roadmap)
+G = partition(roadmap)
 idx = morse_indices(roadmap)
 failures = failed_info(roadmap)
 

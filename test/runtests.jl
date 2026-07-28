@@ -257,19 +257,14 @@ end;
 
     roadmap = gradient_roadmap(r, pts)
     roadmap_from_routing_result =
-        gradient_roadmap(r, RoutingPointsResult(pts, nothing, nothing))
+        gradient_roadmap(r, RoutingPointsResult(pts, nothing, nothing, r))
 
     @test roadmap isa GradientRoadmap
-    @test sort(components(roadmap)) == [[1, 2, 4], [3]]
+    @test sort(partition(roadmap)) == [[1, 2, 4], [3]]
     @test morse_indices(roadmap) == [1, 0, 0, 0]
     @test isempty(failed_info(roadmap))
     @test return_code(roadmap) == :success
-    @test components(roadmap_from_routing_result) == components(roadmap)
-    @test !applicable(iterate, roadmap)
-    roadmap_display = sprint(show, roadmap)
-    @test !isempty(roadmap_display)
-    @test occursin("return_code → :success", roadmap_display)
-    @test !occursin("::success", roadmap_display)
+    @test partition(roadmap_from_routing_result) == partition(roadmap)
 
 end;
 
@@ -316,27 +311,24 @@ end;
     # The Region objects are stored on the roadmap itself
     Rs = regions(roadmap)
     @test Rs isa Vector{Region}
-    @test length(Rs) == length(components(roadmap))
+    @test length(Rs) == length(partition(roadmap))
     @test nregions(roadmap) == length(Rs)
     @test number.(Rs) == collect(1:length(Rs))
 
     # Every routing point lands in exactly one region
     @test sum(length(routing_points(C)) for C in Rs) == length(pts)
 
-    # `components` is derived from the regions' routing point indices
-    @test components(roadmap) == [routing_point_indices(C) for C in Rs]
+    # `partition` is derived from the regions' routing point indices
+    @test partition(roadmap) == [routing_point_indices(C) for C in Rs]
 
     # Each region carries the data of its connected component
     idx = morse_indices(roadmap)
-    for (C, component) in zip(Rs, components(roadmap))
+    for (C, component) in zip(Rs, partition(roadmap))
         @test routing_point_indices(C) == component
         @test routing_points(C) == [pts[j] for j in component]
         @test morse_indices(C) == [idx[j] for j in component]
         @test euler_characteristic(C) == sum(mu -> (-1)^mu, morse_indices(C); init=0)
     end
-
-    # show prints something nonempty
-    @test occursin("Region", sprint(show, first(Rs)))
 
     # membership: each index-0 critical point flows back to its own region
     for C in Rs

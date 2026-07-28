@@ -50,7 +50,7 @@ mon_res = monodromy_result(routing_result)
 
 # Connected components 
 roadmap = gradient_roadmap(r, routing_result)
-G = components(roadmap)
+G = partition(roadmap)
 idx = morse_indices(roadmap)
 failures = failed_info(roadmap)
 
@@ -91,7 +91,7 @@ res = result(routing_result)
 mon_res = monodromy_result(routing_result)
 
 roadmap = gradient_roadmap(r, routing_result)
-G = components(roadmap)
+G = partition(roadmap)
 idx = morse_indices(roadmap)
 failures = failed_info(roadmap)
 
