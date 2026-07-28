@@ -160,8 +160,7 @@ routing_points(C::Region) = C.routing_points
     routing_point_indices(C::Region)
 
 Return the position of each routing point of `C` within the list of routing
-points the region was computed from. This is the connected component of `C` in
-the sense of [`components`](@ref).
+points the region was computed from. 
 """
 routing_point_indices(C::Region) = C.routing_point_indices
 
