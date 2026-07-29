@@ -255,21 +255,115 @@ end;
 
     @test all(norm.(∇r.(pts)) .< 1e-12) 
 
-    partition_result = partition_of_critical_points(r, pts)
-    partition_result_from_routing_result =
-        partition_of_critical_points(r, RoutingPointsResult(pts, nothing, nothing))
+    roadmap = gradient_roadmap(r, pts)
+    roadmap_from_routing_result =
+        gradient_roadmap(r, RoutingPointsResult(pts, nothing, nothing, r))
 
-    @test partition_result isa PartitionResult
-    @test sort(regions(partition_result)) == [[1, 2, 4], [3]]
-    @test morse_indices(partition_result) == [1, 0, 0, 0]
-    @test isempty(failed_info(partition_result))
-    @test return_code(partition_result) == :success
-    @test regions(partition_result_from_routing_result) == regions(partition_result)
-    @test !applicable(iterate, partition_result)
-    partition_display = sprint(show, partition_result)
-    @test !isempty(partition_display)
-    @test occursin("return_code → :success", partition_display)
-    @test !occursin("::success", partition_display)
+    @test roadmap isa GradientRoadmap
+    @test sort(partition(roadmap)) == [[1, 2, 4], [3]]
+    @test morse_indices(roadmap) == [1, 0, 0, 0]
+    @test isempty(failed_info(roadmap))
+    @test return_code(roadmap) == :success
+    @test partition(roadmap_from_routing_result) == partition(roadmap)
+
+end;
+
+@testset "Region struct and membership" begin
+
+    Random.seed!(12345)
+
+    @var a b x
+    F = System([x^2 + a * x + b; 2x + a], variables=[a, b, x])
+    h = ProjectedHypersurface(F, [a, b])
+
+    c = [13, 2]
+    r = RoutingFunction(h; c=c)
+
+    # Direct construction computes the Euler characteristic χ = ∑ᵢ (-1)^μᵢ
+    C0 = Region([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]], [0, 1, 2], r, 7)
+    @test C0 isa Region
+    @test routing_points(C0) isa Vector{Vector{Float64}}
+    @test morse_indices(C0) == [0, 1, 2]
+    @test euler_characteristic(C0) == 1
+    @test number(C0) == 7
+    # Standalone construction numbers the routing points 1:n
+    @test routing_point_indices(C0) == [1, 2, 3]
+    # ...but the indices can be given explicitly
+    C1 = Region([[1.0, 2.0], [3.0, 4.0]], [0, 1], r, 2; routing_point_indices = [4, 7])
+    @test routing_point_indices(C1) == [4, 7]
+    # There must be one Morse index per critical point
+    @test_throws AssertionError Region([[1.0, 2.0]], [0, 1], r, 1)
+    # ...and one routing point index per critical point
+    @test_throws AssertionError Region(
+        [[1.0, 2.0]], [0], r, 1; routing_point_indices = [1, 2],
+    )
+
+    # Same fixed routing points as in "Connect points" (deterministic partition)
+    pts = [
+        [-3.9180890683992278, -6.635887940807433],
+        [13.040296300414134, 1.993819726256856],
+        [3.2168112092392103, 8.082538361382138],
+        [-12.339018441254076, -2.1071368134982302]
+    ]
+
+    roadmap = gradient_roadmap(r, pts)
+
+    # The Region objects are stored on the roadmap itself
+    Rs = regions(roadmap)
+    @test Rs isa Vector{Region}
+    @test length(Rs) == length(partition(roadmap))
+    @test nregions(roadmap) == length(Rs)
+    @test number.(Rs) == collect(1:length(Rs))
+
+    # Every routing point lands in exactly one region
+    @test sum(length(routing_points(C)) for C in Rs) == length(pts)
+
+    # `partition` is derived from the regions' routing point indices
+    @test partition(roadmap) == [routing_point_indices(C) for C in Rs]
+
+    # Each region carries the data of its connected component
+    idx = morse_indices(roadmap)
+    for (C, component) in zip(Rs, partition(roadmap))
+        @test routing_point_indices(C) == component
+        @test routing_points(C) == [pts[j] for j in component]
+        @test morse_indices(C) == [idx[j] for j in component]
+        @test euler_characteristic(C) == sum(mu -> (-1)^mu, morse_indices(C); init=0)
+    end
+
+    # membership: each index-0 critical point flows back to its own region
+    for C in Rs
+        for (cp, mu) in zip(routing_points(C), morse_indices(C))
+            mu == 0 || continue
+            M = membership(Rs, cp)
+            @test M isa Region
+            @test number(M) == number(C)
+        end
+    end
+
+    # membership of a non-critical point: the hypersurface here is the
+    # discriminant a^2 - 4b = 0 of the quadratic x^2 + a*x + b, so the complement
+    # has two regions, a^2 - 4b > 0 and a^2 - 4b < 0. The point pts[3] lies in the
+    # latter, all other routing points in the former.
+    @test pts[3][1]^2 - 4 * pts[3][2] < 0
+    @test all(p[1]^2 - 4 * p[2] > 0 for p in pts[[1, 2, 4]])
+    inside = only(C for C in Rs if pts[3] in routing_points(C))
+    outside = only(C for C in Rs if pts[2] in routing_points(C))
+
+    # (a, b) = (0, 5): a^2 - 4b = -20 < 0, so the same region as pts[3]
+    M_in = membership(Rs, [0.0, 5.0])
+    @test M_in isa Region
+    @test number(M_in) == number(inside)
+    # (a, b) = (0, -5): a^2 - 4b = 20 > 0, so the same region as pts[1], pts[2], pts[4]
+    M_out = membership(Rs, [0.0,-5.0])
+    @test M_out isa Region
+    @test number(M_out) == number(outside)
+
+    # membership can be called on the roadmap directly
+    @test number(membership(roadmap, [0.0, 5.0])) == number(inside)
+    @test number(membership(roadmap, [0.0, -5.0])) == number(outside)
+
+    # membership on an empty vector of regions returns nothing
+    @test membership(Region[], [0.0, 0.0]) === nothing
 
 end;
 

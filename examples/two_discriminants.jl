@@ -32,10 +32,10 @@ write_solutions("./results/two_discriminants/result.txt", solutions(res))
 write_solutions("./results/two_discriminants/routing_points.txt", pts)
 
 # Connecting 
-partition_result = partition_of_critical_points(r, routing_result)
-G = regions(partition_result)
-idx = morse_indices(partition_result)
-failures = failed_info(partition_result)
+roadmap = gradient_roadmap(r, routing_result)
+G = partition(roadmap)
+idx = morse_indices(roadmap)
+failures = failed_info(roadmap)
 println("Connected components: $(G)")
 println("Indicies: $(idx)")
 println("Failed info: $(failures)")
@@ -45,7 +45,7 @@ write("./results/two_discriminants/connected_components.txt", string(G))
 
 M_x = maximum(p -> abs(p[1]), pts) + 6
 M_y = maximum(p -> abs(p[2]), pts) + 6
-generate_plot(r, routing_result, partition_result;
+generate_plot(r, routing_result, roadmap;
     h = (a,b) -> (-4*b-a^2)*(4*a^3 - a^2*b^2 - 18*a*b + 4*b^3 + 27),
     markersize=7,
     arrowstyle=:simple,

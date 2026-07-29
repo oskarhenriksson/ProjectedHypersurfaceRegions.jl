@@ -75,10 +75,10 @@ pts_original = [[1.2648270055555684, 0.23668758954766242],
     [0.05913176450416948, 0.46985465616956895]
 ]
 
-partition_result_original = partition_of_critical_points(r_original, pts_original)
-G_original = regions(partition_result_original)
-idx_original = morse_indices(partition_result_original)
-failures_original = failed_info(partition_result_original)
+roadmap_original = gradient_roadmap(r_original, pts_original)
+G_original = partition(roadmap_original)
+idx_original = morse_indices(roadmap_original)
+failures_original = failed_info(roadmap_original)
 
 pl_original_smaller = generate_plot(
     r_original, pts_original,
@@ -107,10 +107,10 @@ pts = [[0.055589798000619875, 0.2045811486869807],
 
 ∇r.(pts)
 
-partition_result = partition_of_critical_points(r, pts)
-G = regions(partition_result)
-idx = morse_indices(partition_result)
-failures = failed_info(partition_result)
+roadmap = gradient_roadmap(r, pts)
+G = partition(roadmap)
+idx = morse_indices(roadmap)
+failures = failed_info(roadmap)
 
 pl_radical_smaller = generate_plot(
     r, pts,

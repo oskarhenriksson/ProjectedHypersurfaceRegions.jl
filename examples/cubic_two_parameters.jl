@@ -36,10 +36,10 @@ write_solutions("./results/cubic_two_parameters/result.txt", solutions(res))
 write_solutions("./results/cubic_two_parameters/routing_points.txt", pts)
 
 # Connecting 
-partition_result = partition_of_critical_points(r, routing_result)
-G = regions(partition_result)
-idx = morse_indices(partition_result)
-failures = failed_info(partition_result)
+roadmap = gradient_roadmap(r, routing_result)
+G = partition(roadmap)
+idx = morse_indices(roadmap)
+failures = failed_info(roadmap)
 println("Connected components: $(G)")
 println("Indicies: $(idx)")
 println("Failed info: $(failures)")
@@ -49,7 +49,7 @@ write("./results/cubic_two_parameters/connected_components.txt", string(G))
 
 M_x = maximum(p -> abs(p[1]), pts) + 6
 M_y = maximum(p -> abs(p[2]), pts) + 6
-generate_plot(r, routing_result, partition_result;
+generate_plot(r, routing_result, roadmap;
     h = (x,y) -> 4 * x^3 - x^2 * y^2 - 18 * x * y + 4 * y^3 + 27,
     markersize=6,
     annotation_textsize=5,

@@ -28,10 +28,10 @@ write_solutions("./results/quadratic_discriminant_with_lines/result.txt", soluti
 write_solutions("./results/quadratic_discriminant_with_lines/routing_points.txt", pts)
 
 # Connect the critical points
-partition_result = partition_of_critical_points(r, routing_result)
-G = regions(partition_result)
-idx = morse_indices(partition_result)
-failures = failed_info(partition_result)
+roadmap = gradient_roadmap(r, routing_result)
+G = partition(roadmap)
+idx = morse_indices(roadmap)
+failures = failed_info(roadmap)
 println("Connected components: $(G)")
 println("Indicies: $(idx)")
 println("Failed info: $(failures)")
@@ -42,7 +42,7 @@ write("./results/quadratic_discriminant_with_lines/connected_components.txt", st
 ##### Plotting 
 M_x = maximum(p -> abs(p[1]), pts) + 10
 M_y = maximum(p -> abs(p[2]), pts) + 10
-generate_plot(r, routing_result, partition_result;
+generate_plot(r, routing_result, roadmap;
     h=(a, b) -> (a^2 - 4 * b)*a*b,
     markersize=7,
     arrowstyle=:simple,

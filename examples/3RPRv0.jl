@@ -50,10 +50,10 @@ res = result(routing_result)
 mon_res = monodromy_result(routing_result)
 
 # Connected components 
-partition_result = partition_of_critical_points(r, routing_result)
-G = regions(partition_result)
-idx = morse_indices(partition_result)
-failures = failed_info(partition_result)
+roadmap = gradient_roadmap(r, routing_result)
+G = partition(roadmap)
+idx = morse_indices(roadmap)
+failures = failed_info(roadmap)
 
 time_end_round1 = time()
 println("Computation time for round 1: $(time_end_round1 - time_start_round1) seconds")
@@ -79,7 +79,7 @@ function analyze_and_save_result()
     println("Failed info: $(failures)")
     println()
 
-    generate_plot(r, routing_result, partition_result;
+    generate_plot(r, routing_result, roadmap;
         h=h_symbolic,
         xlims=(-10, 12),
         ylims=(-10, 12)
@@ -89,7 +89,7 @@ function analyze_and_save_result()
     savefig("./figures/3RPR.svg")
     savefig("./figures/3RPR.png")
 
-    generate_plot(r, routing_result, partition_result;
+    generate_plot(r, routing_result, roadmap;
         h=h_symbolic,
         root_counting_system=root_counting_system,
         markersize=5,
@@ -120,10 +120,10 @@ pts = routing_points(routing_result)
 res = result(routing_result)
 mon_res = monodromy_result(routing_result)
 
-partition_result = partition_of_critical_points(r, routing_result)
-G = regions(partition_result)
-idx = morse_indices(partition_result)
-failures = failed_info(partition_result)
+roadmap = gradient_roadmap(r, routing_result)
+G = partition(roadmap)
+idx = morse_indices(roadmap)
+failures = failed_info(roadmap)
 
 time_end_round2 = time()
 println("Additional computation time for round 2: $(time_end_round2 - time_start_round2) seconds")

@@ -292,17 +292,17 @@ end
 function generate_plot(
     r::RoutingFunction,
     routing_result::RoutingPointsResult,
-    partition_result::PartitionResult;
+    roadmap::GradientRoadmap;
     kwargs...,
 )
-    isnothing(morse_indices(partition_result)) &&
-        error("Cannot generate a plot from a partition result with no Morse indices.")
+    isnothing(morse_indices(roadmap)) &&
+        error("Cannot generate a plot from a gradient roadmap with no Morse indices.")
 
     generate_plot(
         r,
         routing_points(routing_result),
-        regions(partition_result),
-        morse_indices(partition_result);
+        partition(roadmap),
+        morse_indices(roadmap);
         kwargs...,
     )
 end
