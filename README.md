@@ -175,16 +175,7 @@ julia> pts = routing_points(routing_result)
 Finally, we connect the critical points that belong to the same component of the complement, to obtain a *gradient roadmap* of the complement of the hypersurface.
 
 ```julia-repl
-<<<<<<< Updated upstream
-julia> roadmap = gradient_roadmap(r, routing_result);
-```
-
-The regions describe the connected components, which we access with `components(::GradientRoadmap)`. We see that the first, third and fourth critical points belong to the same connected component, and that the second one belongs to its own component:
-
-```julia-repl
-julia> components(roadmap)
-=======
-julia> roadmap = gradient_roadmap(r, pts)
+julia> roadmap = gradient_roadmap(r, routing_result)
 Gradient roadmap of a hypersurface complement
 =============================================
 • 2 connected component(s)
@@ -217,8 +208,8 @@ julia> C1 = connected_comps[1];
 julia> routing_points(C1)
 3-element Vector{Vector{Float64}}:
  [13.040296300414134, 1.993819726256856]
- [-12.339018441254096, -2.1071368134982267]
  [-3.9180890683992433, -6.635887940807435]
+ [-12.339018441254096, -2.1071368134982267]
 
 julia> C2 = connected_comps[2];
 
@@ -230,32 +221,17 @@ julia> routing_points(C2)
 We see that the first, third and fourth critical points belong to the same connected component, and that the second one belongs to its own component. We can obtain this partition via the `partition` command:
 
 ```julia-repl
-julia> parition(roadmap)
->>>>>>> Stashed changes
+julia> partition(roadmap)
 2-element Vector{Vector{Int64}}:
  [1, 3, 4]
  [2]
 ```
 
-<<<<<<< Updated upstream
-Each component is also available as a `Region`, which bundles the routing points with their Morse indices and the Euler characteristic of the region:
+The roadmap also allows a *membership test* for points in the complement by tracing them via gradient flow and determining which region's routing points they converge to.
 
 ```julia-repl
-julia> regions(roadmap)
-2-element Vector{Region}:
- Region 1
-========
-• 3 routing point(s)
-• morse_indices → [0, 1, 0]
-• χ → 1
- Region 2
-=======
-The roadmap also allows a *membership test* for points in the complement by tracing it via gradient flow and determining which cluster of routing points it converges to.
-
-```julia-repl
-membership(roadmap, [1, 1])
+julia> membership(roadmap, [1, 1])
 Region 2
->>>>>>> Stashed changes
 ========
 • 1 routing point(s)
 • morse_indices → [0]

@@ -301,7 +301,7 @@ function generate_plot(
     generate_plot(
         r,
         routing_points(routing_result),
-        components(roadmap),
+        partition(roadmap),
         morse_indices(roadmap);
         kwargs...,
     )
