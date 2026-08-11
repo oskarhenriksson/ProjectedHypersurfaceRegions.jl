@@ -24,6 +24,7 @@ function critical_points(
     start_grid_stepsize = 0.2,
     start_grid_center = nothing,
     monodromy_at_zero = false,
+    ntrackers::Int = Threads.nthreads(),
     options = MonodromyOptions(
         parameter_sampler = p -> 10 .* randn(ComplexF64, length(p)),
         max_loops_no_progress = 15
@@ -36,6 +37,7 @@ function critical_points(
     MS, H, S0, rhs0, k = _setup_monodromy_solver(
         ∇r, S0, rhs0;
         monodromy_at_zero = monodromy_at_zero,
+        ntrackers = ntrackers,
         options = options,
     )
 
@@ -69,6 +71,7 @@ function _setup_monodromy_solver(
     S0::Union{AbstractVector{<:AbstractVector{<:Number}},Nothing} = nothing,
     rhs0::Union{AbstractVector{<:Number},Nothing} = nothing;
     monodromy_at_zero = false,
+    ntrackers::Int = Threads.nthreads(),
     options = MonodromyOptions(
         parameter_sampler = p -> 10 .* randn(ComplexF64, length(p)),
         max_loops_no_progress = 15
@@ -80,8 +83,11 @@ function _setup_monodromy_solver(
     H = RoutingPointsHomotopy(∇r, p1, q1)
 
     ### Use monodromy to the system ∇r = rhs0 where we view the right-hand side are the parameters of the system
-    egtracker = EndgameTracker(H)
-    trackers = [egtracker]
+    ntrackers >= 1 || throw(ArgumentError("ntrackers must be positive"))
+    # Every routing evaluator owns mutable pseudo-witness trackers, moving fibres,
+    # derivative buffers, and LU workspaces.  Give every outer tracker a deep copy
+    # so HomotopyContinuation can run paths concurrently without data races.
+    trackers = [EndgameTracker(i == 1 ? H : deepcopy(H)) for i = 1:ntrackers]
     x₀ = zeros(ComplexF64, size(H, k))
 
     unique_points = UniquePoints(x₀, 1;)

@@ -48,6 +48,21 @@ mutable struct GradientCache{T}
     M3::Matrix{T}
     gradient_temp::Vector{T}
     Hess_temp::Matrix{T}
+    # A path-local moving copy of the pseudo-witness fibre.  Consecutive calls made by
+    # an outer path tracker are close, so continuing this fibre is much cheaper than
+    # restarting at the original witness slice for every evaluation.
+    fiber_point::Vector{T}
+    fiber_solutions::Vector{Vector{T}}
+    fiber_scratch::Vector{Vector{T}}
+    warm_fiber_tracking::Bool
+    fiber_valid::Bool
+    fiber_evaluations::Int
+    fiber_exact_hits::Int
+    fiber_warm_tracks::Int
+    fiber_cold_tracks::Int
+    fiber_fallbacks::Int
+    fiber_failures::Int
+    fiber_tracking_ns::UInt64
 end
 
 function compute_systems(F, n, k, B)
@@ -163,6 +178,10 @@ function GradientCache(PWS)
     gradient_temp = zeros(ComplexF64, k)
     Hess_temp = zeros(ComplexF64, k, k)
 
+    fiber_point = zeros(ComplexF64, k)
+    fiber_solutions = [copy(z) for z in PWS.tZ]
+    fiber_scratch = [similar(z) for z in PWS.tZ]
+
     v0 = randn(ComplexF64, n+1)
 
     GradientCache{ComplexF64}(v0, 
@@ -213,12 +232,118 @@ function GradientCache(PWS)
                     M2, 
                     M3, 
                     gradient_temp, 
-                    Hess_temp
+                    Hess_temp,
+                    fiber_point,
+                    fiber_solutions,
+                    fiber_scratch,
+                    true,
+                    false,
+                    0, 0, 0, 0, 0, 0,
+                    UInt64(0)
                 )
 end
 
+@inline function _same_fiber_point(a, b)
+    length(a) == length(b) || return false
+    @inbounds for i in eachindex(a, b)
+        a[i] == b[i] || return false
+    end
+    true
+end
+
+function _track_fiber_from!(dest, PWS::PseudoWitnessSet, starts, p_start, p_target)
+    tracker = PWS.tracker
+    start_parameters!(tracker, p_start)
+    target_parameters!(tracker, p_target)
+    succeeded = true
+    for (i, start) in enumerate(starts)
+        code = HC.track!(tracker, start, 1)
+        copyto!(dest[i], tracker.tracker.state.x)
+        ok = HC.is_success(code) && all(isfinite, dest[i])
+        PWS.track_report[i] = ok
+        succeeded &= ok
+    end
+    succeeded
+end
+
+"""Track the pseudo-witness fibre to `p`, reusing the most recent fibre when possible.
+
+Updates are transactional: a failed warm track is discarded and retried from the
+original witness slice.  An incomplete fibre is never used for differentiation.
+"""
 function track!(GC::GradientCache, PWS::PseudoWitnessSet, p)
-    track!(GC.line_hypersurface_intersections, PWS, p)
+    GC.fiber_evaluations += 1
+
+    if GC.warm_fiber_tracking && GC.fiber_valid && _same_fiber_point(GC.fiber_point, p)
+        GC.fiber_exact_hits += 1
+        for i in eachindex(GC.line_hypersurface_intersections)
+            copyto!(GC.line_hypersurface_intersections[i], GC.fiber_solutions[i])
+            PWS.track_report[i] = true
+        end
+        get_s_and_Uvals!(GC.Uvals, GC.S, GC, PWS)
+        return nothing
+    end
+
+    t0 = time_ns()
+    success = false
+    if GC.warm_fiber_tracking && GC.fiber_valid
+        GC.fiber_warm_tracks += 1
+        success = _track_fiber_from!(
+            GC.fiber_scratch, PWS, GC.fiber_solutions, GC.fiber_point, p,
+        )
+        if !success
+            GC.fiber_fallbacks += 1
+        end
+    end
+
+    if !success
+        GC.fiber_cold_tracks += 1
+        success = _track_fiber_from!(GC.fiber_scratch, PWS, PWS.tZ, PWS.L.point, p)
+    end
+    GC.fiber_tracking_ns += UInt64(time_ns() - t0)
+
+    if !success
+        GC.fiber_failures += 1
+        GC.fiber_valid = false
+        error("Failed to track the complete pseudo-witness fibre to the evaluation point.")
+    end
+
+    copyto!(GC.fiber_point, p)
+    for i in eachindex(GC.fiber_solutions)
+        copyto!(GC.fiber_solutions[i], GC.fiber_scratch[i])
+        copyto!(GC.line_hypersurface_intersections[i], GC.fiber_scratch[i])
+        PWS.track_report[i] = true
+    end
+    GC.fiber_valid = GC.warm_fiber_tracking
     get_s_and_Uvals!(GC.Uvals, GC.S, GC, PWS)
     nothing
 end
+
+function set_warm_fiber_tracking!(GC::GradientCache, enabled::Bool)
+    GC.warm_fiber_tracking = enabled
+    GC.fiber_valid = false
+    GC
+end
+
+function reset_fiber_cache!(GC::GradientCache)
+    GC.fiber_valid = false
+    GC.fiber_evaluations = 0
+    GC.fiber_exact_hits = 0
+    GC.fiber_warm_tracks = 0
+    GC.fiber_cold_tracks = 0
+    GC.fiber_fallbacks = 0
+    GC.fiber_failures = 0
+    GC.fiber_tracking_ns = UInt64(0)
+    GC
+end
+
+fiber_tracking_stats(GC::GradientCache) = (
+    enabled = GC.warm_fiber_tracking,
+    evaluations = GC.fiber_evaluations,
+    exact_hits = GC.fiber_exact_hits,
+    warm_tracks = GC.fiber_warm_tracks,
+    cold_tracks = GC.fiber_cold_tracks,
+    fallbacks = GC.fiber_fallbacks,
+    failures = GC.fiber_failures,
+    tracking_seconds = Float64(GC.fiber_tracking_ns) / 1e9,
+)

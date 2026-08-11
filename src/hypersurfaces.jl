@@ -5,7 +5,10 @@ hessian,
 degree,
 trace_test,
 sample_points,
-decompose
+decompose,
+fiber_tracking_stats,
+reset_fiber_cache!,
+set_warm_fiber_tracking!
 
 @doc raw"""
     ProjectedHypersurface{TC} <: HC.AbstractSystem
@@ -407,6 +410,11 @@ function gradient_and_hessian(h::ProjectedHypersurface{TC}, x, p = nothing) wher
 end
 
 hessian(h::ProjectedHypersurface{TC}, x, p = nothing) where {TC} = gradient_and_hessian(h, x, p)[2]
+
+fiber_tracking_stats(h::ProjectedHypersurface) = fiber_tracking_stats(h.GC)
+reset_fiber_cache!(h::ProjectedHypersurface) = reset_fiber_cache!(h.GC)
+set_warm_fiber_tracking!(h::ProjectedHypersurface, enabled::Bool) =
+    set_warm_fiber_tracking!(h.GC, enabled)
 
 
 
