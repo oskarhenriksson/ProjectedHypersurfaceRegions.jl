@@ -4,10 +4,8 @@ mutable struct GradientCache{T}
     JsuF::HC.CompiledSystem
     JPF::HC.CompiledSystem
     JBF::HC.CompiledSystem
-    HF::HC.CompiledSystem
-    JxB::HC.CompiledSystem
-    JxP::HC.CompiledSystem
-    JPB::HC.CompiledSystem
+    adjoint_gradient_system::HC.CompiledSystem
+    contracted_hessian_system::HC.CompiledSystem
     S::Vector{T}
     X::Vector{T}
     Uvals::Matrix{T}
@@ -15,37 +13,22 @@ mutable struct GradientCache{T}
     SB::Matrix{T}
     UP::Array{T,3}
     UB::Array{T,3}
-    A::Array{T,4}
     rhs1::Matrix{T}
-    rhs2::Vector{T}
-    rhs3::Vector{T}
+    adjoint_rhs::Vector{T}
     JsuF_vals::Vector{T}
     JPF_vals::Vector{T}
     JBF_vals::Vector{T}
-    HF_vals::Vector{T}
-    JxB_vals::Vector{T}
-    JxP_vals::Vector{T}
-    JPB_vals::Vector{T}
+    adjoint_gradient_input::Vector{T}
+    adjoint_gradient_vals::Vector{T}
+    contracted_hessian_input::Vector{T}
+    contracted_hessian_vals::Vector{T}
     JsuF_temp::Matrix{T}
     JPF_temp::Matrix{T}
     JBF_temp::Matrix{T}
     Jtu_temp::Matrix{T} # Temporary storage for evaluating JsuF
     JsuF_lu::Array{T,3}
     JsuF_ipiv::Matrix{LinearAlgebra.LAPACK.BlasInt}
-    JsuF_lu_success::Vector{Bool}
-    HF_temp::Array{T, 3} # Temporary storage for evaluating HF
-    JxB_temp::Array{T, 3} # Temporary storage for evaluating JxB
-    JxP_temp::Array{T, 3} # Temporary storage for evaluating JxP
-    JPB_temp::Array{T, 3} # Temporary storage for evaluating JPB
-    temp_Hi::Matrix{T}
-    temp_Jxpi::Matrix{T}
-    temp_Jxbi::Matrix{T}
-    temp_Jpbi::Matrix{T}
     ipiv::Vector{LinearAlgebra.LAPACK.BlasInt} # allocation for pivot for lu! in place linear solving
-    M::Matrix{T}
-    M1::Matrix{T}
-    M2::Matrix{T}
-    M3::Matrix{T}
     gradient_temp::Vector{T}
     Hess_temp::Matrix{T}
     # A path-local moving copy of the pseudo-witness fibre.  Consecutive calls made by
@@ -66,7 +49,8 @@ mutable struct GradientCache{T}
 end
 
 function compute_systems(F, n, k, B)
-    @unique_var uval[1:n-k] α[1:k] β[1:k] t
+    N = n - k + 1
+    @unique_var uval[1:n-k] α[1:k] β[1:k] t λ[1:N] xp[1:N,1:k] xb[1:N,1:k]
     F_on_line = F([α + (1 / t) * β; uval])
     v = vcat(t, uval)
     vars = vcat(t, uval, α)
@@ -93,24 +77,48 @@ function compute_systems(F, n, k, B)
     JPF = CompiledSystem(System(reduce(vcat, JPF_exprs), variables = vars))
     JBF = CompiledSystem(System(reduce(vcat, JBF_exprs), variables = vars))
 
-    function J(x) 
-        map(Iterators.product(∇v, x)) do (∇vi, xj)
-            evaluate(HC.ModelKit.differentiate(∇vi, xj), β => B)
+    # Compile the contractions that are actually needed.  This avoids evaluating
+    # full G_xx, G_xp, G_xβ and G_pβ tensors at every fibre point.
+    adjoint_gradient_exprs = map(β) do βb
+        sum(1:N; init = 0) do i
+            λ[i] * HC.ModelKit.differentiate(F_on_line[i], βb)
         end
     end
+    adjoint_gradient_exprs = evaluate.(adjoint_gradient_exprs, Ref(β => B))
+    adjoint_gradient_system = CompiledSystem(System(
+        adjoint_gradient_exprs,
+        variables = [vars; λ],
+    ))
 
-    HF_exprs = J(v)
-    JxB_exprs = J(β)
-    JxP_exprs = J(α)
-    JPB_exprs = map(Iterators.product(∇α, β)) do (∇αi, βj)
-        evaluate(HC.ModelKit.differentiate(∇αi, βj), β => B)
-    end
-    HF = CompiledSystem(System(reduce(vcat, vec(HF_exprs)), variables = vars))
-    JxB = CompiledSystem(System(reduce(vcat, vec(JxB_exprs)), variables = vars))
-    JxP = CompiledSystem(System(reduce(vcat, vec(JxP_exprs)), variables = vars))
-    JPB = CompiledSystem(System(reduce(vcat, vec(JPB_exprs)), variables = vars))
+    contracted_hessian_exprs = [begin
+        expression = 0
+        for i = 1:N
+            residual_i = HC.ModelKit.differentiate(
+                HC.ModelKit.differentiate(F_on_line[i], α[a]), β[b],
+            )
+            for r = 1:N
+                residual_i += HC.ModelKit.differentiate(
+                    HC.ModelKit.differentiate(F_on_line[i], v[r]), β[b],
+                ) * xp[r, a]
+                residual_i += HC.ModelKit.differentiate(
+                    HC.ModelKit.differentiate(F_on_line[i], v[r]), α[a],
+                ) * xb[r, b]
+                for c = 1:N
+                    residual_i += HC.ModelKit.differentiate(
+                        HC.ModelKit.differentiate(F_on_line[i], v[r]), v[c],
+                    ) * xp[r, a] * xb[c, b]
+                end
+            end
+            expression += λ[i] * residual_i
+        end
+        evaluate(expression, β => B)
+    end for a = 1:k, b = 1:k]
+    contracted_hessian_system = CompiledSystem(System(
+        vec(contracted_hessian_exprs),
+        variables = [vars; λ; vec(xp); vec(xb)],
+    ))
 
-    return JsuF, JPF, JBF, HF, JxB, JxP, JPB
+    return JsuF, JPF, JBF, adjoint_gradient_system, contracted_hessian_system
 
 end
 
@@ -135,22 +143,20 @@ function GradientCache(PWS)
     SB = zeros(ComplexF64, d, k)
     UP = zeros(ComplexF64, d, n - k, k)
     UB = zeros(ComplexF64, d, n - k, k)
-    A = zeros(ComplexF64, d, N, k, k) 
-
-    JsuF, JPF, JBF, HF, JxB, JxP, JPB = compute_systems(F, n, k, L.direction)
+    JsuF, JPF, JBF, adjoint_gradient_system, contracted_hessian_system =
+        compute_systems(F, n, k, L.direction)
 
 
     # 
     rhs1 = zeros(ComplexF64, N, 2*k)  
-    rhs2 = zeros(ComplexF64, N)  
-    rhs3 = zeros(ComplexF64, k)  
+    adjoint_rhs = zeros(ComplexF64, N)
     JsuF_vals = zeros(ComplexF64, N * N)
     JPF_vals = zeros(ComplexF64, N * k)
     JBF_vals = zeros(ComplexF64, N * k)
-    HF_vals = zeros(ComplexF64, N * N * N)
-    JxB_vals = zeros(ComplexF64, N * N * k)
-    JxP_vals = zeros(ComplexF64, N * N * k)
-    JPB_vals = zeros(ComplexF64, N * k * k)
+    adjoint_gradient_input = zeros(ComplexF64, N + k + N)
+    adjoint_gradient_vals = zeros(ComplexF64, k)
+    contracted_hessian_input = zeros(ComplexF64, N + k + N + 2 * N * k)
+    contracted_hessian_vals = zeros(ComplexF64, k * k)
 
     JsuF_temp = zeros(ComplexF64, N, 1+n-k)
     JPF_temp = zeros(ComplexF64, N, k)
@@ -158,22 +164,8 @@ function GradientCache(PWS)
     Jtu_temp = zeros(ComplexF64, N, 1+n-k) # TODO: Maybe can reuse Jsu_temp....
     JsuF_lu = zeros(ComplexF64, d, N, N)
     JsuF_ipiv = Matrix{LinearAlgebra.LAPACK.BlasInt}(undef, d, N)
-    JsuF_lu_success = zeros(Bool, d)
-    HF_temp = zeros(ComplexF64, N, N, N)
-    JxB_temp = zeros(ComplexF64, N, N, k)
-    JxP_temp = zeros(ComplexF64, N, N, k)
-    JPB_temp = zeros(ComplexF64, N, k, k)
-    temp_Hi = zeros(ComplexF64, N, N)
-    temp_Jxpi = zeros(ComplexF64, N, k)
-    temp_Jxbi = zeros(ComplexF64, N, k)
-    temp_Jpbi = zeros(ComplexF64, k, k)
 
     ipiv = Vector{LinearAlgebra.LAPACK.BlasInt}(undef, min(size(JsuF_temp,1), size(JsuF_temp,2)))
-
-    M = zeros(ComplexF64, k, k)
-    M1 = zeros(ComplexF64, k, n-k+1)
-    M2 = zeros(ComplexF64, n-k+1, k)
-    M3 = zeros(ComplexF64, k, n-k+1)
 
     gradient_temp = zeros(ComplexF64, k)
     Hess_temp = zeros(ComplexF64, k, k)
@@ -189,10 +181,8 @@ function GradientCache(PWS)
                     JsuF,
                     JPF,
                     JBF,
-                    HF,
-                    JxB,
-                    JxP,
-                    JPB,
+                    adjoint_gradient_system,
+                    contracted_hessian_system,
                     S, 
                     X, 
                     Uvals, 
@@ -200,37 +190,22 @@ function GradientCache(PWS)
                     SB, 
                     UP, 
                     UB, 
-                    A, 
                     rhs1, 
-                    rhs2, 
-                    rhs3,
+                    adjoint_rhs,
                     JsuF_vals,
                     JPF_vals,
                     JBF_vals,
-                    HF_vals,
-                    JxB_vals,
-                    JxP_vals,
-                    JPB_vals,
+                    adjoint_gradient_input,
+                    adjoint_gradient_vals,
+                    contracted_hessian_input,
+                    contracted_hessian_vals,
                     JsuF_temp, 
                     JPF_temp, 
                     JBF_temp, 
                     Jtu_temp, 
                     JsuF_lu,
                     JsuF_ipiv,
-                    JsuF_lu_success,
-                    HF_temp, 
-                    JxB_temp, 
-                    JxP_temp, 
-                    JPB_temp, 
-                    temp_Hi,
-                    temp_Jxpi,
-                    temp_Jxbi,
-                    temp_Jpbi,
                     ipiv,
-                    M, 
-                    M1, 
-                    M2, 
-                    M3, 
                     gradient_temp, 
                     Hess_temp,
                     fiber_point,
