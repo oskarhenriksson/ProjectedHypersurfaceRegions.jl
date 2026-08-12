@@ -24,7 +24,6 @@ function critical_points(
     start_grid_stepsize = 0.2,
     start_grid_center = nothing,
     monodromy_at_zero = false,
-    ntrackers::Int = Threads.nthreads(),
     options = MonodromyOptions(
         parameter_sampler = p -> 10 .* randn(ComplexF64, length(p)),
         max_loops_no_progress = 15
@@ -37,7 +36,6 @@ function critical_points(
     MS, H, S0, rhs0, k = _setup_monodromy_solver(
         ∇r, S0, rhs0;
         monodromy_at_zero = monodromy_at_zero,
-        ntrackers = ntrackers,
         options = options,
     )
 
@@ -71,7 +69,6 @@ function _setup_monodromy_solver(
     S0::Union{AbstractVector{<:AbstractVector{<:Number}},Nothing} = nothing,
     rhs0::Union{AbstractVector{<:Number},Nothing} = nothing;
     monodromy_at_zero = false,
-    ntrackers::Int = Threads.nthreads(),
     options = MonodromyOptions(
         parameter_sampler = p -> 10 .* randn(ComplexF64, length(p)),
         max_loops_no_progress = 15
@@ -83,11 +80,10 @@ function _setup_monodromy_solver(
     H = RoutingPointsHomotopy(∇r, p1, q1)
 
     ### Use monodromy to the system ∇r = rhs0 where we view the right-hand side are the parameters of the system
-    ntrackers >= 1 || throw(ArgumentError("ntrackers must be positive"))
     # Every routing evaluator owns mutable pseudo-witness trackers, moving fibres,
-    # derivative buffers, and LU workspaces.  Give every outer tracker a deep copy
-    # so HomotopyContinuation can run paths concurrently without data races.
-    trackers = [EndgameTracker(i == 1 ? H : deepcopy(H)) for i = 1:ntrackers]
+    # derivative buffers, and LU workspaces. HomotopyContinuation uses one tracker
+    # per Julia thread, so give each of those trackers an independent homotopy.
+    trackers = [EndgameTracker(i == 1 ? H : deepcopy(H)) for i = 1:Threads.nthreads()]
     x₀ = zeros(ComplexF64, size(H, k))
 
     unique_points = UniquePoints(x₀, 1;)
@@ -121,6 +117,32 @@ function _setup_monodromy_solver(
     end
 
     return MS, H, S0, rhs0, k
+end
+
+@inline _worker_hypersurfaces(tracker) = tracker.tracker.homotopy.∇r.r.H
+
+function _snapshot_worker_fiber_stats(MS::HomotopyContinuation.MonodromySolver)
+    [
+        [_fiber_tracking_counters(h.GC) for h in _worker_hypersurfaces(tracker)]
+        for tracker in MS.trackers
+    ]
+end
+
+function _merge_worker_fiber_stats!(targets, MS, before)
+    # The first worker owns the original routing function, so its counters are
+    # already visible. Add only the work performed by the deep-copied workers.
+    for worker_index = 2:length(MS.trackers)
+        workers = _worker_hypersurfaces(MS.trackers[worker_index])
+        length(workers) == length(targets) || error("Worker routing function changed shape.")
+        for (target, worker, baseline) in zip(targets, workers, before[worker_index])
+            _add_fiber_tracking_delta!(
+                target.GC,
+                baseline,
+                _fiber_tracking_counters(worker.GC),
+            )
+        end
+    end
+    nothing
 end
 
 """
@@ -257,7 +279,13 @@ function _solve_and_trace(
     start_grid_width = 5,
 )
     ### Monodromy
-    mon_result = monodromy_solve(MS, S0, rhs0, rand(UInt32))
+    worker_stats_before = _snapshot_worker_fiber_stats(MS)
+    local mon_result
+    try
+        mon_result = monodromy_solve(MS, S0, rhs0, rand(UInt32))
+    finally
+        _merge_worker_fiber_stats!(∇r.r.H, MS, worker_stats_before)
+    end
 
     ### Trace to ∇r=0
     if !monodromy_at_zero

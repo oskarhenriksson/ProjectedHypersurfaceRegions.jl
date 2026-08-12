@@ -242,8 +242,9 @@ function taylor!(u, ::Val{1}, F::RoutingGradient, x, p)
 end
 
 function taylor!(u, ::Val, F::RoutingGradient, x, p)
-    # Higher coefficients require third and fourth derivatives of log(r).  HC's
-    # predictor can fall back to its Hermite history; do not fabricate them.
+    # Higher coefficients require third and fourth derivatives of log(r), which
+    # are not available yet. Preserve the legacy zero-coefficient behavior for
+    # compatibility; these values are not exact higher derivatives.
     fill!(u, zero(eltype(u)))
     u
 end
