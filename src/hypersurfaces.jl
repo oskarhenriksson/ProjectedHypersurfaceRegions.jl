@@ -5,7 +5,10 @@ hessian,
 degree,
 trace_test,
 sample_points,
-decompose
+decompose,
+fiber_tracking_stats,
+reset_fiber_cache!,
+set_warm_fiber_tracking!
 
 @doc raw"""
     ProjectedHypersurface{TC} <: HC.AbstractSystem
@@ -133,15 +136,15 @@ function gradient!(u, h::ProjectedHypersurface{TC}, x, p = nothing) where {TC}
 
     # Use cached symbolic objects and arrays
     JsuF = GC.JsuF
-    JPF = GC.JPF
-    JBF = GC.JBF
+    adjoint_gradient_system = GC.adjoint_gradient_system
 
     v0 = GC.v0
     S = GC.S
     Uvals = GC.Uvals
-    SB = GC.SB
-    rhs1, rhs2, rhs3 = GC.rhs1, GC.rhs2, GC.rhs3
-    JsuF_vals, JPF_vals, JBF_vals = GC.JsuF_vals, GC.JPF_vals, GC.JBF_vals
+    adjoint_rhs = GC.adjoint_rhs
+    JsuF_vals = GC.JsuF_vals
+    adjoint_gradient_input = GC.adjoint_gradient_input
+    adjoint_gradient_vals = GC.adjoint_gradient_vals
 
     N, n = size(PWS.F)
     k = n_projection_variables(PWS)
@@ -151,7 +154,9 @@ function gradient!(u, h::ProjectedHypersurface{TC}, x, p = nothing) where {TC}
     # `track!` restores or computes both the tracked intersections and the cached S/Uvals data.
     track!(GC, PWS, x)
 
-    #Obtain gradients of S and U with respect to p and β
+    # Adjoint implicit differentiation.  If J = G_(s,u) and Jᵀλ = e₁, then
+    # -∂s/∂β = λᵀG_β, which is precisely one fibre contribution to
+    # ∇log|h|.  This needs one solve rather than 2k forward sensitivity solves.
     for i = 1:length(S)
 
         if !PWS.track_report[i] # skip if i-th track failed
@@ -164,30 +169,15 @@ function gradient!(u, h::ProjectedHypersurface{TC}, x, p = nothing) where {TC}
         JsuF_temp = GC.JsuF_temp
         _evaluate_fused_columns!(JsuF_temp, JsuF_vals, JsuF, v0, N, N)
 
-        JPF_temp = GC.JPF_temp
-        _evaluate_fused_columns!(JPF_temp, JPF_vals, JPF, v0, N, k)
-
-        JBF_temp = GC.JBF_temp
-        _evaluate_fused_columns!(JBF_temp, JBF_vals, JBF, v0, k, N)
-
-        _fill_rhs1!(rhs1, JPF_temp, JBF_temp)
-
-        rhs1 .*= -1
-        # In-place linear solving with pre-allocated pivot vector
+        fill!(adjoint_rhs, zero(ComplexF64))
+        adjoint_rhs[1] = one(ComplexF64)
         _, ipiv, info = LinearAlgebra.LAPACK.getrf!(JsuF_temp, GC.ipiv)
-        if info == 0 # this indicates successful factorization
-            LinearAlgebra.LAPACK.getrs!('N', JsuF_temp, ipiv, rhs1)
-        else
-            fill!(rhs1, zero(ComplexF64))
-        end
+        info == 0 || error("Singular implicit Jacobian while evaluating the projected hypersurface gradient.")
+        LinearAlgebra.LAPACK.getrs!('T', JsuF_temp, ipiv, adjoint_rhs)
 
-        # copy rhs1 row segment into SB row without creating slices
-        @inbounds @simd for jj = 1:k
-            SB[i, jj] = rhs1[1, k + jj]
-        end
-        @inbounds @simd for jj = 1:k
-            u[jj] -= SB[i, jj]
-        end
+        _fill_adjoint_gradient_input!(adjoint_gradient_input, v0, adjoint_rhs)
+        evaluate!(adjoint_gradient_vals, adjoint_gradient_system, adjoint_gradient_input)
+        u .+= adjoint_gradient_vals
     end
 
 
@@ -215,20 +205,11 @@ function gradient_and_hessian!(u, U, h::ProjectedHypersurface{TC}, x, p = nothin
     JsuF = GC.JsuF
     JPF = GC.JPF
     JBF = GC.JBF
-    HF = GC.HF
-    JxB = GC.JxB
-    JxP = GC.JxP
-    JPB = GC.JPB
+    contracted_hessian_system = GC.contracted_hessian_system
 
     # Preallocated temporaries and cached LU data keep the Hessian path allocation-free.
     JsuF_lu = GC.JsuF_lu
     JsuF_ipiv = GC.JsuF_ipiv
-    JsuF_lu_success = GC.JsuF_lu_success
-    temp_Hi = GC.temp_Hi
-    temp_Jxpi = GC.temp_Jxpi
-    temp_Jxbi = GC.temp_Jxbi
-    temp_Jpbi = GC.temp_Jpbi
-
     v0 = GC.v0
     S = GC.S
     Uvals = GC.Uvals
@@ -236,12 +217,10 @@ function gradient_and_hessian!(u, U, h::ProjectedHypersurface{TC}, x, p = nothin
     SB = GC.SB
     UP = GC.UP
     UB = GC.UB
-    A = GC.A
-    rhs1, rhs2, rhs3 = GC.rhs1, GC.rhs2, GC.rhs3
+    rhs1, adjoint_rhs = GC.rhs1, GC.adjoint_rhs
     JsuF_vals, JPF_vals, JBF_vals = GC.JsuF_vals, GC.JPF_vals, GC.JBF_vals
-    HF_vals, JxB_vals, JxP_vals, JPB_vals = GC.HF_vals, GC.JxB_vals, GC.JxP_vals, GC.JPB_vals
-
-    M, M1, M2, M3 = GC.M, GC.M1, GC.M2, GC.M3
+    contracted_hessian_input = GC.contracted_hessian_input
+    contracted_hessian_vals = GC.contracted_hessian_vals
 
     k = n_projection_variables(PWS)
     N, n = size(PWS.F)
@@ -276,18 +255,14 @@ function gradient_and_hessian!(u, U, h::ProjectedHypersurface{TC}, x, p = nothin
         rhs1 .*= -1
         # In-place linear solving with pre-allocated pivot vector
         _, ipiv, info = LinearAlgebra.LAPACK.getrf!(JsuF_temp, GC.ipiv)
-        JsuF_lu_success[i] = (info == 0)
+        info == 0 || error("Singular implicit Jacobian while evaluating the projected hypersurface Hessian.")
         @inbounds for row = 1:N, col = 1:N
             JsuF_lu[i, row, col] = JsuF_temp[row, col]
         end
         @inbounds for jj = 1:N
             JsuF_ipiv[i, jj] = ipiv[jj]
         end
-        if info == 0  # this indicates successful factorization
-            LinearAlgebra.LAPACK.getrs!('N', JsuF_temp, ipiv, rhs1)
-        else
-            fill!(rhs1, zero(ComplexF64))
-        end
+        LinearAlgebra.LAPACK.getrs!('N', JsuF_temp, ipiv, rhs1)
 
         _copy_rhs1_blocks!(SP, SB, UP, UB, rhs1, i)
         @inbounds @simd for jj = 1:k
@@ -302,96 +277,34 @@ function gradient_and_hessian!(u, U, h::ProjectedHypersurface{TC}, x, p = nothin
         end
     end
 
-    # Compute the second-derivative contributions using the fused tensor systems.
+    # Evaluate the already-contracted second-order residual. The compiled system
+    # accepts (s,u,p,λ,x_p,x_β) and returns the k×k Hessian contribution directly.
     for j = 1:length(S)
 
         !PWS.track_report[j] && continue # skip if j-th track failed
 
         _fill_v0!(v0, S, Uvals, x, j)
 
-        HF_temp = GC.HF_temp
-        HF_nrows, HF_ncols = N, N
-        _evaluate_fused_tensor!(HF_temp, HF_vals, HF, v0, N, HF_nrows, HF_ncols)
-
-        JxB_temp = GC.JxB_temp
-        JxB_nrows, JxB_ncols = N, k
-        _evaluate_fused_tensor!(JxB_temp, JxB_vals, JxB, v0, N, JxB_nrows, JxB_ncols)
-
-        JxP_temp = GC.JxP_temp
-        JxP_nrows, JxP_ncols = N, k
-        _evaluate_fused_tensor!(JxP_temp, JxP_vals, JxP, v0, N, JxP_nrows, JxP_ncols)
-
-        JPB_temp = GC.JPB_temp
-        JPB_nrows, JPB_ncols = k, k
-        _evaluate_fused_tensor!(JPB_temp, JPB_vals, JPB, v0, N, JPB_nrows, JPB_ncols)
-
-        _fill_M1_M2!(M1, M2, SP, SB, UP, UB, j)
-
-        for i = 1:N
-
-            # copy slices into temporaries (avoids allocating SubArray objects)
-            @inbounds for r = 1:HF_nrows, c = 1:HF_ncols
-                temp_Hi[r, c] = HF_temp[i, r, c]
-            end
-            @inbounds for r = 1:JxP_nrows, c = 1:JxP_ncols
-                temp_Jxpi[r, c] = JxP_temp[i, r, c]
-            end
-            @inbounds for r = 1:JxB_nrows, c = 1:JxB_ncols
-                temp_Jxbi[r, c] = JxB_temp[i, r, c]
-            end
-            @inbounds for r = 1:JPB_nrows, c = 1:JPB_ncols
-                temp_Jpbi[r, c] = JPB_temp[i, r, c]
-            end
-
-            # now step by step in-place matrix multiplications. 
-            for a = 1:k, b = 1:k
-                A[j, i, a, b] = temp_Jpbi[b, a] # note the transpose here
-            end
-            mul!(M, transpose(temp_Jxpi), M2)
-            for a = 1:k, b = 1:k
-                A[j, i, a, b] += M[b, a] # note the transpose here
-            end
-            mul!(M, M1, temp_Jxbi)
-            for a = 1:k, b = 1:k
-                A[j, i, a, b] += M[b, a] # note the transpose here
-            end
-            mul!(M3, M1, temp_Hi)
-            mul!(M, M3, M2)
-            for a = 1:k, b = 1:k
-                A[j, i, a, b] += M[b, a] # note the transpose here
-            end
-
-        end
-    end
-
-
-    # Reuse the LU factors of JsuF computed above when solving the final Hessian systems.
-    fill!(M, zero(ComplexF64)) # here M will get assigned the Hessian of log r
-    for j = 1:length(S)
-        
-        !PWS.track_report[j] && continue # skip if j-th track failed
-        !JsuF_lu_success[j] && continue
-
-
         Jtu = GC.Jtu_temp
         @inbounds for row = 1:N, col = 1:N
             Jtu[row, col] = JsuF_lu[j, row, col]
         end
-        @inbounds for jj = 1:N
-            GC.ipiv[jj] = JsuF_ipiv[j, jj]
+        @inbounds for ii = 1:N
+            GC.ipiv[ii] = JsuF_ipiv[j, ii]
         end
-        for a = 1:k, b = 1:k
-            for i = 1:N
-                rhs2[i] = A[j, i, a, b]
-            end
-            LinearAlgebra.LAPACK.getrs!('N', Jtu, GC.ipiv, rhs2)
-            M[a, b] += rhs2[1]
+        fill!(adjoint_rhs, zero(ComplexF64))
+        adjoint_rhs[1] = one(ComplexF64)
+        LinearAlgebra.LAPACK.getrs!('T', Jtu, GC.ipiv, adjoint_rhs)
+
+        _fill_contracted_hessian_input!(
+            contracted_hessian_input, v0, adjoint_rhs, SP, UP, SB, UB, j,
+        )
+        evaluate!(contracted_hessian_vals, contracted_hessian_system, contracted_hessian_input)
+        @inbounds for b = 1:k, a = 1:k
+            U[a, b] += contracted_hessian_vals[(b - 1) * k + a]
         end
     end
 
-    for a = 1:k, b = 1:k
-        U[a, b] += M[a, b]
-    end
 
     nothing
 end
@@ -408,6 +321,17 @@ end
 
 hessian(h::ProjectedHypersurface{TC}, x, p = nothing) where {TC} = gradient_and_hessian(h, x, p)[2]
 
+"""
+    fiber_tracking_stats(h::ProjectedHypersurface)
+
+Return cumulative fibre-tracking diagnostics. Work performed by parallel
+monodromy workers is aggregated into the original hypersurface after each solve.
+"""
+fiber_tracking_stats(h::ProjectedHypersurface) = fiber_tracking_stats(h.GC)
+reset_fiber_cache!(h::ProjectedHypersurface) = reset_fiber_cache!(h.GC)
+set_warm_fiber_tracking!(h::ProjectedHypersurface, enabled::Bool) =
+    set_warm_fiber_tracking!(h.GC, enabled)
+
 
 
 # Helpers for the fused derivative systems in GradientCache. They unpack one flat evaluation
@@ -423,6 +347,50 @@ hessian(h::ProjectedHypersurface{TC}, x, p = nothing) where {TC} = gradient_and_
     v0
 end
 
+@inline function _fill_adjoint_gradient_input!(dest, v0, λ)
+    offset = 0
+    @inbounds for i in eachindex(v0)
+        dest[offset + i] = v0[i]
+    end
+    offset += length(v0)
+    @inbounds for i in eachindex(λ)
+        dest[offset + i] = λ[i]
+    end
+    dest
+end
+
+@inline function _fill_contracted_hessian_input!(dest, v0, λ, SP, UP, SB, UB, idx)
+    offset = 0
+    @inbounds for i in eachindex(v0)
+        dest[offset + i] = v0[i]
+    end
+    offset += length(v0)
+    @inbounds for i in eachindex(λ)
+        dest[offset + i] = λ[i]
+    end
+    offset += length(λ)
+
+    # vec(x_p), column-major, with x=(s,u).
+    k = size(SP, 2)
+    N = size(UP, 2) + 1
+    @inbounds for a = 1:k
+        dest[offset + (a - 1) * N + 1] = SP[idx, a]
+        for row = 2:N
+            dest[offset + (a - 1) * N + row] = UP[idx, row - 1, a]
+        end
+    end
+    offset += N * k
+
+    # vec(x_β), column-major.
+    @inbounds for b = 1:k
+        dest[offset + (b - 1) * N + 1] = SB[idx, b]
+        for row = 2:N
+            dest[offset + (b - 1) * N + row] = UB[idx, row - 1, b]
+        end
+    end
+    dest
+end
+
 @inline function _unpack_fused_columns!(dest, vals, nrows, ncols)
     for col = 1:ncols
         offset = (col - 1) * nrows
@@ -433,26 +401,9 @@ end
     dest
 end
 
-@inline function _unpack_fused_tensor!(dest, vals, nout, nrows, ncols)
-    for col = 1:ncols
-        for row = 1:nrows
-            offset = ((col - 1) * nrows + (row - 1)) * nout
-            @inbounds for out = 1:nout
-                dest[out, row, col] = vals[offset + out]
-            end
-        end
-    end
-    dest
-end
-
 @inline function _evaluate_fused_columns!(dest, vals, F, x, nrows, ncols)
     evaluate!(vals, F, x)
     _unpack_fused_columns!(dest, vals, nrows, ncols)
-end
-
-@inline function _evaluate_fused_tensor!(dest, vals, F, x, nout, nrows, ncols)
-    evaluate!(vals, F, x)
-    _unpack_fused_tensor!(dest, vals, nout, nrows, ncols)
 end
 
 @inline function _fill_rhs1!(rhs1, JPF_temp, JBF_temp)
@@ -479,28 +430,6 @@ end
         for jj = 1:size(SP, 2)
             UP[idx, ii, jj] = rhs1[1 + ii, jj]
             UB[idx, ii, jj] = rhs1[1 + ii, size(SP, 2) + jj]
-        end
-    end
-    nothing
-end
-
-@inline function _fill_M1_M2!(M1, M2, SP, SB, UP, UB, idx)
-    k = size(SP, 2)
-    N = size(M2, 1)
-    for a = 1:k
-        M1[a, 1] = SP[idx, a]
-    end
-    for a = 1:k
-        for b = 2:N
-            M1[a, b] = UP[idx, b - 1, a]
-        end
-    end
-    for b = 1:k
-        M2[1, b] = SB[idx, b]
-    end
-    for b = 1:k
-        for a = 2:N
-            M2[a, b] = UB[idx, a - 1, b]
         end
     end
     nothing

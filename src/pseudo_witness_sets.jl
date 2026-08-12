@@ -207,6 +207,9 @@ The resulting points are stored in `u` and the success of each track is recorded
 """
 function track!(u::Vector{Vector{ComplexF64}}, PWS::PseudoWitnessSet, p::AbstractVector)
     tracker = PWS.tracker
+    # Other clients may temporarily move the start parameters for warm continuation.
+    # A direct PWS track always starts at the defining witness slice.
+    start_parameters!(tracker, PWS.L.point)
     target_parameters!(tracker, p)
     # PWS.tZ contains the coordinates (t,Z) for the points where the line
     # (PWS.L.direction*t+PWS.L.point; Z) intersects V(F)
