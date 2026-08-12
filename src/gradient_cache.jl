@@ -241,11 +241,9 @@ function _track_fiber_from!(dest, PWS::PseudoWitnessSet, starts, p_start, p_targ
     succeeded
 end
 
-"""Track the pseudo-witness fibre to `p`, reusing the most recent fibre when possible.
-
-Updates are transactional: a failed warm track is discarded and retried from the
-original witness slice.  An incomplete fibre is never used for differentiation.
-"""
+#Track the pseudo-witness fibre to `p`, reusing the most recent fibre when possible.
+# Updates are transactional: a failed warm track is discarded and retried from the
+# original witness slice.  An incomplete fibre is never used for differentiation.
 function track!(GC::GradientCache, PWS::PseudoWitnessSet, p)
     GC.fiber_evaluations += 1
 
